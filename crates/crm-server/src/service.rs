@@ -1,21 +1,23 @@
 use chrono::{DateTime, Utc};
+use converge_core::CriterionResult;
 use crm_kernel::{
     ActivityAppend, ActivityOutcome, Actor, ActorKind, CommunicationChannel,
-    CommunicationDirection, CommunicationRecord, CrmKernel, DocumentAttach, DocumentStatus, Fact,
-    FactRecord, FieldDefinition, FieldType, Money, NoteAppend, ObjectDefinition,
-    ObjectDefinitionKind, ObjectDefinitionUpsert, Opportunity, OpportunityAdvance,
-    OpportunityCreate, OpportunityStage, Organization, OrganizationLifecycle, OrganizationUpsert,
+    CommunicationDirection, CommunicationRecord, CrmKernel, DocumentAttach, DocumentStatus,
+    Entitlement, EntitlementValue, Fact, FactRecord, FieldDefinition, FieldType, LedgerEntry,
+    LedgerEntryKind, Money, NoteAppend, ObjectDefinition, ObjectDefinitionKind,
+    ObjectDefinitionUpsert, Opportunity, OpportunityAdvance, OpportunityCreate, OpportunityStage,
+    OrderSubscription, Organization, OrganizationLifecycle, OrganizationUpsert,
     PermissionGrantInput, Person, PersonUpsert, RecordKind, RecordRef, Relationship,
-    RelationshipCardinality, RelationshipDefinition, RelationshipLink, TimelineEntry,
-    ViewDefinition, ViewDefinitionUpsert, ViewLayout, WorkflowCase, WorkflowCaseAdvance,
-    WorkflowCaseCreate, WorkflowPriority, WorkflowState,
+    RelationshipCardinality, RelationshipDefinition, RelationshipLink, SubscriptionStatus,
+    TimelineEntry, ViewDefinition, ViewDefinitionUpsert, ViewLayout, WorkflowCase,
+    WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority, WorkflowState,
 };
 use crm_storage::{InMemoryKernelStore, KernelStore, StorageError};
 use prio_module_core::{CapabilityModule, ModuleSuite};
 use prio_modules::all_modules;
 use prio_truths::{
-    all_truths, converge_binding_for_truth, find_truth, TruthDefinition,
-    TruthKind as CatalogTruthKind,
+    TruthDefinition, TruthKind as CatalogTruthKind, all_truths, converge_binding_for_truth,
+    find_truth,
 };
 use prost_types::Timestamp;
 use tokio::sync::mpsc;
@@ -29,6 +31,7 @@ use crate::proto::{
     opportunities as opportunities_pb, parties as parties_pb, truths as truths_pb,
     workflow as workflow_pb,
 };
+use crate::truth_runtime::{TruthExecutionArtifacts, TruthProjection, execute_truth};
 
 #[derive(Clone)]
 pub struct IdentityGrpc<S = InMemoryKernelStore> {
@@ -73,8 +76,10 @@ pub struct MetadataGrpc<S = InMemoryKernelStore> {
 #[derive(Clone, Default)]
 pub struct ModuleRegistryGrpc;
 
-#[derive(Clone, Default)]
-pub struct TruthCatalogGrpc;
+#[derive(Clone)]
+pub struct TruthCatalogGrpc<S = InMemoryKernelStore> {
+    store: S,
+}
 
 macro_rules! impl_new_store {
     ($name:ident) => {
@@ -103,12 +108,7 @@ impl ModuleRegistryGrpc {
     }
 }
 
-impl TruthCatalogGrpc {
-    #[must_use]
-    pub fn new() -> Self {
-        Self
-    }
-}
+impl_new_store!(TruthCatalogGrpc);
 
 #[tonic::async_trait]
 impl<S> identity_pb::identity_service_server::IdentityService for IdentityGrpc<S>
@@ -741,7 +741,10 @@ impl modules_pb::module_registry_service_server::ModuleRegistryService for Modul
 }
 
 #[tonic::async_trait]
-impl truths_pb::truth_catalog_service_server::TruthCatalogService for TruthCatalogGrpc {
+impl<S> truths_pb::truth_catalog_service_server::TruthCatalogService for TruthCatalogGrpc<S>
+where
+    S: KernelStore,
+{
     async fn list_truths(
         &self,
         request: Request<truths_pb::ListTruthsRequest>,
@@ -789,6 +792,31 @@ impl truths_pb::truth_catalog_service_server::TruthCatalogService for TruthCatal
         let truth =
             find_truth(key).ok_or_else(|| Status::not_found(format!("truth not found: {key}")))?;
         Ok(Response::new(proto_truth_info(truth, true)))
+    }
+
+    async fn execute_truth(
+        &self,
+        request: Request<truths_pb::ExecuteTruthRequest>,
+    ) -> Result<Response<truths_pb::ExecuteTruthResponse>, Status> {
+        let request = request.into_inner();
+        let key = request.key.trim();
+        if key.is_empty() {
+            return Err(Status::invalid_argument("truth key is required"));
+        }
+
+        let truth =
+            find_truth(key).ok_or_else(|| Status::not_found(format!("truth not found: {key}")))?;
+        let execution = execute_truth(
+            &self.store,
+            key,
+            request.inputs,
+            actor_from_proto(request.actor),
+            request.persist_projection,
+        )?;
+
+        Ok(Response::new(proto_execute_truth_response(
+            truth, execution,
+        )))
     }
 }
 
@@ -856,7 +884,7 @@ fn record_ref_from_proto(reference: pb::RecordRef) -> Result<RecordRef, Status> 
             Ok(pb::RecordKind::Note) => RecordKind::Note,
             Ok(pb::RecordKind::CatalogItem) => RecordKind::CatalogItem,
             Ok(pb::RecordKind::Unspecified) | Err(_) => {
-                return Err(Status::invalid_argument("record kind is required"))
+                return Err(Status::invalid_argument("record kind is required"));
             }
         },
         id: parse_uuid(&reference.record_id)?,
@@ -930,11 +958,7 @@ fn clamp_bps(value: u32) -> Result<u16, Status> {
 }
 
 fn default_limit(value: u32, fallback: usize) -> usize {
-    if value == 0 {
-        fallback
-    } else {
-        value as usize
-    }
+    if value == 0 { fallback } else { value as usize }
 }
 
 fn organization_lifecycle_from_proto(value: i32) -> OrganizationLifecycle {
@@ -1081,6 +1105,76 @@ fn relationship_cardinality_from_proto(value: i32) -> RelationshipCardinality {
         pb::RelationshipCardinality::OneToMany | pb::RelationshipCardinality::Unspecified => {
             RelationshipCardinality::OneToMany
         }
+    }
+}
+
+fn proto_money(value: Money) -> pb::Money {
+    pb::Money {
+        currency_code: value.currency_code,
+        amount_minor: value.amount_minor,
+    }
+}
+
+fn proto_subscription_status(value: SubscriptionStatus) -> i32 {
+    match value {
+        SubscriptionStatus::Draft => pb::SubscriptionStatus::Draft as i32,
+        SubscriptionStatus::PendingActivation => pb::SubscriptionStatus::PendingActivation as i32,
+        SubscriptionStatus::Active => pb::SubscriptionStatus::Active as i32,
+        SubscriptionStatus::Suspended => pb::SubscriptionStatus::Suspended as i32,
+        SubscriptionStatus::Cancelled => pb::SubscriptionStatus::Cancelled as i32,
+    }
+}
+
+fn proto_order_subscription(value: OrderSubscription) -> pb::OrderSubscription {
+    pb::OrderSubscription {
+        id: value.id.to_string(),
+        organization_id: value.organization_id.to_string(),
+        quote_id: value.quote_id.map(|id| id.to_string()),
+        catalog_item_id: value.catalog_item_id.map(|id| id.to_string()),
+        status: proto_subscription_status(value.status),
+        value: Some(proto_money(value.value)),
+        started_at: proto_timestamp(value.started_at),
+        activated_at: value.activated_at.and_then(proto_timestamp),
+    }
+}
+
+fn proto_entitlement_value(value: EntitlementValue) -> pb::EntitlementValue {
+    pb::EntitlementValue {
+        kind: Some(match value {
+            EntitlementValue::FeatureFlag(flag) => pb::entitlement_value::Kind::FeatureFlag(flag),
+            EntitlementValue::Quota(quota) => pb::entitlement_value::Kind::Quota(quota),
+            EntitlementValue::Credits(credits) => pb::entitlement_value::Kind::Credits(credits),
+            EntitlementValue::Text(text) => pb::entitlement_value::Kind::Text(text),
+        }),
+    }
+}
+
+fn proto_entitlement(value: Entitlement) -> pb::Entitlement {
+    pb::Entitlement {
+        id: value.id.to_string(),
+        organization_id: value.organization_id.to_string(),
+        subscription_id: value.subscription_id.to_string(),
+        catalog_item_id: value.catalog_item_id.to_string(),
+        key: value.key,
+        value: Some(proto_entitlement_value(value.value)),
+        created_at: proto_timestamp(value.created_at),
+    }
+}
+
+fn proto_ledger_entry(value: LedgerEntry) -> pb::LedgerEntry {
+    pb::LedgerEntry {
+        id: value.id.to_string(),
+        organization_id: value.organization_id.to_string(),
+        subscription_id: value.subscription_id.to_string(),
+        kind: match value.kind {
+            LedgerEntryKind::OpeningBalance => pb::LedgerEntryKind::OpeningBalance as i32,
+            LedgerEntryKind::CreditGrant => pb::LedgerEntryKind::CreditGrant as i32,
+            LedgerEntryKind::Debit => pb::LedgerEntryKind::Debit as i32,
+            LedgerEntryKind::Adjustment => pb::LedgerEntryKind::Adjustment as i32,
+        },
+        amount: Some(proto_money(value.amount)),
+        description: value.description,
+        created_at: proto_timestamp(value.created_at),
     }
 }
 
@@ -1555,5 +1649,160 @@ fn proto_truth_info(truth: TruthDefinition, include_gherkin: bool) -> truths_pb:
             String::new()
         },
         converge,
+    }
+}
+
+fn proto_execute_truth_response(
+    truth: TruthDefinition,
+    execution: TruthExecutionArtifacts,
+) -> truths_pb::ExecuteTruthResponse {
+    let TruthExecutionArtifacts {
+        result,
+        experience_events,
+        projection,
+    } = execution;
+    let context_fact_ids = result
+        .context
+        .all_keys()
+        .into_iter()
+        .flat_map(|key| {
+            result
+                .context
+                .get(key)
+                .iter()
+                .map(|fact| fact.id.clone())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let criteria_outcomes = result
+        .criteria_outcomes
+        .into_iter()
+        .map(proto_criterion_outcome)
+        .collect::<Vec<_>>();
+    let projection = projection.unwrap_or(TruthProjection {
+        organization: None,
+        person: None,
+        opportunity: None,
+        subscription: None,
+        entitlements: Vec::new(),
+        ledger_entries: Vec::new(),
+        documents: Vec::new(),
+        workflow_cases: Vec::new(),
+        facts: Vec::new(),
+        domain_event_kinds: Vec::new(),
+    });
+
+    truths_pb::ExecuteTruthResponse {
+        truth: Some(proto_truth_info(truth, true)),
+        execution: Some(truths_pb::TruthExecution {
+            intent_id: format!("truth:{}", truth.key),
+            converged: result.converged,
+            cycles: result.cycles,
+            stop_reason: stop_reason_name(&result.stop_reason).to_string(),
+            criteria_outcomes,
+            experience_event_kinds: experience_events
+                .into_iter()
+                .map(|event| format!("{:?}", event.kind()))
+                .collect(),
+            context_fact_ids,
+        }),
+        organization: projection.organization.map(proto_organization),
+        person: projection.person.map(proto_person),
+        opportunity: projection.opportunity.map(proto_opportunity),
+        projected_subscription: projection.subscription.map(proto_order_subscription),
+        projected_entitlements: projection
+            .entitlements
+            .into_iter()
+            .map(proto_entitlement)
+            .collect(),
+        projected_ledger_entries: projection
+            .ledger_entries
+            .into_iter()
+            .map(proto_ledger_entry)
+            .collect(),
+        projected_facts: projection.facts.into_iter().map(proto_fact).collect(),
+        projected_event_kinds: projection
+            .domain_event_kinds
+            .into_iter()
+            .map(ToString::to_string)
+            .collect(),
+        projected_documents: projection
+            .documents
+            .into_iter()
+            .map(proto_document)
+            .collect(),
+        projected_workflow_cases: projection
+            .workflow_cases
+            .into_iter()
+            .map(proto_workflow_case)
+            .collect(),
+    }
+}
+
+fn proto_criterion_outcome(
+    outcome: converge_core::CriterionOutcome,
+) -> truths_pb::CriterionOutcome {
+    let (status, evidence_fact_ids, detail, approval_ref) = match outcome.result {
+        CriterionResult::Met { evidence } => (
+            truths_pb::CriterionStatus::Met as i32,
+            evidence
+                .into_iter()
+                .map(|fact_id| fact_id.to_string())
+                .collect(),
+            None,
+            None,
+        ),
+        CriterionResult::Unmet { reason } => (
+            truths_pb::CriterionStatus::Unmet as i32,
+            Vec::new(),
+            Some(reason),
+            None,
+        ),
+        CriterionResult::Blocked {
+            reason,
+            approval_ref,
+        } => (
+            truths_pb::CriterionStatus::Blocked as i32,
+            Vec::new(),
+            Some(reason),
+            approval_ref,
+        ),
+        CriterionResult::Indeterminate => (
+            truths_pb::CriterionStatus::Indeterminate as i32,
+            Vec::new(),
+            None,
+            None,
+        ),
+    };
+
+    truths_pb::CriterionOutcome {
+        criterion_id: outcome.criterion.id,
+        description: outcome.criterion.description,
+        required: outcome.criterion.required,
+        status,
+        evidence_fact_ids,
+        detail,
+        approval_ref,
+    }
+}
+
+fn stop_reason_name(stop_reason: &converge_core::StopReason) -> &'static str {
+    match stop_reason {
+        converge_core::StopReason::Converged => "converged",
+        converge_core::StopReason::CriteriaMet { .. } => "criteria-met",
+        converge_core::StopReason::UserCancelled => "user-cancelled",
+        converge_core::StopReason::HumanInterventionRequired { .. } => {
+            "human-intervention-required"
+        }
+        converge_core::StopReason::CycleBudgetExhausted { .. } => "cycle-budget-exhausted",
+        converge_core::StopReason::FactBudgetExhausted { .. } => "fact-budget-exhausted",
+        converge_core::StopReason::TokenBudgetExhausted { .. } => "token-budget-exhausted",
+        converge_core::StopReason::TimeBudgetExhausted { .. } => "time-budget-exhausted",
+        converge_core::StopReason::InvariantViolated { .. } => "invariant-violated",
+        converge_core::StopReason::PromotionRejected { .. } => "promotion-rejected",
+        converge_core::StopReason::Error { .. } => "error",
+        converge_core::StopReason::AgentRefused { .. } => "agent-refused",
+        converge_core::StopReason::HitlGatePending { .. } => "hitl-gate-pending",
+        _ => "unknown",
     }
 }

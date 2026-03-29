@@ -7,8 +7,7 @@ pub const MODULE: CapabilityModule = CapabilityModule {
     display_name: "Opportunities",
     suite: ModuleSuite::CommercialCore,
     crate_name: "prio-opportunities",
-    purpose:
-        "Lead intake, qualification, opportunity state, forecasting inputs, and pipeline semantics.",
+    purpose: "Lead intake, qualification, opportunity state, forecasting inputs, and pipeline semantics.",
     dependencies: &["identity", "parties", "conversations"],
     owned_objects: &[
         "lead",

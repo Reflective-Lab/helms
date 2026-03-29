@@ -65,6 +65,61 @@ pub struct Money {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CatalogPlanKind {
+    Subscription,
+    PrepaidCredits,
+    EnterpriseCustom,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BillingPeriod {
+    Monthly,
+    Quarterly,
+    Annual,
+    OneTime,
+    Custom,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SubscriptionStatus {
+    Draft,
+    PendingActivation,
+    Active,
+    Suspended,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LedgerEntryKind {
+    OpeningBalance,
+    CreditGrant,
+    Debit,
+    Adjustment,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EntitlementValue {
+    FeatureFlag(bool),
+    Quota(i64),
+    Credits(i64),
+    Text(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PricingMetadata {
+    pub billing_period: BillingPeriod,
+    pub list_price: Money,
+    pub meter_name: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EntitlementTemplate {
+    pub feature_flags: Vec<String>,
+    pub quotas: BTreeMap<String, i64>,
+    pub credit_balance_minor: Option<i64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RelationshipType {
     Employment,
     Champion,
@@ -326,9 +381,11 @@ pub struct OrderSubscription {
     pub id: Uuid,
     pub organization_id: Uuid,
     pub quote_id: Option<Uuid>,
-    pub status: String,
+    pub catalog_item_id: Option<Uuid>,
+    pub status: SubscriptionStatus,
     pub value: Money,
     pub started_at: DateTime<Utc>,
+    pub activated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -405,7 +462,32 @@ pub struct CatalogItem {
     pub sku: String,
     pub name: String,
     pub description: Option<String>,
+    pub plan_kind: CatalogPlanKind,
+    pub pricing: Option<PricingMetadata>,
+    pub entitlement_template: EntitlementTemplate,
     pub active: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Entitlement {
+    pub id: Uuid,
+    pub organization_id: Uuid,
+    pub subscription_id: Uuid,
+    pub catalog_item_id: Uuid,
+    pub key: String,
+    pub value: EntitlementValue,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LedgerEntry {
+    pub id: Uuid,
+    pub organization_id: Uuid,
+    pub subscription_id: Uuid,
+    pub kind: LedgerEntryKind,
+    pub amount: Money,
+    pub description: String,
     pub created_at: DateTime<Utc>,
 }
 

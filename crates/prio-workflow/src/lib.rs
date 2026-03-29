@@ -7,8 +7,7 @@ pub const MODULE: CapabilityModule = CapabilityModule {
     display_name: "Workflow",
     suite: ModuleSuite::WorkCore,
     crate_name: "prio-workflow",
-    purpose:
-        "Stateful business execution with cases, steps, transitions, deadlines, and wait states.",
+    purpose: "Stateful business execution with cases, steps, transitions, deadlines, and wait states.",
     dependencies: &["identity", "parties"],
     owned_objects: &[
         "workflow_definition",

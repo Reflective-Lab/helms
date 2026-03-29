@@ -2,7 +2,7 @@
 
 ## Position
 
-`crm.prio.ai` should be treated as a Converge application, not as a parallel runtime.
+`crm.prio.ai` is a Converge application, not a parallel runtime.
 
 - `converge-core` owns proposals, facts, authority, promotion, budgets, and convergence
 - `crm.prio.ai` owns business-domain state, module boundaries, and the public application API
@@ -10,58 +10,141 @@
 
 ## What Lives Here
 
-This repository should keep:
+This repository keeps:
 
-- CRM and ERP-shaped business objects
-- durable state and projections
+- CRM and ERP-shaped business objects (Organization, Person, Opportunity, etc.)
+- durable state and projections via the CRM kernel
 - module-specific commands and queries
-- truth catalog definitions
-- gRPC, OpenAPI, and GraphQL application boundaries
+- truth catalog definitions and per-truth executors
+- converge agent implementations for each truth
+- criterion evaluators that check success against converged context
+- gRPC application boundaries
 - thin desktop and operator-facing surfaces
 
-This repository should avoid recreating:
+This repository does not recreate:
 
-- a separate promotion gate
-- a separate fact constitution
-- a separate authority model
-- a separate convergence evaluator
-- a separate experience ledger model when Converge already provides it
+- a separate promotion gate (agents emit proposals, converge promotes)
+- a separate fact constitution (converge-core types are authoritative)
+- a separate authority model (AuthorityGrant, Actor from converge-core)
+- a separate convergence evaluator (engine loop with fixed-point detection)
+- a separate experience ledger (ExperienceEventObserver captures events during runs)
 
-## Truth To Converge Bridge
+## Truth Execution (Live)
 
-Each truth now derives a Converge binding made of:
+Current executable truths:
 
-- a `TypesRootIntent`
-- a deterministic `truth:{key}` intent ID
-- pack IDs inferred from the touched module suites
+- `qualify-inbound-lead`
+- `activate-subscription`
+- `upgrade-subscription-plan`
+- `suspend-service-on-payment-failure`
+- `refill-prepaid-ai-credits`
+- `score-inbound-fit`
+- `plan-outbound-campaign`
+- `match-renewal-context`
+
+`qualify-inbound-lead` remains the simplest reference path through the Converge engine:
+
+1. `ExecuteTruth` gRPC call enters `crm-server`
+2. Dispatcher routes to `truth_runtime/qualify_inbound_lead.rs`
+3. Executor loads `TruthConvergeBinding` -> `TypesRootIntent`
+4. Engine runs with pack-scoped agents and `TypesRunHooks` (evaluator + observer)
+5. Both agents emit proposals through converge's promotion gate
+6. `QualifyInboundLeadEvaluator` checks criteria against converged context
+7. Server projects facts into CRM kernel in a single `write_with_events` transaction
+8. Response includes convergence result, experience events, and projected entities
+
+Fact content uses typed JSON codecs. Confidence mapping is explicit via `converge_confidence_to_bps()`.
+
+Truth execution now distinguishes three important end states:
+
+- `criteria-met` for completed truths
+- `human-intervention-required` for truths that converged into approval-needed state
+- `converged` for truths that stabilized without satisfying required criteria and without an explicit blocked condition
+
+## Truth to Converge Bridge
+
+Each truth derives a Converge binding:
+
+- a `TypesRootIntent` with deterministic `truth:{key}` intent ID
+- pack IDs inferred from touched module suites, written into `intent.active_packs`
 - required success criteria derived from desired outcomes
 - hard constraints derived from guardrails
+- risk posture: Conservative if approval points exist, Balanced otherwise
 
-The upstream runtime now exposes `active_packs` on `TypesRootIntent`, so this mapping is no longer CRM-only metadata. The truth bridge can hand pack selection directly to Converge.
+Pack mapping:
 
-The current pack mapping is:
+| Suite | Pack ID |
+|-------|---------|
+| Foundation | `prio-foundation-pack` |
+| Relationship Core | `prio-relationship-pack` |
+| Commercial Core | `prio-commercial-pack` |
+| Usage & Revenue Core | `prio-revenue-pack` |
+| Work Core | `prio-work-pack` |
+| Trust Core | `trust` |
+| Intelligence Core | `knowledge` |
 
-- `Foundation` -> `prio-foundation-pack`
-- `RelationshipCore` -> `prio-relationship-pack`
-- `CommercialCore` -> `prio-commercial-pack`
-- `UsageRevenueCore` -> `prio-revenue-pack`
-- `WorkCore` -> `prio-work-pack`
-- `TrustCore` -> `trust`
-- `IntelligenceCore` -> `knowledge`
+Trust Core and Intelligence Core reuse converge-native pack names where the runtime already has constitutional responsibility.
 
-The last two intentionally reuse Converge-native pack names where the runtime already has constitutional responsibility.
+## Upstream Primitives
 
-## Near-Term Migration
+These were pushed into converge-core to support application-level use:
 
-1. Keep the current kernel as a business-state projection while execution moves toward Converge.
-2. Replace CRM-local governance types with converge-core types where the constitutional boundary matters.
-3. Turn module operations into pack-owned agents or application adapters that Converge can invoke.
-4. Move server-side job execution from direct kernel orchestration to `truth -> intent -> packs -> engine.run(...)`.
-5. Upstream any missing primitives into Converge when they are generally useful, especially:
-   - richer job outcome reporting
-   - run-scoped event callbacks
-   - durable projection/state boundaries across runs
+- `TypesRootIntent.active_packs` + `engine.run_with_types_intent_and_hooks()` for intent-driven pack activation
+- `TruthCatalog` trait + `TruthDefinition` for platform-native truth shape
+- `CriterionEvaluator` + `CriterionResult` (Met/Unmet/Indeterminate) for success criteria evaluation
+- `CriterionResult::Blocked` + `StopReason::HumanInterventionRequired` for post-convergence approval-needed outcomes
+- `TypesRunHooks` with optional criterion evaluator and event observer
+- `ContextStore` trait for durable context snapshots across runs
+- `ConvergeError::stop_reason()` for application-level error projection
 
-## Important Constraint
+## Next Revenue Truths
 
-The current Converge binding is a compile-time bridge and discovery surface. It does not yet mean `crm-server` is executing jobs through the engine. That is the next integration step.
+`activate-subscription` and `refill-prepaid-ai-credits` are now live end-to-end. They return structured commercial projection data through the truth response:
+
+- projected subscription lifecycle state
+- projected entitlements
+- projected ledger entries
+
+`upgrade-subscription-plan` is now live end-to-end:
+
+- standard upgrades converge to a governed plan change, entitlement replacement, and `Adjustment` ledger entry
+- non-standard deltas or override terms converge to `human-intervention-required` with an approval workflow and no revenue mutation
+
+`refill-prepaid-ai-credits` is the first payment-gated policy truth in the revenue path:
+
+- confirmed payment leads to a governed `CreditGrant` ledger entry and entitlement increase
+- unconfirmed payment or elevated risk converges to an approval workflow with no credit grant applied
+
+`suspend-service-on-payment-failure` is now live end-to-end and is the first CRM truth that reuses a converge-domain agent directly:
+
+- `OverdueDetectorAgent` from the Money pack detects overdue invoice state inside the truth pipeline
+- CRM-local policy then converges to one of three governed outcomes: suspend, defer inside grace, or block for strategic-account approval
+- suspended subscriptions now prevent downstream credit grants through the same revenue-domain kernel surface
+
+Future revenue truths should reuse the same revenue-domain kernel surface rather than introducing a parallel balance model.
+
+## Analytical Storage Direction
+
+Analytical and retrieval-heavy paths should converge on Parquet as the interchange format, separate from the transactional record path:
+
+- website usage ingestion from `www.converge.zone` should land as Parquet batches for Polars-backed analytics truths
+- audit and timeline history should be exportable to Parquet for long-horizon analytical queries
+- LanceDB integration should treat Parquet and Arrow as the zero-copy interchange boundary for semantic retrieval
+
+SurrealDB remains the transactional projection store. Parquet is the analytical batch and interchange format. Do not collapse those two concerns into one store abstraction.
+
+## Kernel as Projection Store
+
+The CRM kernel is not the orchestration layer. It is a durable projection store that the server writes to after Converge execution completes. The pattern:
+
+```
+truth key + inputs
+  -> TruthConvergeBinding -> TypesRootIntent
+  -> engine.run_with_types_intent_and_hooks(context, intent, hooks)
+  -> ConvergeResult with criteria_outcomes
+  -> project_<truth>(store, inputs, result, actor)
+  -> kernel.write_with_events(|kernel| { ... })
+  -> TruthProjection with CRM entities
+```
+
+Converge owns the convergence loop. The kernel owns the business-state shape. The projection function is the seam between them.

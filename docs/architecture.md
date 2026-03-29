@@ -92,9 +92,18 @@ This is the application-facing bridge into Converge. The goal is not to recreate
 
 - primary record store: SurrealDB
 - vector and semantic recall: LanceDB
+- analytical batch and interchange format: Parquet
 - current scaffold: in-memory runtime store with explicit storage configuration objects
 
 The code keeps persistence behind a storage boundary so the business model can evolve without coupling domain rules to transport or a specific database client. Durable projections stay in this repository even as the constitutional runtime moves into Converge.
+
+The intended split is:
+
+- SurrealDB for transactional CRM and revenue projections
+- LanceDB for vector search and semantic recall
+- Parquet for analytical ingestion batches, audit and timeline export, and Arrow-native interchange into retrieval paths
+
+Do not force the transactional and analytical paths through the same abstraction just because they both persist data.
 
 ## API Shape
 

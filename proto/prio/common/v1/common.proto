@@ -50,6 +50,63 @@ message Money {
   int64 amount_minor = 2;
 }
 
+enum SubscriptionStatus {
+  SUBSCRIPTION_STATUS_UNSPECIFIED = 0;
+  SUBSCRIPTION_STATUS_DRAFT = 1;
+  SUBSCRIPTION_STATUS_PENDING_ACTIVATION = 2;
+  SUBSCRIPTION_STATUS_ACTIVE = 3;
+  SUBSCRIPTION_STATUS_SUSPENDED = 4;
+  SUBSCRIPTION_STATUS_CANCELLED = 5;
+}
+
+enum LedgerEntryKind {
+  LEDGER_ENTRY_KIND_UNSPECIFIED = 0;
+  LEDGER_ENTRY_KIND_OPENING_BALANCE = 1;
+  LEDGER_ENTRY_KIND_CREDIT_GRANT = 2;
+  LEDGER_ENTRY_KIND_DEBIT = 3;
+  LEDGER_ENTRY_KIND_ADJUSTMENT = 4;
+}
+
+message OrderSubscription {
+  string id = 1;
+  string organization_id = 2;
+  optional string quote_id = 3;
+  optional string catalog_item_id = 4;
+  SubscriptionStatus status = 5;
+  Money value = 6;
+  google.protobuf.Timestamp started_at = 7;
+  optional google.protobuf.Timestamp activated_at = 8;
+}
+
+message EntitlementValue {
+  oneof kind {
+    bool feature_flag = 1;
+    int64 quota = 2;
+    int64 credits = 3;
+    string text = 4;
+  }
+}
+
+message Entitlement {
+  string id = 1;
+  string organization_id = 2;
+  string subscription_id = 3;
+  string catalog_item_id = 4;
+  string key = 5;
+  EntitlementValue value = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message LedgerEntry {
+  string id = 1;
+  string organization_id = 2;
+  string subscription_id = 3;
+  LedgerEntryKind kind = 4;
+  Money amount = 5;
+  string description = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
 enum RelationshipType {
   RELATIONSHIP_TYPE_UNSPECIFIED = 0;
   RELATIONSHIP_TYPE_EMPLOYMENT = 1;
@@ -360,4 +417,3 @@ message ViewDefinition {
   google.protobuf.Timestamp created_at = 11;
   google.protobuf.Timestamp updated_at = 12;
 }
-

@@ -2,7 +2,13 @@ mod converge;
 
 use serde::Serialize;
 
-pub use converge::{converge_binding_for_truth, TruthConvergeBinding};
+pub use converge::{
+    ActivateSubscriptionEvaluator, MatchRenewalContextEvaluator, PlanOutboundCampaignEvaluator,
+    QualifyInboundLeadEvaluator, RefillPrepaidAiCreditsEvaluator, ScoreInboundFitEvaluator,
+    StaticTruthCatalog, SuspendServiceOnPaymentFailureEvaluator, UpgradeSubscriptionPlanEvaluator,
+    converge_truth_definition,
+};
+pub use converge::{TruthConvergeBinding, converge_binding_for_truth};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -75,6 +81,123 @@ pub const TRUTHS: &[TruthDefinition] = &[
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../truths/jobs/qualify_inbound_lead.feature"
+        )),
+    },
+    TruthDefinition {
+        key: "score-inbound-fit",
+        display_name: "Score inbound fit",
+        kind: TruthKind::Job,
+        summary: "Use website behavior and inbound context to produce a governed fit score for a lead.",
+        feature_path: "truths/jobs/score_inbound_fit.feature",
+        actor_roles: &["growth-operator", "commercial-analyst", "runtime-agent"],
+        approval_points: &["manual review when the behavioral signal quality is weak"],
+        desired_outcomes: &[
+            "a governed fit score is recorded for the inbound lead",
+            "the score cites attributable behavioral evidence",
+        ],
+        guardrails: &[
+            "fit scoring must retain traceable behavioral provenance",
+            "weak or sparse signal quality must not be treated as high confidence",
+        ],
+        modules: &[
+            TruthModuleTouch {
+                module_key: "parties",
+                responsibility: "anchor the score to an organization or contact context",
+            },
+            TruthModuleTouch {
+                module_key: "metering",
+                responsibility: "supply attributable website and usage event history",
+            },
+            TruthModuleTouch {
+                module_key: "opportunities",
+                responsibility: "make the commercial fit signal available to downstream lead handling",
+            },
+        ],
+        gherkin: include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../truths/jobs/score_inbound_fit.feature"
+        )),
+    },
+    TruthDefinition {
+        key: "plan-outbound-campaign",
+        display_name: "Plan outbound campaign",
+        kind: TruthKind::Job,
+        summary: "Assign prospects to reps and schedule campaign work under capacity and budget guardrails.",
+        feature_path: "truths/jobs/plan_outbound_campaign.feature",
+        actor_roles: &["growth-operator", "sales-manager", "runtime-agent"],
+        approval_points: &["manual approval when campaign spend exceeds the allocated budget"],
+        desired_outcomes: &[
+            "a governed outbound campaign plan exists",
+            "campaign budget status is explicit and queryable",
+        ],
+        guardrails: &[
+            "campaign plans must retain assignment rationale",
+            "budget overruns require an explicit approval path",
+        ],
+        modules: &[
+            TruthModuleTouch {
+                module_key: "opportunities",
+                responsibility: "provide the prospect pool and expected commercial value",
+            },
+            TruthModuleTouch {
+                module_key: "tasks",
+                responsibility: "translate campaign assignments into executable work",
+            },
+            TruthModuleTouch {
+                module_key: "workflow",
+                responsibility: "track the campaign plan and exception path",
+            },
+            TruthModuleTouch {
+                module_key: "ledger",
+                responsibility: "govern budget consumption and auditability",
+            },
+        ],
+        gherkin: include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../truths/jobs/plan_outbound_campaign.feature"
+        )),
+    },
+    TruthDefinition {
+        key: "match-renewal-context",
+        display_name: "Match renewal context",
+        kind: TruthKind::Job,
+        summary: "Retrieve and converge the most relevant account history ahead of a contract renewal.",
+        feature_path: "truths/jobs/match_renewal_context.feature",
+        actor_roles: &["account-owner", "renewal-manager", "runtime-agent"],
+        approval_points: &["manual review when renewal terms fall outside the standard path"],
+        desired_outcomes: &[
+            "a renewal brief is attached to the account or renewal motion",
+            "retrieved renewal signals stay traceable to their source artifacts",
+        ],
+        guardrails: &[
+            "renewal retrieval must preserve source attribution",
+            "non-standard renewal terms require an explicit human gate",
+        ],
+        modules: &[
+            TruthModuleTouch {
+                module_key: "parties",
+                responsibility: "anchor retrieval to the customer account and stakeholders",
+            },
+            TruthModuleTouch {
+                module_key: "conversations",
+                responsibility: "supply call, email, and timeline context",
+            },
+            TruthModuleTouch {
+                module_key: "documents",
+                responsibility: "store the resulting renewal brief and source artifacts",
+            },
+            TruthModuleTouch {
+                module_key: "opportunities",
+                responsibility: "tie retrieved context to the renewal commercial motion",
+            },
+            TruthModuleTouch {
+                module_key: "memory",
+                responsibility: "provide semantic retrieval and learned relevance",
+            },
+        ],
+        gherkin: include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../truths/jobs/match_renewal_context.feature"
         )),
     },
     TruthDefinition {
@@ -704,11 +827,11 @@ mod tests {
 
     use prio_modules::MODULES;
 
-    use super::{converge_binding_for_truth, truths_by_kind, TruthKind, TRUTHS};
+    use super::{TRUTHS, TruthKind, converge_binding_for_truth, truths_by_kind};
 
     #[test]
-    fn starter_catalog_has_ten_job_truths() {
-        assert_eq!(truths_by_kind(TruthKind::Job).len(), 10);
+    fn starter_catalog_has_thirteen_job_truths() {
+        assert_eq!(truths_by_kind(TruthKind::Job).len(), 13);
     }
 
     #[test]

@@ -7,8 +7,7 @@ pub const MODULE: CapabilityModule = CapabilityModule {
     display_name: "Ledger",
     suite: ModuleSuite::UsageRevenueCore,
     crate_name: "prio-ledger",
-    purpose:
-        "Auditable balance math, credit grants, debits, adjustments, and settlement-grade history.",
+    purpose: "Auditable balance math, credit grants, debits, adjustments, and settlement-grade history.",
     dependencies: &["parties", "subscriptions", "metering"],
     owned_objects: &[
         "account_balance",

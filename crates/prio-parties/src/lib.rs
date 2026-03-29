@@ -7,8 +7,7 @@ pub const MODULE: CapabilityModule = CapabilityModule {
     display_name: "Parties",
     suite: ModuleSuite::RelationshipCore,
     crate_name: "prio-parties",
-    purpose:
-        "The CRM relationship kernel for people, organizations, accounts, and stakeholder graphs.",
+    purpose: "The CRM relationship kernel for people, organizations, accounts, and stakeholder graphs.",
     dependencies: &["identity"],
     owned_objects: &[
         "person",

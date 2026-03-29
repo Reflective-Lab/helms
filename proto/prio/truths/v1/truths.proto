@@ -2,9 +2,12 @@ syntax = "proto3";
 
 package prio.truths.v1;
 
+import "prio/common/v1/common.proto";
+
 service TruthCatalogService {
   rpc ListTruths(ListTruthsRequest) returns (ListTruthsResponse);
   rpc GetTruth(GetTruthRequest) returns (TruthInfo);
+  rpc ExecuteTruth(ExecuteTruthRequest) returns (ExecuteTruthResponse);
 }
 
 enum TruthKind {
@@ -57,4 +60,54 @@ message ListTruthsResponse {
 
 message GetTruthRequest {
   string key = 1;
+}
+
+enum CriterionStatus {
+  CRITERION_STATUS_UNSPECIFIED = 0;
+  CRITERION_STATUS_MET = 1;
+  CRITERION_STATUS_UNMET = 2;
+  CRITERION_STATUS_INDETERMINATE = 3;
+  CRITERION_STATUS_BLOCKED = 4;
+}
+
+message CriterionOutcome {
+  string criterion_id = 1;
+  string description = 2;
+  bool required = 3;
+  CriterionStatus status = 4;
+  repeated string evidence_fact_ids = 5;
+  optional string detail = 6;
+  optional string approval_ref = 7;
+}
+
+message TruthExecution {
+  string intent_id = 1;
+  bool converged = 2;
+  uint32 cycles = 3;
+  string stop_reason = 4;
+  repeated CriterionOutcome criteria_outcomes = 5;
+  repeated string experience_event_kinds = 6;
+  repeated string context_fact_ids = 7;
+}
+
+message ExecuteTruthRequest {
+  string key = 1;
+  map<string, string> inputs = 2;
+  prio.common.v1.Actor actor = 3;
+  bool persist_projection = 4;
+}
+
+message ExecuteTruthResponse {
+  TruthInfo truth = 1;
+  TruthExecution execution = 2;
+  prio.common.v1.Organization organization = 3;
+  prio.common.v1.Person person = 4;
+  prio.common.v1.Opportunity opportunity = 5;
+  repeated prio.common.v1.Fact projected_facts = 6;
+  repeated string projected_event_kinds = 7;
+  repeated prio.common.v1.Document projected_documents = 8;
+  repeated prio.common.v1.WorkflowCase projected_workflow_cases = 9;
+  prio.common.v1.OrderSubscription projected_subscription = 10;
+  repeated prio.common.v1.Entitlement projected_entitlements = 11;
+  repeated prio.common.v1.LedgerEntry projected_ledger_entries = 12;
 }

@@ -7,8 +7,7 @@ pub const MODULE: CapabilityModule = CapabilityModule {
     display_name: "Intents",
     suite: ModuleSuite::IntelligenceCore,
     crate_name: "prio-intents",
-    purpose:
-        "JTBD-oriented jobs, intent context, success criteria, outcomes, and current obstacles.",
+    purpose: "JTBD-oriented jobs, intent context, success criteria, outcomes, and current obstacles.",
     dependencies: &["parties", "workflow", "facts", "conversations"],
     owned_objects: &[
         "intent",

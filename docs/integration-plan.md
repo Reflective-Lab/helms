@@ -65,6 +65,17 @@ CRM consequence:
 - feed prioritization signals into `converge-optimization`
 - do not depend on Plausible as a required analytics vendor or source of truth
 
+## Analytical Format Direction
+
+When the analytical path moves beyond the in-memory scaffold, use Parquet as the batch and interchange format:
+
+- land `website-usage-ingest` output as Parquet instead of raw JSON blobs
+- let Polars-backed agents read Parquet directly for feature extraction
+- export append-only audit and timeline history to Parquet for long-range analytical queries
+- keep LanceDB and semantic retrieval Arrow-native, with Parquet as the handoff format where persistence is needed
+
+This should stay separate from the SurrealDB transactional projection path. The likely shape in `crm-storage` is Parquet-aware export/import or a distinct analytical store boundary, not a single store trying to do both jobs.
+
 ## Architectural Consequence
 
 This is not just a CRM with analytics bolted on. It is:

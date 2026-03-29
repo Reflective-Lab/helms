@@ -24,6 +24,9 @@ This is the intended stack:
 Cross-module business narratives such as:
 
 - qualify inbound lead
+- score inbound fit
+- plan outbound campaign
+- match renewal context
 - create customer workspace
 - activate subscription
 - refill prepaid AI credits
@@ -73,6 +76,8 @@ This keeps the split clean:
 - truths specify the job contract
 - modules specify reusable business capabilities
 - Converge executes the contract against the selected packs
+
+Today, eight truths are executable end-to-end through Converge: `qualify-inbound-lead`, `activate-subscription`, `upgrade-subscription-plan`, `suspend-service-on-payment-failure`, `refill-prepaid-ai-credits`, `score-inbound-fit`, `plan-outbound-campaign`, and `match-renewal-context`.
 
 ## Design Rule
 

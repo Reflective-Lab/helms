@@ -1,85 +1,137 @@
-# CRM Kernel For Converge
+# crm.prio.ai
 
-This repository starts from the premise that CRM is a domain substrate, not the product surface.
+A JTBD-driven CRM/ERP substrate built as a Converge application.
 
-- `Converge` is the system of interaction and orchestration.
-- This backend is the system of record and Converge application boundary.
-- The thin desktop shell is a job-centric operator surface, not a classic record browser.
+- **Converge** is the runtime: convergence, governance, promotion, authority, budgets
+- **This repo** is the application boundary: business-domain state, module APIs, truth catalog, operator surfaces
+- **Truths** are the bridge: declarative jobs that compile into Converge intent packets and execute through the engine
 
-The workspace is now aligned on Rust 2024 with a local toolchain floor of `rustc 1.94.0`.
+## Architecture
 
-## What This Baseline Includes
+```
+Layer 4: Converge runtime          (orchestration, promotion gate, convergence loop)
+Layer 3: Truths / JTBD             (18 truths: 13 jobs, 3 policies, 2 invariants)
+Layer 2: Capability modules        (20 modules in 7 suites)
+Layer 1: Storage + projections     (in-memory kernel, SurrealDB/LanceDB shapes)
+```
 
-- a Rust workspace with a headless CRM kernel
-- explicit capability-module crates for future extraction and parallel ownership
-- a gRPC contract centered on operational memory and workflow state
-- in-memory runtime storage plus explicit SurrealDB and LanceDB configuration shapes
-- a minimal Svelte/Tauri desktop shell that visualizes the intended JTBD-oriented UX
+Truths compose modules into cross-functional jobs. Each truth maps to a `TypesRootIntent` with pack activation, success criteria, hard constraints, and approval points. The engine runs pack-scoped agents, evaluates criteria post-convergence, and the server projects results into durable CRM state.
+
+See `docs/converge-application.md` for the full integration model.
+
+## Truth Execution
+
+Current executable truths:
+
+- `qualify-inbound-lead`
+- `activate-subscription`
+- `upgrade-subscription-plan`
+- `suspend-service-on-payment-failure`
+- `refill-prepaid-ai-credits`
+- `score-inbound-fit`
+- `plan-outbound-campaign`
+- `match-renewal-context`
+
+The execution flow is the same for each truth:
+
+1. `ExecuteTruth` gRPC call with truth key + inputs
+2. Truth binding resolves to `TypesRootIntent` with pack IDs
+3. Converge engine runs pack-scoped agents (`LeadQualificationAgent`, `LeadRoutingAgent`)
+4. Both agents emit proposals through the promotion gate
+5. `CriterionEvaluator` checks desired outcomes against converged context
+6. Server projects facts into CRM kernel entities in a single transaction
+7. Response includes convergence result, experience events, and projected entities
+
+Per-truth executors live in `crates/crm-server/src/truth_runtime/`. Fact content uses typed JSON codecs. Confidence mapping between converge (f32) and CRM (basis points) is explicit.
+
+Blocked truths are now first-class at the runtime boundary:
+
+- criteria can return `blocked` with an approval reference
+- Converge emits `human-intervention-required` when a truth converges into a valid waiting state rather than a completed outcome
+
+`activate-subscription` now projects structured commercial state through the truth response:
+
+- projected subscription lifecycle state
+- projected entitlements
+- projected ledger opening balance
+
+`refill-prepaid-ai-credits` now reuses the same revenue substrate and adds a payment-gated credit grant path:
+
+- confirmed top-ups append a `CreditGrant` ledger entry and increase the credit entitlement balance
+- unconfirmed or risky top-ups stop honestly, open an approval workflow, and do not mutate balance state
+
+`upgrade-subscription-plan` now reuses the same revenue substrate for governed plan changes:
+
+- standard upgrades replace entitlements and append an `Adjustment` ledger entry for the commercial delta
+- non-standard upgrades stop honestly, open an approval workflow, and do not mutate subscription state
+
+`suspend-service-on-payment-failure` is the first CRM truth to reuse a `converge-domain` pack agent directly:
+
+- it registers `OverdueDetectorAgent` from the Money pack to detect overdue invoice state
+- it then applies CRM-local suspension policy, recovery workflow, and strategic-account approval routing on top
 
 ## Workspace Layout
 
-- `crates/crm-kernel`: business-domain model and temporary local projection layer
-- `crates/crm-storage`: storage modes, runtime state container, and local-first config
-- `crates/crm-server`: gRPC server, protocol generation, and health endpoint
-- `crates/prio-module-core`: shared capability-module descriptor types
-- `crates/prio-modules`: registry of first-wave business modules
-- `crates/prio-*`: module ownership scaffolds for independent implementation work
-- `crates/prio-truths`: declarative JTBD truth catalog that composes modules
-- `proto/prio/*/v1/*.proto`: module-specific public backend contracts plus shared common types
-- `truths/`: Gherkin-compatible truth files for jobs, policies, and module-local invariants
-- `apps/desktop`: thin Svelte/Tauri shell for jobs, approvals, account summary, and timeline
-- `docs/architecture.md`: bounded contexts and design notes
-- `docs/module-map.md`: suites, module boundaries, and extraction plan
-- `docs/truths-layer.md`: four-layer architecture and starter JTBD truth library
-- `docs/converge-application.md`: how truths map into Converge intents and packs
-- `docs/platform-roadmap.md`: future `prio.ai` domain surface and bounded-context expansion
-- `contracts/module-registry.yaml`: machine-readable module and API naming map
+```
+crates/crm-kernel          Domain model, commands, invariants, domain events
+crates/crm-storage          KernelStore trait, in-memory impl, config shapes
+crates/crm-server           gRPC server, truth runtime, protocol generation
+crates/prio-module-core     Shared capability-module descriptor types
+crates/prio-modules         Registry of 20 first-wave business modules
+crates/prio-truths          Truth catalog + Converge bridge (TruthConvergeBinding)
+crates/prio-*               Module ownership scaffolds
+proto/prio/*/v1/            Module-specific gRPC contracts + shared types
+truths/                     Gherkin feature files for jobs, policies, invariants
+apps/desktop                Svelte/Tauri shell (job-centric operator UX)
+docs/                       Architecture, module map, truths layer, integration
+```
 
-## Why This Shape
+## Module Suites
 
-The backend tracks:
+| Suite | Modules |
+|-------|---------|
+| Foundation | identity |
+| Relationship Core | parties |
+| Commercial Core | catalog, opportunities, subscriptions |
+| Usage & Revenue Core | metering, ledger, entitlements, payments |
+| Work Core | conversations, tasks, documents, workflow |
+| Trust Core | approvals, policies, facts, audit |
+| Intelligence Core | intents, memory, agent-ops |
 
-- organizations and people
-- relationships and opportunities
-- activities, notes, documents, and communication events
-- workflow cases, permissions, facts, and audit history
-- metadata for custom objects, fields, relationships, and views
+## gRPC Surface
 
-That gives Converge a stable operational memory layer behind job execution and agent coordination without forcing the product into a traditional CRM UI.
+Current capability packages:
 
-The governance runtime is intentionally moving toward `converge-core`. Truths now expose a Converge binding so the application API can tell clients which packs a job activates and which intent packet should be handed to the runtime.
+- `prio.common.v1` shared record and enum types
+- `prio.identity.v1` auth, roles, workspace membership
+- `prio.parties.v1` organizations, people, relationships, account summaries
+- `prio.opportunities.v1` pipeline, qualification
+- `prio.conversations.v1` threads, messages
+- `prio.documents.v1` notes, files, attachments
+- `prio.workflow.v1` cases, state transitions
+- `prio.facts.v1` proposed and promoted facts
+- `prio.metadata.v1` custom objects, fields, views
+- `prio.modules.v1` capability module registry
+- `prio.truths.v1` truth catalog, Converge bindings, `ExecuteTruth` RPC
 
-`converge-core` now has a native `active_packs` field on `TypesRootIntent`, so pack activation is no longer just CRM-side metadata.
+## Converge Dependency
+
+`converge-core` is a local path dependency from `../../../converge.zone/crates/core`. The CRM uses:
+
+- `TypesRootIntent`, `TypesRunHooks` for intent construction and execution hooks
+- `Agent`, `AgentEffect`, `ProposedFact` for pack-scoped agent implementations
+- `CriterionEvaluator`, `CriterionResult` for success criteria evaluation
+- `Engine::run_with_types_intent_and_hooks()` for truth execution
+- `ExperienceEventObserver` for run-scoped event capture
+- `TruthCatalog`, `TruthDefinition` for upstream truth shape
 
 ## Commands
 
 ```bash
-just server
-just test
-just fmt
+just server    # cargo run -p crm-server
+just test      # cargo test --workspace
+just fmt        # cargo fmt --all
+just desktop   # cd apps/desktop && npm run dev
 ```
 
-The desktop app follows the Wolfgang pattern and lives under `apps/desktop`.
-
-## gRPC Surface
-
-The backend contract is intentionally layered. Current capability and catalog packages include:
-
-- `prio.identity.v1`
-- `prio.parties.v1`
-- `prio.catalog.v1` as a reserved module contract name
-- `prio.opportunities.v1`
-- `prio.conversations.v1`
-- `prio.documents.v1`
-- `prio.workflow.v1`
-- `prio.facts.v1`
-- `prio.metadata.v1`
-- `prio.modules.v1`
-- `prio.truths.v1`
-- `prio.common.v1` for shared record and enum types
-
-`prio.truths.v1` now includes a Converge execution binding per truth, so the public API exposes:
-
-- the declarative job definition
-- the Converge intent request derived from that truth
-- the pack IDs that should be activated
+Rust 2024, toolchain floor `rustc 1.94.0`.

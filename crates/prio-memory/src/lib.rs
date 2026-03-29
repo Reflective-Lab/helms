@@ -7,8 +7,7 @@ pub const MODULE: CapabilityModule = CapabilityModule {
     display_name: "Memory",
     suite: ModuleSuite::IntelligenceCore,
     crate_name: "prio-memory",
-    purpose:
-        "Semantic memory, entity graph context, embeddings, and retrieval over business state.",
+    purpose: "Semantic memory, entity graph context, embeddings, and retrieval over business state.",
     dependencies: &["documents", "facts", "parties"],
     owned_objects: &[
         "entity",

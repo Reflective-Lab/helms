@@ -1,12 +1,15 @@
 use uuid::Uuid;
 
 use crate::{
-    AccountSummary, Activity, ActivityAppend, Actor, CommunicationEvent, CommunicationRecord,
-    CrmKernel, Document, DocumentAttach, Fact, FactRecord, KernelResult, Note, NoteAppend,
-    ObjectDefinition, ObjectDefinitionUpsert, Opportunity, OpportunityAdvance, OpportunityCreate,
-    Organization, OrganizationUpsert, PermissionGrant, PermissionGrantInput, Person, PersonUpsert,
-    Relationship, RelationshipLink, TimelineEntry, ViewDefinition, ViewDefinitionUpsert,
-    WorkflowCase, WorkflowCaseAdvance, WorkflowCaseCreate,
+    AccountSummary, Activity, ActivityAppend, Actor, CatalogItem, CatalogItemUpsert,
+    CommunicationEvent, CommunicationRecord, CreditGrantApplication, CreditGrantApply, CrmKernel,
+    Document, DocumentAttach, Entitlement, Fact, FactRecord, KernelResult, LedgerEntry, Note,
+    NoteAppend, ObjectDefinition, ObjectDefinitionUpsert, Opportunity, OpportunityAdvance,
+    OpportunityCreate, OrderSubscription, Organization, OrganizationUpsert, PermissionGrant,
+    PermissionGrantInput, Person, PersonUpsert, Relationship, RelationshipLink,
+    SubscriptionActivate, SubscriptionActivation, SubscriptionCreate, SubscriptionPlanChange,
+    SubscriptionPlanChangeResult, SubscriptionSuspend, SubscriptionSuspension, TimelineEntry,
+    ViewDefinition, ViewDefinitionUpsert, WorkflowCase, WorkflowCaseAdvance, WorkflowCaseCreate,
 };
 
 pub trait PartiesCommands {
@@ -82,6 +85,41 @@ pub trait IdentityCommands {
 
 pub trait FactsCommands {
     fn record_fact(&mut self, command: FactRecord, actor: Actor) -> KernelResult<Fact>;
+}
+
+pub trait RevenueCommands {
+    fn upsert_catalog_item(
+        &mut self,
+        command: CatalogItemUpsert,
+        actor: Actor,
+    ) -> KernelResult<CatalogItem>;
+    fn create_order_subscription(
+        &mut self,
+        command: SubscriptionCreate,
+        actor: Actor,
+    ) -> KernelResult<OrderSubscription>;
+    fn activate_subscription(
+        &mut self,
+        command: SubscriptionActivate,
+        actor: Actor,
+    ) -> KernelResult<SubscriptionActivation>;
+    fn suspend_subscription(
+        &mut self,
+        command: SubscriptionSuspend,
+        actor: Actor,
+    ) -> KernelResult<SubscriptionSuspension>;
+    fn change_subscription_plan(
+        &mut self,
+        command: SubscriptionPlanChange,
+        actor: Actor,
+    ) -> KernelResult<SubscriptionPlanChangeResult>;
+    fn apply_credit_grant(
+        &mut self,
+        command: CreditGrantApply,
+        actor: Actor,
+    ) -> KernelResult<CreditGrantApplication>;
+    fn list_entitlements(&self, organization_id: Option<Uuid>) -> Vec<Entitlement>;
+    fn list_ledger_entries(&self, organization_id: Option<Uuid>) -> Vec<LedgerEntry>;
 }
 
 pub trait MetadataCommands {
@@ -218,6 +256,64 @@ impl IdentityCommands for CrmKernel {
 impl FactsCommands for CrmKernel {
     fn record_fact(&mut self, command: FactRecord, actor: Actor) -> KernelResult<Fact> {
         CrmKernel::record_fact(self, command, actor)
+    }
+}
+
+impl RevenueCommands for CrmKernel {
+    fn upsert_catalog_item(
+        &mut self,
+        command: CatalogItemUpsert,
+        actor: Actor,
+    ) -> KernelResult<CatalogItem> {
+        CrmKernel::upsert_catalog_item(self, command, actor)
+    }
+
+    fn create_order_subscription(
+        &mut self,
+        command: SubscriptionCreate,
+        actor: Actor,
+    ) -> KernelResult<OrderSubscription> {
+        CrmKernel::create_order_subscription(self, command, actor)
+    }
+
+    fn activate_subscription(
+        &mut self,
+        command: SubscriptionActivate,
+        actor: Actor,
+    ) -> KernelResult<SubscriptionActivation> {
+        CrmKernel::activate_subscription(self, command, actor)
+    }
+
+    fn suspend_subscription(
+        &mut self,
+        command: SubscriptionSuspend,
+        actor: Actor,
+    ) -> KernelResult<SubscriptionSuspension> {
+        CrmKernel::suspend_subscription(self, command, actor)
+    }
+
+    fn change_subscription_plan(
+        &mut self,
+        command: SubscriptionPlanChange,
+        actor: Actor,
+    ) -> KernelResult<SubscriptionPlanChangeResult> {
+        CrmKernel::change_subscription_plan(self, command, actor)
+    }
+
+    fn apply_credit_grant(
+        &mut self,
+        command: CreditGrantApply,
+        actor: Actor,
+    ) -> KernelResult<CreditGrantApplication> {
+        CrmKernel::apply_credit_grant(self, command, actor)
+    }
+
+    fn list_entitlements(&self, organization_id: Option<Uuid>) -> Vec<Entitlement> {
+        CrmKernel::list_entitlements(self, organization_id)
+    }
+
+    fn list_ledger_entries(&self, organization_id: Option<Uuid>) -> Vec<LedgerEntry> {
+        CrmKernel::list_ledger_entries(self, organization_id)
     }
 }
 

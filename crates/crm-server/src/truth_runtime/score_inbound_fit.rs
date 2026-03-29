@@ -1,0 +1,527 @@
+use std::collections::HashMap;
+use std::io::Write;
+
+use converge_analytics::batch::{
+    TemporalFeatureConfig, TemporalFeatures, extract_temporal_features, temporal_to_feature_vector,
+};
+use converge_analytics::engine::FeatureVector;
+use converge_analytics::model::{ModelConfig, run_batch_inference};
+use converge_core::{
+    Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
+    ProposedFact, TypesRunHooks,
+};
+use crm_kernel::{
+    Actor as CrmActor, FactRecord, OrganizationLifecycle, OrganizationUpsert, RecordKind, RecordRef,
+};
+use crm_storage::{KernelStore, StoreWriteResult};
+use prio_truths::{ScoreInboundFitEvaluator, converge_binding_for_truth};
+use serde::{Deserialize, Serialize};
+use tempfile::Builder;
+use tonic::Status;
+
+use super::{
+    RecordingObserver, TruthExecutionArtifacts, TruthProjection,
+    common::{has_fact_id, optional_input, optional_uuid, payload_from_result, required_input},
+    domain_event_kind_name, status_from_converge, status_from_storage,
+};
+
+const REVENUE_PACK_ID: &str = "prio-revenue-pack";
+const COMMERCIAL_PACK_ID: &str = "prio-commercial-pack";
+const FEATURE_FACT_ID: &str = "lead:behavioral-features";
+const FIT_SCORE_FACT_ID: &str = "lead:fit-score";
+const FIT_EVIDENCE_FACT_ID: &str = "lead:fit-evidence";
+const ANALYTICS_PROVENANCE: &str = "prio.score-inbound-fit.analytics";
+const SCORING_PROVENANCE: &str = "prio.score-inbound-fit.model";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct UsageEventSeed {
+    visitor_id: String,
+    timestamp: i64,
+    event_type: String,
+    page: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct BehavioralFeaturesPayload {
+    temporal: TemporalFeatures,
+    vector: FeatureVector,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct FitEvidencePayload {
+    event_count: u32,
+    unique_pages: u32,
+    burst_score: u32,
+    mean_delta_s: f64,
+    type_entropy: f64,
+    night_ratio: f64,
+    burn_signal: Option<f32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct FitScorePayload {
+    score_bps: u16,
+    confidence_bps: u16,
+    label: String,
+    rationale: String,
+}
+
+pub(super) fn execute<S: KernelStore>(
+    store: &S,
+    inputs: HashMap<String, String>,
+    actor: CrmActor,
+    persist_projection: bool,
+) -> Result<TruthExecutionArtifacts, Status> {
+    let binding = converge_binding_for_truth("score-inbound-fit")
+        .ok_or_else(|| Status::not_found("truth not found: score-inbound-fit"))?;
+
+    let organization_name = required_input(&inputs, "organization_name")?.to_string();
+    let visitor_id = required_input(&inputs, "visitor_id")?.to_string();
+    let usage_events = usage_events_from_inputs(&inputs)?;
+
+    let mut engine = Engine::new();
+    engine.register_in_pack(
+        REVENUE_PACK_ID,
+        BehavioralFeatureAgent {
+            visitor_id,
+            usage_events,
+        },
+    );
+    engine.register_in_pack(COMMERCIAL_PACK_ID, FitScoringAgent);
+
+    let observer = std::sync::Arc::new(RecordingObserver::default());
+    let result = engine
+        .run_with_types_intent_and_hooks(
+            seed_context(&organization_name)?,
+            &binding.intent,
+            TypesRunHooks {
+                criterion_evaluator: Some(std::sync::Arc::new(ScoreInboundFitEvaluator)),
+                event_observer: Some(observer.clone()),
+            },
+        )
+        .map_err(status_from_converge)?;
+
+    let projection = if persist_projection {
+        Some(project(store, &inputs, &result, actor)?)
+    } else {
+        None
+    };
+
+    Ok(TruthExecutionArtifacts {
+        result,
+        experience_events: observer.snapshot(),
+        projection,
+    })
+}
+
+fn project<S: KernelStore>(
+    store: &S,
+    inputs: &HashMap<String, String>,
+    result: &ConvergeResult,
+    actor: CrmActor,
+) -> Result<TruthProjection, Status> {
+    let organization_name = required_input(inputs, "organization_name")?.to_string();
+    let organization_id = optional_uuid(inputs, "organization_id")?;
+    let organization_external_key = optional_input(inputs, "organization_external_key");
+    let website = optional_input(inputs, "website");
+    let industry = optional_input(inputs, "industry");
+    let fit_score = fit_score_payload_from_result(result)?;
+    let evidence = fit_evidence_payload_from_result(result)?;
+
+    let StoreWriteResult { value, events } = store
+        .write_with_events(|kernel| {
+            let organization = kernel.upsert_organization(
+                OrganizationUpsert {
+                    organization_id,
+                    name: organization_name.clone(),
+                    external_key: organization_external_key.clone(),
+                    website: website.clone(),
+                    industry: industry.clone(),
+                    lifecycle: OrganizationLifecycle::Prospect,
+                    owner_user_id: None,
+                    tags: vec!["inbound-fit-scored".to_string()],
+                },
+                actor.clone(),
+            )?;
+
+            let related_to = vec![RecordRef {
+                kind: RecordKind::Organization,
+                id: organization.id,
+            }];
+
+            let score_fact = kernel.record_fact(
+                FactRecord {
+                    statement: format!(
+                        "Inbound fit score {} bps ({}) with rationale: {}",
+                        fit_score.score_bps, fit_score.label, fit_score.rationale
+                    ),
+                    confidence_bps: fit_score.confidence_bps,
+                    related_to: related_to.clone(),
+                    source_note_id: None,
+                },
+                actor.clone(),
+            )?;
+
+            let evidence_fact = kernel.record_fact(
+                FactRecord {
+                    statement: format!(
+                        "Behavioral evidence: {} events, {} pages, burst {}, mean delta {:.0}s, entropy {:.2}, night ratio {:.2}",
+                        evidence.event_count,
+                        evidence.unique_pages,
+                        evidence.burst_score,
+                        evidence.mean_delta_s,
+                        evidence.type_entropy,
+                        evidence.night_ratio
+                    ),
+                    confidence_bps: fit_score.confidence_bps,
+                    related_to,
+                    source_note_id: None,
+                },
+                actor,
+            )?;
+
+            Ok((organization, vec![score_fact, evidence_fact]))
+        })
+        .map_err(status_from_storage)?;
+
+    let (organization, facts) = value;
+    Ok(TruthProjection {
+        organization: Some(organization),
+        person: None,
+        opportunity: None,
+        subscription: None,
+        entitlements: Vec::new(),
+        ledger_entries: Vec::new(),
+        documents: Vec::new(),
+        workflow_cases: Vec::new(),
+        facts,
+        domain_event_kinds: events.iter().map(domain_event_kind_name).collect(),
+    })
+}
+
+struct BehavioralFeatureAgent {
+    visitor_id: String,
+    usage_events: Vec<UsageEventSeed>,
+}
+
+impl Agent for BehavioralFeatureAgent {
+    fn name(&self) -> &str {
+        "BehavioralFeatureAgent"
+    }
+
+    fn dependencies(&self) -> &[ContextKey] {
+        &[ContextKey::Seeds]
+    }
+
+    fn accepts(&self, ctx: &dyn converge_core::ContextView) -> bool {
+        ctx.has(ContextKey::Seeds) && !has_fact_id(ctx, ContextKey::Signals, FEATURE_FACT_ID)
+    }
+
+    fn execute(&self, _ctx: &dyn converge_core::ContextView) -> AgentEffect {
+        let payload = match extract_behavioral_features(&self.visitor_id, &self.usage_events) {
+            Ok(payload) => payload,
+            Err(error) => {
+                return AgentEffect::with_fact(ConvergeFact::new(
+                    ContextKey::Diagnostic,
+                    "lead:fit-score:error",
+                    error.to_string(),
+                ));
+            }
+        };
+        let content = match serde_json::to_string(&payload) {
+            Ok(content) => content,
+            Err(error) => {
+                return AgentEffect::with_fact(ConvergeFact::new(
+                    ContextKey::Diagnostic,
+                    "lead:fit-score:error",
+                    error.to_string(),
+                ));
+            }
+        };
+
+        AgentEffect::with_proposal(ProposedFact {
+            key: ContextKey::Signals,
+            id: FEATURE_FACT_ID.to_string(),
+            content,
+            confidence: 1.0,
+            provenance: ANALYTICS_PROVENANCE.to_string(),
+        })
+    }
+}
+
+struct FitScoringAgent;
+
+impl Agent for FitScoringAgent {
+    fn name(&self) -> &str {
+        "FitScoringAgent"
+    }
+
+    fn dependencies(&self) -> &[ContextKey] {
+        &[ContextKey::Signals]
+    }
+
+    fn accepts(&self, ctx: &dyn converge_core::ContextView) -> bool {
+        has_fact_id(ctx, ContextKey::Signals, FEATURE_FACT_ID)
+            && !has_fact_id(ctx, ContextKey::Evaluations, FIT_SCORE_FACT_ID)
+    }
+
+    fn execute(&self, ctx: &dyn converge_core::ContextView) -> AgentEffect {
+        let Some(feature_fact) = ctx
+            .get(ContextKey::Signals)
+            .iter()
+            .find(|fact| fact.id == FEATURE_FACT_ID)
+        else {
+            return AgentEffect::empty();
+        };
+        let payload = match serde_json::from_str::<BehavioralFeaturesPayload>(&feature_fact.content)
+        {
+            Ok(payload) => payload,
+            Err(error) => {
+                return AgentEffect::with_fact(ConvergeFact::new(
+                    ContextKey::Diagnostic,
+                    "lead:fit-score:error",
+                    error.to_string(),
+                ));
+            }
+        };
+
+        let burn_signal = bootstrap_burn_signal(&payload.vector);
+        let score_bps = bootstrap_fit_score(&payload.temporal);
+        let confidence_bps = fit_confidence_bps(&payload.temporal);
+        let score_payload = FitScorePayload {
+            score_bps,
+            confidence_bps,
+            label: fit_label(score_bps).to_string(),
+            rationale: format!(
+                "{} events across {} pages with burst {} and entropy {:.2}",
+                payload.temporal.event_count,
+                payload.temporal.unique_categories,
+                payload.temporal.burst_score,
+                payload.temporal.type_entropy
+            ),
+        };
+        let evidence_payload = FitEvidencePayload {
+            event_count: payload.temporal.event_count,
+            unique_pages: payload.temporal.unique_categories,
+            burst_score: payload.temporal.burst_score,
+            mean_delta_s: payload.temporal.mean_delta_s,
+            type_entropy: payload.temporal.type_entropy,
+            night_ratio: payload.temporal.night_ratio,
+            burn_signal,
+        };
+
+        let mut effect = AgentEffect::with_proposal(ProposedFact {
+            key: ContextKey::Evaluations,
+            id: FIT_SCORE_FACT_ID.to_string(),
+            content: serde_json::to_string(&score_payload).unwrap_or_default(),
+            confidence: f64::from(confidence_bps) / 10_000.0,
+            provenance: SCORING_PROVENANCE.to_string(),
+        });
+        effect.proposals.push(ProposedFact {
+            key: ContextKey::Signals,
+            id: FIT_EVIDENCE_FACT_ID.to_string(),
+            content: serde_json::to_string(&evidence_payload).unwrap_or_default(),
+            confidence: 1.0,
+            provenance: ANALYTICS_PROVENANCE.to_string(),
+        });
+        effect
+    }
+}
+
+fn seed_context(organization_name: &str) -> Result<Context, Status> {
+    let mut context = Context::new();
+    context
+        .add_fact(ConvergeFact::new(
+            ContextKey::Seeds,
+            "score-inbound-fit:seed",
+            organization_name,
+        ))
+        .map_err(|error| Status::failed_precondition(error.to_string()))?;
+    Ok(context)
+}
+
+fn usage_events_from_inputs(
+    inputs: &HashMap<String, String>,
+) -> Result<Vec<UsageEventSeed>, Status> {
+    let usage_events = required_input(inputs, "usage_events_json")?;
+    let events = serde_json::from_str::<Vec<UsageEventSeed>>(usage_events)
+        .map_err(|error| Status::invalid_argument(format!("invalid usage_events_json: {error}")))?;
+    if events.is_empty() {
+        return Err(Status::invalid_argument(
+            "usage_events_json must not be empty",
+        ));
+    }
+    Ok(events)
+}
+
+fn extract_behavioral_features(
+    visitor_id: &str,
+    usage_events: &[UsageEventSeed],
+) -> anyhow::Result<BehavioralFeaturesPayload> {
+    let mut file = Builder::new().suffix(".csv").tempfile()?;
+    writeln!(file, "visitor_id,timestamp,event_type,page")?;
+    for event in usage_events {
+        writeln!(
+            file,
+            "{},{},{},{}",
+            event.visitor_id, event.timestamp, event.event_type, event.page
+        )?;
+    }
+    file.flush()?;
+
+    let config = TemporalFeatureConfig {
+        entity_column: "visitor_id".to_string(),
+        timestamp_column: "timestamp".to_string(),
+        type_column: "event_type".to_string(),
+        category_column: "page".to_string(),
+        burst_threshold_seconds: 90,
+    };
+    let feature_rows = extract_temporal_features(file.path().to_string_lossy().as_ref(), &config)?;
+    let temporal = feature_rows
+        .into_iter()
+        .find(|row| row.entity_id == visitor_id)
+        .or_else(|| {
+            usage_events.first().and_then(|first| {
+                if first.visitor_id == visitor_id {
+                    None
+                } else {
+                    None
+                }
+            })
+        })
+        .unwrap_or_else(|| TemporalFeatures {
+            entity_id: visitor_id.to_string(),
+            event_count: 0,
+            mean_delta_s: 0.0,
+            min_delta_s: 0.0,
+            std_delta_s: 0.0,
+            burst_score: 0,
+            type_entropy: 0.0,
+            unique_categories: 0,
+            night_ratio: 0.0,
+        });
+    let vector = temporal_to_feature_vector(std::slice::from_ref(&temporal))?;
+    Ok(BehavioralFeaturesPayload { temporal, vector })
+}
+
+fn fit_score_payload_from_result(result: &ConvergeResult) -> Result<FitScorePayload, Status> {
+    payload_from_result(result, ContextKey::Evaluations, FIT_SCORE_FACT_ID)
+}
+
+fn fit_evidence_payload_from_result(result: &ConvergeResult) -> Result<FitEvidencePayload, Status> {
+    payload_from_result(result, ContextKey::Signals, FIT_EVIDENCE_FACT_ID)
+}
+
+fn bootstrap_burn_signal(vector: &FeatureVector) -> Option<f32> {
+    let config = ModelConfig::new(8, 16, 1);
+    run_batch_inference(&config, vector)
+        .ok()
+        .and_then(|values| values.into_iter().next())
+}
+
+fn bootstrap_fit_score(features: &TemporalFeatures) -> u16 {
+    let event_component = (features.event_count.min(24) as f64 / 24.0) * 3_500.0;
+    let burst_component = (features.burst_score.min(8) as f64 / 8.0) * 1_500.0;
+    let depth_component = (features.unique_categories.min(10) as f64 / 10.0) * 1_600.0;
+    let return_component = if features.mean_delta_s > 0.0 {
+        ((259_200.0 - features.mean_delta_s).clamp(0.0, 259_200.0) / 259_200.0) * 1_600.0
+    } else {
+        600.0
+    };
+    let entropy_component = (features.type_entropy.clamp(0.0, 2.5) / 2.5) * 1_200.0;
+    let night_penalty = features.night_ratio.clamp(0.0, 1.0) * 900.0;
+    (1_200.0
+        + event_component
+        + burst_component
+        + depth_component
+        + return_component
+        + entropy_component
+        - night_penalty)
+        .round()
+        .clamp(0.0, 10_000.0) as u16
+}
+
+fn fit_confidence_bps(features: &TemporalFeatures) -> u16 {
+    let density = (features.event_count.min(20) as f64 / 20.0) * 4_000.0;
+    let diversity = (features.unique_categories.min(8) as f64 / 8.0) * 2_500.0;
+    let cadence = if features.mean_delta_s > 0.0 {
+        ((86_400.0 - features.mean_delta_s).clamp(0.0, 86_400.0) / 86_400.0) * 2_000.0
+    } else {
+        750.0
+    };
+    let entropy = (features.type_entropy.clamp(0.0, 2.5) / 2.5) * 1_500.0;
+    (density + diversity + cadence + entropy)
+        .round()
+        .clamp(2_500.0, 9_500.0) as u16
+}
+
+fn fit_label(score_bps: u16) -> &'static str {
+    match score_bps {
+        8_000..=10_000 => "high-fit",
+        5_500..=7_999 => "medium-fit",
+        _ => "low-fit",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crm_kernel::Actor;
+    use crm_storage::InMemoryKernelStore;
+
+    #[test]
+    fn score_inbound_fit_executes_end_to_end() {
+        let store = InMemoryKernelStore::default_local();
+        let actor = Actor::system();
+        let inputs = HashMap::from([
+            ("organization_name".to_string(), "Aprio Labs".to_string()),
+            ("visitor_id".to_string(), "visitor-123".to_string()),
+            (
+                "usage_events_json".to_string(),
+                serde_json::json!([
+                    {
+                        "visitor_id": "visitor-123",
+                        "timestamp": 1_710_000_000_i64,
+                        "event_type": "page_view",
+                        "page": "/pricing"
+                    },
+                    {
+                        "visitor_id": "visitor-123",
+                        "timestamp": 1_710_000_120_i64,
+                        "event_type": "page_view",
+                        "page": "/case-studies"
+                    },
+                    {
+                        "visitor_id": "visitor-123",
+                        "timestamp": 1_710_086_400_i64,
+                        "event_type": "page_view",
+                        "page": "/contact"
+                    }
+                ])
+                .to_string(),
+            ),
+        ]);
+
+        let execution = execute(&store, inputs, actor, true).expect("truth should execute");
+        assert!(execution.result.converged);
+        assert!(
+            execution
+                .result
+                .criteria_outcomes
+                .iter()
+                .all(|outcome| matches!(
+                    outcome.result,
+                    converge_core::CriterionResult::Met { .. }
+                ))
+        );
+        assert!(execution.experience_events.iter().any(|event| matches!(
+            event.kind(),
+            converge_core::ExperienceEventKind::FactPromoted
+        )));
+
+        let projection = execution.projection.expect("projection should persist");
+        assert!(projection.organization.is_some());
+        assert_eq!(projection.facts.len(), 2);
+    }
+}

@@ -1,8 +1,9 @@
 mod proto;
 mod service;
+mod truth_runtime;
 
 use anyhow::Result;
-use axum::{extract::State, routing::get, Json, Router};
+use axum::{Json, Router, extract::State, routing::get};
 use crm_storage::{AppConfig, InMemoryKernelStore};
 use prio_module_core::CapabilityModule;
 use prio_modules::all_modules;
@@ -82,9 +83,9 @@ async fn main() -> Result<()> {
     let documents_service = DocumentsGrpc::new(store.clone());
     let workflow_service = WorkflowGrpc::new(store.clone());
     let facts_service = FactsGrpc::new(store.clone());
-    let metadata_service = MetadataGrpc::new(store);
+    let metadata_service = MetadataGrpc::new(store.clone());
     let module_registry_service = ModuleRegistryGrpc::new();
-    let truth_catalog_service = TruthCatalogGrpc::new();
+    let truth_catalog_service = TruthCatalogGrpc::new(store);
 
     info!("starting gRPC server on {}", grpc_addr);
     info!("starting HTTP server on {}", http_addr);

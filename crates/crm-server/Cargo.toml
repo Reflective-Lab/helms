@@ -13,6 +13,11 @@ path = "src/main.rs"
 anyhow.workspace = true
 axum.workspace = true
 chrono.workspace = true
+converge-analytics = { path = "../../../converge.zone/crates/analytics" }
+converge-core = { path = "../../../converge.zone/crates/core" }
+converge-domain = { path = "../../../converge.zone/crates/domain" }
+converge-knowledge = { path = "../../../converge.zone/crates/knowledge" }
+converge-optimization = { path = "../../../converge.zone/crates/optimization" }
 crm-kernel = { path = "../crm-kernel" }
 crm-storage = { path = "../crm-storage" }
 prost.workspace = true
@@ -21,12 +26,14 @@ prio-module-core = { path = "../prio-module-core" }
 prio-modules = { path = "../prio-modules" }
 prio-truths = { path = "../prio-truths" }
 serde.workspace = true
+serde_json.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 tonic.workspace = true
 tower-http.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+tempfile = "3"
 uuid.workspace = true
 
 [build-dependencies]

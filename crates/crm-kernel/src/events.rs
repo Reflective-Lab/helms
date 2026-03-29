@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
-    Activity, Actor, AuditEntry, CommunicationEvent, Document, Fact, Note, ObjectDefinition,
-    Opportunity, OpportunityStage, Organization, PermissionGrant, Person, Relationship,
-    TimelineEntry, ViewDefinition, WorkflowCase, WorkflowState,
+    Activity, Actor, AuditEntry, CatalogItem, CommunicationEvent, Document, Entitlement, Fact,
+    LedgerEntry, Note, ObjectDefinition, Opportunity, OpportunityStage, OrderSubscription,
+    Organization, PermissionGrant, Person, Relationship, SubscriptionStatus, TimelineEntry,
+    ViewDefinition, WorkflowCase, WorkflowState,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,6 +57,42 @@ pub enum DomainEvent {
     },
     PermissionGranted {
         grant: PermissionGrant,
+        actor: Actor,
+    },
+    CatalogItemUpserted {
+        catalog_item: CatalogItem,
+        actor: Actor,
+    },
+    OrderSubscriptionCreated {
+        subscription: OrderSubscription,
+        actor: Actor,
+    },
+    OrderSubscriptionStateChanged {
+        subscription: OrderSubscription,
+        previous_status: SubscriptionStatus,
+        actor: Actor,
+    },
+    OrderSubscriptionPlanChanged {
+        subscription: OrderSubscription,
+        previous_catalog_item_id: Option<uuid::Uuid>,
+        previous_value: crate::Money,
+        actor: Actor,
+    },
+    EntitlementsGranted {
+        entitlements: Vec<Entitlement>,
+        actor: Actor,
+    },
+    EntitlementsReplaced {
+        subscription_id: uuid::Uuid,
+        entitlements: Vec<Entitlement>,
+        actor: Actor,
+    },
+    EntitlementAdjusted {
+        entitlement: Entitlement,
+        actor: Actor,
+    },
+    LedgerEntryAppended {
+        entry: LedgerEntry,
         actor: Actor,
     },
     FactRecorded {
