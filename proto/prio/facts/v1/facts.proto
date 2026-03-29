@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package prio.facts.v1;
+
+import "prio/common/v1/common.proto";
+
+service FactsService {
+  rpc RecordFact(RecordFactRequest) returns (prio.common.v1.Fact);
+}
+
+message RecordFactRequest {
+  string statement = 1;
+  uint32 confidence_bps = 2;
+  repeated prio.common.v1.RecordRef related_to = 3;
+  optional string source_note_id = 4;
+  optional prio.common.v1.Actor actor = 5;
+}
+

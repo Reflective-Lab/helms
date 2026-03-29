@@ -1,0 +1,363 @@
+syntax = "proto3";
+
+package prio.common.v1;
+
+import "google/protobuf/timestamp.proto";
+
+message Actor {
+  string actor_id = 1;
+  string display_name = 2;
+  ActorKind kind = 3;
+}
+
+enum ActorKind {
+  ACTOR_KIND_UNSPECIFIED = 0;
+  ACTOR_KIND_HUMAN = 1;
+  ACTOR_KIND_AGENT = 2;
+  ACTOR_KIND_SYSTEM = 3;
+}
+
+message RecordRef {
+  RecordKind kind = 1;
+  string record_id = 2;
+}
+
+enum RecordKind {
+  RECORD_KIND_UNSPECIFIED = 0;
+  RECORD_KIND_ORGANIZATION = 1;
+  RECORD_KIND_PERSON = 2;
+  RECORD_KIND_RELATIONSHIP = 3;
+  RECORD_KIND_LEAD = 4;
+  RECORD_KIND_OPPORTUNITY = 5;
+  RECORD_KIND_CONVERSATION = 6;
+  RECORD_KIND_ACTIVITY = 7;
+  RECORD_KIND_TASK = 8;
+  RECORD_KIND_OFFER_QUOTE = 9;
+  RECORD_KIND_ORDER_SUBSCRIPTION = 10;
+  RECORD_KIND_DOCUMENT = 11;
+  RECORD_KIND_FACT = 12;
+  RECORD_KIND_INTENT = 13;
+  RECORD_KIND_WORKFLOW_CASE = 14;
+  RECORD_KIND_COMMUNICATION_EVENT = 15;
+  RECORD_KIND_PERMISSION_GRANT = 16;
+  RECORD_KIND_AUDIT_ENTRY = 17;
+  RECORD_KIND_NOTE = 18;
+  RECORD_KIND_CATALOG_ITEM = 19;
+}
+
+message Money {
+  string currency_code = 1;
+  int64 amount_minor = 2;
+}
+
+enum RelationshipType {
+  RELATIONSHIP_TYPE_UNSPECIFIED = 0;
+  RELATIONSHIP_TYPE_EMPLOYMENT = 1;
+  RELATIONSHIP_TYPE_CHAMPION = 2;
+  RELATIONSHIP_TYPE_DECISION_MAKER = 3;
+  RELATIONSHIP_TYPE_PARTNER = 4;
+  RELATIONSHIP_TYPE_COMPETITOR = 5;
+  RELATIONSHIP_TYPE_OTHER = 6;
+}
+
+enum OrganizationLifecycle {
+  ORGANIZATION_LIFECYCLE_UNSPECIFIED = 0;
+  ORGANIZATION_LIFECYCLE_PROSPECT = 1;
+  ORGANIZATION_LIFECYCLE_ACTIVE = 2;
+  ORGANIZATION_LIFECYCLE_DORMANT = 3;
+  ORGANIZATION_LIFECYCLE_PARTNER = 4;
+}
+
+enum OpportunityStage {
+  OPPORTUNITY_STAGE_UNSPECIFIED = 0;
+  OPPORTUNITY_STAGE_QUALIFYING = 1;
+  OPPORTUNITY_STAGE_DISCOVERY = 2;
+  OPPORTUNITY_STAGE_PROPOSAL = 3;
+  OPPORTUNITY_STAGE_NEGOTIATION = 4;
+  OPPORTUNITY_STAGE_CLOSED_WON = 5;
+  OPPORTUNITY_STAGE_CLOSED_LOST = 6;
+}
+
+enum ActivityOutcome {
+  ACTIVITY_OUTCOME_UNSPECIFIED = 0;
+  ACTIVITY_OUTCOME_COMPLETED = 1;
+  ACTIVITY_OUTCOME_WAITING = 2;
+  ACTIVITY_OUTCOME_BLOCKED = 3;
+}
+
+enum DocumentStatus {
+  DOCUMENT_STATUS_UNSPECIFIED = 0;
+  DOCUMENT_STATUS_DRAFT = 1;
+  DOCUMENT_STATUS_VERIFIED = 2;
+  DOCUMENT_STATUS_ARCHIVED = 3;
+}
+
+enum CommunicationChannel {
+  COMMUNICATION_CHANNEL_UNSPECIFIED = 0;
+  COMMUNICATION_CHANNEL_EMAIL = 1;
+  COMMUNICATION_CHANNEL_PHONE = 2;
+  COMMUNICATION_CHANNEL_MEETING = 3;
+  COMMUNICATION_CHANNEL_CHAT = 4;
+  COMMUNICATION_CHANNEL_SMS = 5;
+}
+
+enum CommunicationDirection {
+  COMMUNICATION_DIRECTION_UNSPECIFIED = 0;
+  COMMUNICATION_DIRECTION_INBOUND = 1;
+  COMMUNICATION_DIRECTION_OUTBOUND = 2;
+  COMMUNICATION_DIRECTION_INTERNAL = 3;
+}
+
+enum WorkflowState {
+  WORKFLOW_STATE_UNSPECIFIED = 0;
+  WORKFLOW_STATE_OPEN = 1;
+  WORKFLOW_STATE_AWAITING_APPROVAL = 2;
+  WORKFLOW_STATE_WAITING_EXTERNAL = 3;
+  WORKFLOW_STATE_BLOCKED = 4;
+  WORKFLOW_STATE_DONE = 5;
+}
+
+enum WorkflowPriority {
+  WORKFLOW_PRIORITY_UNSPECIFIED = 0;
+  WORKFLOW_PRIORITY_LOW = 1;
+  WORKFLOW_PRIORITY_MEDIUM = 2;
+  WORKFLOW_PRIORITY_HIGH = 3;
+  WORKFLOW_PRIORITY_CRITICAL = 4;
+}
+
+enum TimelineEntryKind {
+  TIMELINE_ENTRY_KIND_UNSPECIFIED = 0;
+  TIMELINE_ENTRY_KIND_ACTIVITY = 1;
+  TIMELINE_ENTRY_KIND_NOTE = 2;
+  TIMELINE_ENTRY_KIND_DOCUMENT = 3;
+  TIMELINE_ENTRY_KIND_COMMUNICATION = 4;
+  TIMELINE_ENTRY_KIND_FACT = 5;
+  TIMELINE_ENTRY_KIND_AUDIT = 6;
+}
+
+enum ObjectDefinitionKind {
+  OBJECT_DEFINITION_KIND_UNSPECIFIED = 0;
+  OBJECT_DEFINITION_KIND_STANDARD = 1;
+  OBJECT_DEFINITION_KIND_CUSTOM = 2;
+}
+
+enum FieldType {
+  FIELD_TYPE_UNSPECIFIED = 0;
+  FIELD_TYPE_TEXT = 1;
+  FIELD_TYPE_LONG_TEXT = 2;
+  FIELD_TYPE_NUMBER = 3;
+  FIELD_TYPE_CURRENCY = 4;
+  FIELD_TYPE_BOOLEAN = 5;
+  FIELD_TYPE_DATE = 6;
+  FIELD_TYPE_DATE_TIME = 7;
+  FIELD_TYPE_EMAIL = 8;
+  FIELD_TYPE_PHONE = 9;
+  FIELD_TYPE_URL = 10;
+  FIELD_TYPE_SELECT = 11;
+  FIELD_TYPE_MULTI_SELECT = 12;
+  FIELD_TYPE_RELATION = 13;
+}
+
+enum RelationshipCardinality {
+  RELATIONSHIP_CARDINALITY_UNSPECIFIED = 0;
+  RELATIONSHIP_CARDINALITY_ONE_TO_ONE = 1;
+  RELATIONSHIP_CARDINALITY_ONE_TO_MANY = 2;
+  RELATIONSHIP_CARDINALITY_MANY_TO_MANY = 3;
+}
+
+enum ViewLayout {
+  VIEW_LAYOUT_UNSPECIFIED = 0;
+  VIEW_LAYOUT_TABLE = 1;
+  VIEW_LAYOUT_KANBAN = 2;
+  VIEW_LAYOUT_CALENDAR = 3;
+}
+
+message Organization {
+  string id = 1;
+  string name = 2;
+  optional string external_key = 3;
+  optional string website = 4;
+  optional string industry = 5;
+  OrganizationLifecycle lifecycle = 6;
+  optional string owner_user_id = 7;
+  repeated string tags = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message Person {
+  string id = 1;
+  optional string organization_id = 2;
+  string full_name = 3;
+  optional string title = 4;
+  optional string email = 5;
+  optional string phone = 6;
+  optional string linkedin_url = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message Relationship {
+  string id = 1;
+  RecordRef from = 2;
+  RecordRef to = 3;
+  RelationshipType relationship_type = 4;
+  optional string label = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message Opportunity {
+  string id = 1;
+  string organization_id = 2;
+  optional string primary_contact_id = 3;
+  string name = 4;
+  OpportunityStage stage = 5;
+  Money value = 6;
+  uint32 confidence_bps = 7;
+  optional string next_step = 8;
+  optional google.protobuf.Timestamp expected_close_at = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message Activity {
+  string id = 1;
+  string subject = 2;
+  string details = 3;
+  Actor actor = 4;
+  repeated RecordRef related_to = 5;
+  ActivityOutcome outcome = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+  optional google.protobuf.Timestamp next_action_due_at = 8;
+}
+
+message Note {
+  string id = 1;
+  string subject = 2;
+  string body = 3;
+  Actor author = 4;
+  repeated RecordRef related_to = 5;
+  bool promoted_to_fact = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message Document {
+  string id = 1;
+  string title = 2;
+  string media_type = 3;
+  string uri = 4;
+  DocumentStatus status = 5;
+  Actor uploaded_by = 6;
+  repeated RecordRef related_to = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message CommunicationEvent {
+  string id = 1;
+  CommunicationChannel channel = 2;
+  CommunicationDirection direction = 3;
+  optional string subject = 4;
+  string summary = 5;
+  string counterpart = 6;
+  Actor actor = 7;
+  repeated RecordRef related_to = 8;
+  google.protobuf.Timestamp occurred_at = 9;
+}
+
+message WorkflowCase {
+  string id = 1;
+  string title = 2;
+  WorkflowState state = 3;
+  WorkflowPriority priority = 4;
+  optional string owner_user_id = 5;
+  repeated RecordRef related_to = 6;
+  google.protobuf.Timestamp opened_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message Fact {
+  string id = 1;
+  string statement = 2;
+  uint32 confidence_bps = 3;
+  Actor promoted_by = 4;
+  optional string source_note_id = 5;
+  repeated RecordRef related_to = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message PermissionGrant {
+  string id = 1;
+  string subject = 2;
+  string role = 3;
+  string scope = 4;
+  Actor granted_by = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message TimelineEntry {
+  string id = 1;
+  TimelineEntryKind kind = 2;
+  optional RecordRef anchor = 3;
+  string headline = 4;
+  string body = 5;
+  Actor actor = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+  repeated RecordRef related_to = 8;
+}
+
+message AccountSummary {
+  Organization organization = 1;
+  repeated Person contacts = 2;
+  repeated Opportunity opportunities = 3;
+  repeated WorkflowCase workflow_cases = 4;
+  repeated Fact facts = 5;
+  repeated Document documents = 6;
+  repeated PermissionGrant permissions = 7;
+  repeated TimelineEntry recent_timeline = 8;
+}
+
+message FieldDefinition {
+  string id = 1;
+  string key = 2;
+  string label = 3;
+  FieldType field_type = 4;
+  bool required = 5;
+  repeated string options = 6;
+  optional string relation_object_key = 7;
+  bool active = 8;
+}
+
+message RelationshipDefinition {
+  string id = 1;
+  string target_object_key = 2;
+  RelationshipCardinality cardinality = 3;
+  string label = 4;
+}
+
+message ObjectDefinition {
+  string id = 1;
+  string key = 2;
+  string display_name = 3;
+  ObjectDefinitionKind kind = 4;
+  repeated FieldDefinition fields = 5;
+  repeated RelationshipDefinition relationships = 6;
+  bool active = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message ViewDefinition {
+  string id = 1;
+  string object_key = 2;
+  string name = 3;
+  ViewLayout layout = 4;
+  optional string filter_expression = 5;
+  optional string sort_expression = 6;
+  repeated string visible_fields = 7;
+  optional string group_by = 8;
+  bool favorite = 9;
+  optional string owner_user_id = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+

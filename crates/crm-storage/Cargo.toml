@@ -1,0 +1,12 @@
+[package]
+name = "crm-storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+crm-kernel = { path = "../crm-kernel" }
+serde.workspace = true
+thiserror.workspace = true
+

@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package prio.modules.v1;
+
+service ModuleRegistryService {
+  rpc ListModules(ListModulesRequest) returns (ListModulesResponse);
+}
+
+enum ModuleSuite {
+  MODULE_SUITE_UNSPECIFIED = 0;
+  MODULE_SUITE_FOUNDATION = 1;
+  MODULE_SUITE_RELATIONSHIP_CORE = 2;
+  MODULE_SUITE_COMMERCIAL_CORE = 3;
+  MODULE_SUITE_USAGE_REVENUE_CORE = 4;
+  MODULE_SUITE_WORK_CORE = 5;
+  MODULE_SUITE_TRUST_CORE = 6;
+  MODULE_SUITE_INTELLIGENCE_CORE = 7;
+}
+
+message ModuleApiSurface {
+  string grpc_package = 1;
+  string grpc_service = 2;
+  string openapi_tag = 3;
+  string openapi_base_path = 4;
+  string graphql_query_root = 5;
+  string graphql_mutation_root = 6;
+}
+
+message ModuleInfo {
+  string key = 1;
+  string display_name = 2;
+  ModuleSuite suite = 3;
+  string crate_name = 4;
+  string purpose = 5;
+  repeated string dependencies = 6;
+  repeated string owned_objects = 7;
+  ModuleApiSurface api = 8;
+}
+
+message ListModulesRequest {}
+
+message ListModulesResponse {
+  repeated ModuleInfo modules = 1;
+}

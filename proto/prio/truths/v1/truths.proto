@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package prio.truths.v1;
+
+service TruthCatalogService {
+  rpc ListTruths(ListTruthsRequest) returns (ListTruthsResponse);
+  rpc GetTruth(GetTruthRequest) returns (TruthInfo);
+}
+
+enum TruthKind {
+  TRUTH_KIND_UNSPECIFIED = 0;
+  TRUTH_KIND_JOB = 1;
+  TRUTH_KIND_POLICY = 2;
+  TRUTH_KIND_MODULE_LOCAL = 3;
+}
+
+message TruthModuleTouch {
+  string module_key = 1;
+  string responsibility = 2;
+}
+
+message ConvergeBinding {
+  string runtime = 1;
+  string intent_id = 2;
+  string request = 3;
+  string intent_kind = 4;
+  repeated string pack_ids = 5;
+  repeated string required_success_criteria = 6;
+  repeated string hard_constraints = 7;
+  repeated string approval_points = 8;
+}
+
+message TruthInfo {
+  string key = 1;
+  string display_name = 2;
+  TruthKind kind = 3;
+  string summary = 4;
+  string feature_path = 5;
+  repeated string actor_roles = 6;
+  repeated string approval_points = 7;
+  repeated string desired_outcomes = 8;
+  repeated string guardrails = 9;
+  repeated TruthModuleTouch modules = 10;
+  string gherkin = 11;
+  ConvergeBinding converge = 12;
+}
+
+message ListTruthsRequest {
+  TruthKind kind = 1;
+  string module_key = 2;
+  bool include_gherkin = 3;
+}
+
+message ListTruthsResponse {
+  repeated TruthInfo truths = 1;
+}
+
+message GetTruthRequest {
+  string key = 1;
+}

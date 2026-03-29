@@ -1,0 +1,56 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/crm-kernel",
+    "crates/crm-storage",
+    "crates/crm-server",
+    "crates/prio-module-core",
+    "crates/prio-modules",
+    "crates/prio-catalog",
+    "crates/prio-identity",
+    "crates/prio-parties",
+    "crates/prio-conversations",
+    "crates/prio-opportunities",
+    "crates/prio-tasks",
+    "crates/prio-documents",
+    "crates/prio-subscriptions",
+    "crates/prio-metering",
+    "crates/prio-ledger",
+    "crates/prio-entitlements",
+    "crates/prio-payments",
+    "crates/prio-workflow",
+    "crates/prio-approvals",
+    "crates/prio-policies",
+    "crates/prio-facts",
+    "crates/prio-audit",
+    "crates/prio-intents",
+    "crates/prio-memory",
+    "crates/prio-agent-ops",
+    "crates/prio-truths",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94.0"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+anyhow = "1"
+async-stream = "0.3"
+axum = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+prost = "0.13"
+prost-types = "0.13"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+tonic = { version = "0.12", features = ["transport"] }
+tonic-build = "0.12"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["serde", "v4"] }

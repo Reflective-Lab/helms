@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package prio.conversations.v1;
+
+import "google/protobuf/timestamp.proto";
+import "prio/common/v1/common.proto";
+
+service ConversationsService {
+  rpc AppendActivity(AppendActivityRequest) returns (prio.common.v1.Activity);
+  rpc RecordCommunication(RecordCommunicationRequest) returns (prio.common.v1.CommunicationEvent);
+  rpc StreamTimeline(StreamTimelineRequest) returns (stream prio.common.v1.TimelineEntry);
+}
+
+message AppendActivityRequest {
+  string subject = 1;
+  string details = 2;
+  repeated prio.common.v1.RecordRef related_to = 3;
+  prio.common.v1.ActivityOutcome outcome = 4;
+  optional google.protobuf.Timestamp occurred_at = 5;
+  optional google.protobuf.Timestamp next_action_due_at = 6;
+  optional prio.common.v1.Actor actor = 7;
+}
+
+message RecordCommunicationRequest {
+  prio.common.v1.CommunicationChannel channel = 1;
+  prio.common.v1.CommunicationDirection direction = 2;
+  optional string subject = 3;
+  string summary = 4;
+  string counterpart = 5;
+  repeated prio.common.v1.RecordRef related_to = 6;
+  optional google.protobuf.Timestamp occurred_at = 7;
+  optional prio.common.v1.Actor actor = 8;
+}
+
+message StreamTimelineRequest {
+  repeated prio.common.v1.RecordRef anchors = 1;
+  uint32 limit = 2;
+}
+

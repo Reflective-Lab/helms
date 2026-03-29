@@ -1,0 +1,29 @@
+[package]
+name = "prio-modules"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+prio-agent-ops = { path = "../prio-agent-ops" }
+prio-approvals = { path = "../prio-approvals" }
+prio-audit = { path = "../prio-audit" }
+prio-catalog = { path = "../prio-catalog" }
+prio-conversations = { path = "../prio-conversations" }
+prio-documents = { path = "../prio-documents" }
+prio-entitlements = { path = "../prio-entitlements" }
+prio-facts = { path = "../prio-facts" }
+prio-identity = { path = "../prio-identity" }
+prio-intents = { path = "../prio-intents" }
+prio-ledger = { path = "../prio-ledger" }
+prio-memory = { path = "../prio-memory" }
+prio-metering = { path = "../prio-metering" }
+prio-module-core = { path = "../prio-module-core" }
+prio-opportunities = { path = "../prio-opportunities" }
+prio-parties = { path = "../prio-parties" }
+prio-payments = { path = "../prio-payments" }
+prio-policies = { path = "../prio-policies" }
+prio-subscriptions = { path = "../prio-subscriptions" }
+prio-tasks = { path = "../prio-tasks" }
+prio-workflow = { path = "../prio-workflow" }

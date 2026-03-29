@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package prio.identity.v1;
+
+import "prio/common/v1/common.proto";
+
+service IdentityService {
+  rpc GrantPermission(GrantPermissionRequest) returns (prio.common.v1.PermissionGrant);
+  rpc ListPermissions(ListPermissionsRequest) returns (ListPermissionsResponse);
+}
+
+message GrantPermissionRequest {
+  string subject = 1;
+  string role = 2;
+  string scope = 3;
+  optional prio.common.v1.Actor actor = 4;
+}
+
+message ListPermissionsRequest {
+  optional string scope = 1;
+}
+
+message ListPermissionsResponse {
+  repeated prio.common.v1.PermissionGrant permissions = 1;
+}
+

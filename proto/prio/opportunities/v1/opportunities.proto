@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package prio.opportunities.v1;
+
+import "google/protobuf/timestamp.proto";
+import "prio/common/v1/common.proto";
+
+service OpportunitiesService {
+  rpc CreateOpportunity(CreateOpportunityRequest) returns (prio.common.v1.Opportunity);
+  rpc AdvanceOpportunityStage(AdvanceOpportunityStageRequest) returns (prio.common.v1.Opportunity);
+  rpc ListOpportunities(ListOpportunitiesRequest) returns (ListOpportunitiesResponse);
+}
+
+message CreateOpportunityRequest {
+  string organization_id = 1;
+  optional string primary_contact_id = 2;
+  string name = 3;
+  prio.common.v1.Money value = 4;
+  uint32 confidence_bps = 5;
+  optional string next_step = 6;
+  optional google.protobuf.Timestamp expected_close_at = 7;
+  optional prio.common.v1.Actor actor = 8;
+}
+
+message AdvanceOpportunityStageRequest {
+  string opportunity_id = 1;
+  prio.common.v1.OpportunityStage stage = 2;
+  optional string next_step = 3;
+  optional prio.common.v1.Actor actor = 4;
+}
+
+message ListOpportunitiesRequest {
+  optional string organization_id = 1;
+}
+
+message ListOpportunitiesResponse {
+  repeated prio.common.v1.Opportunity opportunities = 1;
+}
+

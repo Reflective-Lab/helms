@@ -1,0 +1,12 @@
+[package]
+name = "prio-truths"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+converge-core = { path = "../../../converge.zone/crates/core" }
+prio-module-core = { path = "../prio-module-core" }
+prio-modules = { path = "../prio-modules" }
+serde.workspace = true

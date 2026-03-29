@@ -1,0 +1,127 @@
+version: 1
+strategy: "capability-modules"
+notes:
+  - "The current crm-kernel remains integrated while these boundaries are extracted."
+  - "Each module owns gRPC, OpenAPI, and GraphQL naming from day one."
+  - "Truths sit above the modules and are exposed separately through prio.truths.v1."
+modules:
+  - key: catalog
+    suite: commercial-core
+    crate: prio-catalog
+    grpc: { package: prio.catalog.v1, service: CatalogService }
+    openapi: { tag: Catalog, base_path: /v1/catalog }
+    graphql: { query: CatalogQuery, mutation: CatalogMutation }
+  - key: identity
+    suite: foundation
+    crate: prio-identity
+    grpc: { package: prio.identity.v1, service: IdentityService }
+    openapi: { tag: Identity, base_path: /v1/identity }
+    graphql: { query: IdentityQuery, mutation: IdentityMutation }
+  - key: parties
+    suite: relationship-core
+    crate: prio-parties
+    grpc: { package: prio.parties.v1, service: PartiesService }
+    openapi: { tag: Parties, base_path: /v1/parties }
+    graphql: { query: PartiesQuery, mutation: PartiesMutation }
+  - key: conversations
+    suite: work-core
+    crate: prio-conversations
+    grpc: { package: prio.conversations.v1, service: ConversationsService }
+    openapi: { tag: Conversations, base_path: /v1/conversations }
+    graphql: { query: ConversationsQuery, mutation: ConversationsMutation }
+  - key: opportunities
+    suite: commercial-core
+    crate: prio-opportunities
+    grpc: { package: prio.opportunities.v1, service: OpportunitiesService }
+    openapi: { tag: Opportunities, base_path: /v1/opportunities }
+    graphql: { query: OpportunitiesQuery, mutation: OpportunitiesMutation }
+  - key: tasks
+    suite: work-core
+    crate: prio-tasks
+    grpc: { package: prio.tasks.v1, service: TasksService }
+    openapi: { tag: Tasks, base_path: /v1/tasks }
+    graphql: { query: TasksQuery, mutation: TasksMutation }
+  - key: documents
+    suite: work-core
+    crate: prio-documents
+    grpc: { package: prio.documents.v1, service: DocumentsService }
+    openapi: { tag: Documents, base_path: /v1/documents }
+    graphql: { query: DocumentsQuery, mutation: DocumentsMutation }
+  - key: subscriptions
+    suite: commercial-core
+    crate: prio-subscriptions
+    grpc: { package: prio.subscriptions.v1, service: SubscriptionsService }
+    openapi: { tag: Subscriptions, base_path: /v1/subscriptions }
+    graphql: { query: SubscriptionsQuery, mutation: SubscriptionsMutation }
+  - key: metering
+    suite: usage-revenue-core
+    crate: prio-metering
+    grpc: { package: prio.metering.v1, service: MeteringService }
+    openapi: { tag: Metering, base_path: /v1/metering }
+    graphql: { query: MeteringQuery, mutation: MeteringMutation }
+  - key: ledger
+    suite: usage-revenue-core
+    crate: prio-ledger
+    grpc: { package: prio.ledger.v1, service: LedgerService }
+    openapi: { tag: Ledger, base_path: /v1/ledger }
+    graphql: { query: LedgerQuery, mutation: LedgerMutation }
+  - key: entitlements
+    suite: usage-revenue-core
+    crate: prio-entitlements
+    grpc: { package: prio.entitlements.v1, service: EntitlementsService }
+    openapi: { tag: Entitlements, base_path: /v1/entitlements }
+    graphql: { query: EntitlementsQuery, mutation: EntitlementsMutation }
+  - key: payments
+    suite: usage-revenue-core
+    crate: prio-payments
+    grpc: { package: prio.payments.v1, service: PaymentsService }
+    openapi: { tag: Payments, base_path: /v1/payments }
+    graphql: { query: PaymentsQuery, mutation: PaymentsMutation }
+  - key: workflow
+    suite: work-core
+    crate: prio-workflow
+    grpc: { package: prio.workflow.v1, service: WorkflowService }
+    openapi: { tag: Workflow, base_path: /v1/workflow }
+    graphql: { query: WorkflowQuery, mutation: WorkflowMutation }
+  - key: approvals
+    suite: trust-core
+    crate: prio-approvals
+    grpc: { package: prio.approvals.v1, service: ApprovalsService }
+    openapi: { tag: Approvals, base_path: /v1/approvals }
+    graphql: { query: ApprovalsQuery, mutation: ApprovalsMutation }
+  - key: policies
+    suite: trust-core
+    crate: prio-policies
+    grpc: { package: prio.policies.v1, service: PoliciesService }
+    openapi: { tag: Policies, base_path: /v1/policies }
+    graphql: { query: PoliciesQuery, mutation: PoliciesMutation }
+  - key: facts
+    suite: trust-core
+    crate: prio-facts
+    grpc: { package: prio.facts.v1, service: FactsService }
+    openapi: { tag: Facts, base_path: /v1/facts }
+    graphql: { query: FactsQuery, mutation: FactsMutation }
+  - key: audit
+    suite: trust-core
+    crate: prio-audit
+    grpc: { package: prio.audit.v1, service: AuditService }
+    openapi: { tag: Audit, base_path: /v1/audit }
+    graphql: { query: AuditQuery, mutation: AuditMutation }
+  - key: intents
+    suite: intelligence-core
+    crate: prio-intents
+    grpc: { package: prio.intents.v1, service: IntentsService }
+    openapi: { tag: Intents, base_path: /v1/intents }
+    graphql: { query: IntentsQuery, mutation: IntentsMutation }
+  - key: memory
+    suite: intelligence-core
+    crate: prio-memory
+    grpc: { package: prio.memory.v1, service: MemoryService }
+    openapi: { tag: Memory, base_path: /v1/memory }
+    graphql: { query: MemoryQuery, mutation: MemoryMutation }
+  - key: agent-ops
+    suite: intelligence-core
+    crate: prio-agent-ops
+    grpc: { package: prio.agentops.v1, service: AgentOpsService }
+    openapi: { tag: AgentOps, base_path: /v1/agent-ops }
+    graphql: { query: AgentOpsQuery, mutation: AgentOpsMutation }

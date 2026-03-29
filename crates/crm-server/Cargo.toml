@@ -1,0 +1,33 @@
+[package]
+name = "crm-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "crm-server"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+chrono.workspace = true
+crm-kernel = { path = "../crm-kernel" }
+crm-storage = { path = "../crm-storage" }
+prost.workspace = true
+prost-types.workspace = true
+prio-module-core = { path = "../prio-module-core" }
+prio-modules = { path = "../prio-modules" }
+prio-truths = { path = "../prio-truths" }
+serde.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+tonic.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+
+[build-dependencies]
+tonic-build.workspace = true
