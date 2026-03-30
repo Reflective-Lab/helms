@@ -84,3 +84,24 @@ This is not just a CRM with analytics bolted on. It is:
 - telemetry substrate for behavioral signals
 - Converge runtime surface for governed agent action
 - optimization and analytics hooks for prioritization and policy-safe automation
+
+## Phase 1 Billing Bridge
+
+The first live business integration path should be:
+
+`converge-runtime billing webhook -> normalized billing event -> crm-server billing ingress -> ExecuteTruth -> CRM projection`
+
+Current CRM-side boundary:
+
+- `POST /v1/integrations/billing/events`
+- bearer auth via `CRM_BILLING_INGRESS_TOKEN`
+- idempotent delivery keyed by explicit `idempotency_key` or `source:truth:event_id`
+
+Normalized event map:
+
+- `prepaid_top_up_settled` -> `refill-prepaid-ai-credits`
+- `subscription_activation_requested` -> `activate-subscription`
+- `subscription_payment_failed` -> `suspend-service-on-payment-failure`
+- `ledger_reconciliation_requested` -> `reconcile-model-usage-against-customer-ledger`
+
+This keeps provider-specific webhook parsing in runtime adapters while CRM stays responsible for business-state mutation, approvals, and honest stopping.

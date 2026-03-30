@@ -8,11 +8,12 @@ use converge_analytics::engine::FeatureVector;
 use converge_analytics::model::{ModelConfig, run_batch_inference};
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
-    ProposedFact, TypesRunHooks,
+    ProposedFact,
 };
 use crm_kernel::{
     Actor as CrmActor, FactRecord, OrganizationLifecycle, OrganizationUpsert, RecordKind, RecordRef,
 };
+use uuid::Uuid;
 use crm_storage::{KernelStore, StoreWriteResult};
 use prio_truths::{ScoreInboundFitEvaluator, converge_binding_for_truth};
 use serde::{Deserialize, Serialize};
@@ -20,9 +21,9 @@ use tempfile::Builder;
 use tonic::Status;
 
 use super::{
-    RecordingObserver, TruthExecutionArtifacts, TruthProjection,
+    TruthExecutionArtifacts, TruthProjection,
     common::{has_fact_id, optional_input, optional_uuid, payload_from_result, required_input},
-    domain_event_kind_name, status_from_converge, status_from_storage,
+    domain_event_kind_name, status_from_storage,
 };
 
 const REVENUE_PACK_ID: &str = "prio-revenue-pack";
@@ -66,17 +67,43 @@ struct FitScorePayload {
     rationale: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct ScoreInboundFitInput {
+    pub organization_name: String,
+    pub visitor_id: String,
+    pub usage_events_json: String,
+    pub organization_id: Option<Uuid>,
+    pub organization_external_key: Option<String>,
+    pub website: Option<String>,
+    pub industry: Option<String>,
+}
+
+impl ScoreInboundFitInput {
+    pub fn from_map(inputs: &HashMap<String, String>) -> Result<Self, Status> {
+        Ok(Self {
+            organization_name: required_input(inputs, "organization_name")?.to_string(),
+            visitor_id: required_input(inputs, "visitor_id")?.to_string(),
+            usage_events_json: required_input(inputs, "usage_events_json")?.to_string(),
+            organization_id: optional_uuid(inputs, "organization_id")?,
+            organization_external_key: optional_input(inputs, "organization_external_key"),
+            website: optional_input(inputs, "website"),
+            industry: optional_input(inputs, "industry"),
+        })
+    }
+}
+
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    inputs: HashMap<String, String>,
+    runtime_stores: &crm_storage::AppRuntimeStores,
+    inputs: ScoreInboundFitInput,
     actor: CrmActor,
     persist_projection: bool,
 ) -> Result<TruthExecutionArtifacts, Status> {
     let binding = converge_binding_for_truth("score-inbound-fit")
         .ok_or_else(|| Status::not_found("truth not found: score-inbound-fit"))?;
 
-    let organization_name = required_input(&inputs, "organization_name")?.to_string();
-    let visitor_id = required_input(&inputs, "visitor_id")?.to_string();
+    let organization_name = inputs.organization_name.clone();
+    let visitor_id = inputs.visitor_id.clone();
     let usage_events = usage_events_from_inputs(&inputs)?;
 
     let mut engine = Engine::new();
@@ -89,17 +116,14 @@ pub(super) fn execute<S: KernelStore>(
     );
     engine.register_in_pack(COMMERCIAL_PACK_ID, FitScoringAgent);
 
-    let observer = std::sync::Arc::new(RecordingObserver::default());
-    let result = engine
-        .run_with_types_intent_and_hooks(
-            seed_context(&organization_name)?,
-            &binding.intent,
-            TypesRunHooks {
-                criterion_evaluator: Some(std::sync::Arc::new(ScoreInboundFitEvaluator)),
-                event_observer: Some(observer.clone()),
-            },
-        )
-        .map_err(status_from_converge)?;
+    let (result, experience_events) = super::run_engine_with_runtime(
+        runtime_stores,
+        &mut engine,
+        &super::RuntimeContext { scope_id: inputs.organization_id.map(|id| id.to_string()).unwrap_or_else(|| "inbound".to_string()) },
+        seed_context(&organization_name)?,
+        &binding.intent,
+        std::sync::Arc::new(ScoreInboundFitEvaluator),
+    )?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -109,22 +133,22 @@ pub(super) fn execute<S: KernelStore>(
 
     Ok(TruthExecutionArtifacts {
         result,
-        experience_events: observer.snapshot(),
+        experience_events,
         projection,
     })
 }
 
 fn project<S: KernelStore>(
     store: &S,
-    inputs: &HashMap<String, String>,
+    inputs: &ScoreInboundFitInput,
     result: &ConvergeResult,
     actor: CrmActor,
 ) -> Result<TruthProjection, Status> {
-    let organization_name = required_input(inputs, "organization_name")?.to_string();
-    let organization_id = optional_uuid(inputs, "organization_id")?;
-    let organization_external_key = optional_input(inputs, "organization_external_key");
-    let website = optional_input(inputs, "website");
-    let industry = optional_input(inputs, "industry");
+    let organization_name = inputs.organization_name.clone();
+    let organization_id = inputs.organization_id;
+    let organization_external_key = inputs.organization_external_key.clone();
+    let website = inputs.website.clone();
+    let industry = inputs.industry.clone();
     let fit_score = fit_score_payload_from_result(result)?;
     let evidence = fit_evidence_payload_from_result(result)?;
 
@@ -340,11 +364,8 @@ fn seed_context(organization_name: &str) -> Result<Context, Status> {
     Ok(context)
 }
 
-fn usage_events_from_inputs(
-    inputs: &HashMap<String, String>,
-) -> Result<Vec<UsageEventSeed>, Status> {
-    let usage_events = required_input(inputs, "usage_events_json")?;
-    let events = serde_json::from_str::<Vec<UsageEventSeed>>(usage_events)
+fn usage_events_from_inputs(inputs: &ScoreInboundFitInput) -> Result<Vec<UsageEventSeed>, Status> {
+    let events = serde_json::from_str::<Vec<UsageEventSeed>>(&inputs.usage_events_json)
         .map_err(|error| Status::invalid_argument(format!("invalid usage_events_json: {error}")))?;
     if events.is_empty() {
         return Err(Status::invalid_argument(
@@ -473,37 +494,45 @@ mod tests {
     #[test]
     fn score_inbound_fit_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
-        let actor = Actor::system();
-        let inputs = HashMap::from([
-            ("organization_name".to_string(), "Aprio Labs".to_string()),
-            ("visitor_id".to_string(), "visitor-123".to_string()),
-            (
-                "usage_events_json".to_string(),
-                serde_json::json!([
-                    {
-                        "visitor_id": "visitor-123",
-                        "timestamp": 1_710_000_000_i64,
-                        "event_type": "page_view",
-                        "page": "/pricing"
-                    },
-                    {
-                        "visitor_id": "visitor-123",
-                        "timestamp": 1_710_000_120_i64,
-                        "event_type": "page_view",
-                        "page": "/case-studies"
-                    },
-                    {
-                        "visitor_id": "visitor-123",
-                        "timestamp": 1_710_086_400_i64,
-                        "event_type": "page_view",
-                        "page": "/contact"
-                    }
-                ])
-                .to_string(),
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
             ),
-        ]);
+        };
+        let actor = Actor::system();
+        let inputs = ScoreInboundFitInput {
+            organization_name: "Aprio Labs".to_string(),
+            visitor_id: "visitor-123".to_string(),
+            usage_events_json: serde_json::json!([
+                {
+                    "visitor_id": "visitor-123",
+                    "timestamp": 1_710_000_000_i64,
+                    "event_type": "page_view",
+                    "page": "/pricing"
+                },
+                {
+                    "visitor_id": "visitor-123",
+                    "timestamp": 1_710_000_120_i64,
+                    "event_type": "page_view",
+                    "page": "/case-studies"
+                },
+                {
+                    "visitor_id": "visitor-123",
+                    "timestamp": 1_710_086_400_i64,
+                    "event_type": "page_view",
+                    "page": "/contact"
+                }
+            ])
+            .to_string(),
+            organization_id: None,
+            organization_external_key: None,
+            website: None,
+            industry: None,
+        };
 
-        let execution = execute(&store, inputs, actor, true).expect("truth should execute");
+        let execution =
+            execute(&store, &runtime_stores, inputs, actor, true).expect("truth should execute");
         assert!(execution.result.converged);
         assert!(
             execution

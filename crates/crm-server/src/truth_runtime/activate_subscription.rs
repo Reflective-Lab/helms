@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
-    ProposedFact, TypesRunHooks,
+    ProposedFact,
 };
 use crm_kernel::{
     Actor as CrmActor, BillingPeriod, CatalogItem, CatalogPlanKind, FactRecord, Money,
@@ -16,12 +16,12 @@ use tonic::Status;
 use uuid::Uuid;
 
 use super::{
-    RecordingObserver, TruthExecutionArtifacts, TruthProjection,
+    TruthExecutionArtifacts, TruthProjection,
     common::{
         has_fact_id, optional_bool, optional_i64, optional_input, optional_uuid,
         payload_from_result, required_uuid,
     },
-    domain_event_kind_name, status_from_converge, status_from_storage,
+    domain_event_kind_name, status_from_storage,
 };
 
 const COMMERCIAL_PACK_ID: &str = "prio-commercial-pack";
@@ -98,9 +98,37 @@ struct ManualReviewAgent {
     reason: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct ActivateSubscriptionInput {
+    pub subscription_id: Uuid,
+    pub catalog_item_id: Option<Uuid>,
+    pub opening_balance_minor: Option<i64>,
+    pub opening_balance_currency_code: Option<String>,
+    pub force_manual_review: Option<bool>,
+    pub manual_review_reason: Option<String>,
+    pub owner_user_id: Option<String>,
+    pub workflow_title: Option<String>,
+}
+
+impl ActivateSubscriptionInput {
+    pub fn from_map(inputs: &HashMap<String, String>) -> Result<Self, Status> {
+        Ok(Self {
+            subscription_id: required_uuid(inputs, "subscription_id")?,
+            catalog_item_id: optional_uuid(inputs, "catalog_item_id")?,
+            opening_balance_minor: optional_i64(inputs, "opening_balance_minor"),
+            opening_balance_currency_code: optional_input(inputs, "opening_balance_currency_code"),
+            force_manual_review: optional_bool(inputs, "force_manual_review"),
+            manual_review_reason: optional_input(inputs, "manual_review_reason"),
+            owner_user_id: optional_input(inputs, "owner_user_id"),
+            workflow_title: optional_input(inputs, "workflow_title"),
+        })
+    }
+}
+
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    inputs: HashMap<String, String>,
+    runtime_stores: &crm_storage::AppRuntimeStores,
+    inputs: ActivateSubscriptionInput,
     actor: CrmActor,
     persist_projection: bool,
 ) -> Result<TruthExecutionArtifacts, Status> {
@@ -135,17 +163,14 @@ pub(super) fn execute<S: KernelStore>(
         engine.register_in_pack(WORK_PACK_ID, ManualReviewAgent { reason });
     }
 
-    let observer = std::sync::Arc::new(RecordingObserver::default());
-    let result = engine
-        .run_with_types_intent_and_hooks(
-            seed_context(seed.subscription.id)?,
-            &binding.intent,
-            TypesRunHooks {
-                criterion_evaluator: Some(std::sync::Arc::new(ActivateSubscriptionEvaluator)),
-                event_observer: Some(observer.clone()),
-            },
-        )
-        .map_err(status_from_converge)?;
+    let (result, experience_events) = super::run_engine_with_runtime(
+        runtime_stores,
+        &mut engine,
+        &super::RuntimeContext { scope_id: inputs.subscription_id.to_string() },
+        seed_context(seed.subscription.id)?,
+        &binding.intent,
+        std::sync::Arc::new(ActivateSubscriptionEvaluator),
+    )?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -155,33 +180,30 @@ pub(super) fn execute<S: KernelStore>(
 
     Ok(TruthExecutionArtifacts {
         result,
-        experience_events: observer.snapshot(),
+        experience_events,
         projection,
     })
 }
 
 fn load_activation_seed<S: KernelStore>(
     store: &S,
-    inputs: &HashMap<String, String>,
+    inputs: &ActivateSubscriptionInput,
 ) -> Result<ActivationSeed, Status> {
-    let subscription_id = required_uuid(inputs, "subscription_id")?;
-    let requested_catalog_item_id = optional_uuid(inputs, "catalog_item_id")?;
-    let explicit_opening_balance = optional_i64(inputs, "opening_balance_minor");
-    let requested_currency = optional_input(inputs, "opening_balance_currency_code");
-    let manual_review_requested = optional_bool(inputs, "force_manual_review").unwrap_or(false);
-    let manual_review_reason = optional_input(inputs, "manual_review_reason");
-
     store
         .read(|kernel| {
             let subscription = kernel
                 .orders
-                .get(&subscription_id)
+                .get(&inputs.subscription_id)
                 .cloned()
                 .ok_or_else(|| {
-                    Status::not_found(format!("subscription not found: {subscription_id}"))
+                    Status::not_found(format!(
+                        "subscription not found: {}",
+                        inputs.subscription_id
+                    ))
                 })?;
 
-            let catalog_item_id = requested_catalog_item_id
+            let catalog_item_id = inputs
+                .catalog_item_id
                 .or(subscription.catalog_item_id)
                 .ok_or_else(|| {
                     Status::failed_precondition(
@@ -197,18 +219,22 @@ fn load_activation_seed<S: KernelStore>(
                 })?;
 
             let inferred_review_reason = infer_manual_review_reason(&catalog_item);
-            let review_reason = if manual_review_requested {
+            let review_reason = if inputs.force_manual_review.unwrap_or(false) {
                 Some(
-                    manual_review_reason
+                    inputs
+                        .manual_review_reason
+                        .clone()
                         .unwrap_or_else(|| "manual review requested by operator".to_string()),
                 )
             } else {
                 inferred_review_reason
             };
             let opening_balance = Money {
-                currency_code: requested_currency
+                currency_code: inputs
+                    .opening_balance_currency_code
+                    .clone()
                     .unwrap_or_else(|| subscription.value.currency_code.clone()),
-                amount_minor: explicit_opening_balance.unwrap_or(0),
+                amount_minor: inputs.opening_balance_minor.unwrap_or(0),
             };
 
             Ok(ActivationSeed {
@@ -223,7 +249,7 @@ fn load_activation_seed<S: KernelStore>(
 
 fn project<S: KernelStore>(
     store: &S,
-    inputs: &HashMap<String, String>,
+    inputs: &ActivateSubscriptionInput,
     result: &ConvergeResult,
     actor: CrmActor,
 ) -> Result<TruthProjection, Status> {
@@ -233,8 +259,8 @@ fn project<S: KernelStore>(
     let manual_review = manual_review_from_result(result)?;
 
     if let Some(review) = manual_review {
-        let owner_user_id = optional_input(inputs, "owner_user_id");
-        let title = optional_input(inputs, "workflow_title").unwrap_or_else(|| {
+        let owner_user_id = inputs.owner_user_id.clone();
+        let title = inputs.workflow_title.clone().unwrap_or_else(|| {
             format!(
                 "Manual review: activate subscription {}",
                 activation.catalog_sku
@@ -588,6 +614,12 @@ mod tests {
     #[test]
     fn activate_subscription_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
         let actor = Actor::system();
         let (subscription_id, catalog_item_id) = store
             .write(|kernel| {
@@ -649,11 +681,17 @@ mod tests {
 
         let execution = execute(
             &store,
-            HashMap::from([
-                ("subscription_id".to_string(), subscription_id.to_string()),
-                ("catalog_item_id".to_string(), catalog_item_id.to_string()),
-                ("opening_balance_minor".to_string(), "0".to_string()),
-            ]),
+            &runtime_stores,
+            ActivateSubscriptionInput {
+                subscription_id,
+                catalog_item_id: Some(catalog_item_id),
+                opening_balance_minor: Some(0),
+                opening_balance_currency_code: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+                owner_user_id: None,
+                workflow_title: None,
+            },
             actor,
             true,
         )
@@ -679,6 +717,12 @@ mod tests {
     #[test]
     fn activate_subscription_blocks_for_manual_review_plan() {
         let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
         let actor = Actor::system();
         let (subscription_id, catalog_item_id) = store
             .write(|kernel| {
@@ -740,10 +784,17 @@ mod tests {
 
         let execution = execute(
             &store,
-            HashMap::from([
-                ("subscription_id".to_string(), subscription_id.to_string()),
-                ("catalog_item_id".to_string(), catalog_item_id.to_string()),
-            ]),
+            &runtime_stores,
+            ActivateSubscriptionInput {
+                subscription_id,
+                catalog_item_id: Some(catalog_item_id),
+                opening_balance_minor: None,
+                opening_balance_currency_code: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+                owner_user_id: None,
+                workflow_title: None,
+            },
             actor,
             true,
         )
@@ -773,5 +824,161 @@ mod tests {
             projection.workflow_cases[0].state,
             WorkflowState::AwaitingApproval
         ));
+    }
+
+    #[test]
+    fn activate_subscription_missing_subscription_id_returns_error() {
+        let _store = InMemoryKernelStore::default_local();
+        let _runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
+        let _actor = Actor::system();
+
+        let result = ActivateSubscriptionInput::from_map(&HashMap::new());
+        assert!(result.is_err());
+        let status = result.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    }
+
+    #[test]
+    fn activate_subscription_with_nonexistent_subscription_returns_error() {
+        let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
+        let actor = Actor::system();
+        let bogus_subscription_id = Uuid::new_v4();
+
+        let result = execute(
+            &store,
+            &runtime_stores,
+            ActivateSubscriptionInput {
+                subscription_id: bogus_subscription_id,
+                catalog_item_id: None,
+                opening_balance_minor: None,
+                opening_balance_currency_code: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+                owner_user_id: None,
+                workflow_title: None,
+            },
+            actor,
+            true,
+        );
+
+        assert!(result.is_err());
+        let status = result.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::NotFound);
+    }
+
+    #[test]
+    fn activate_without_persist_produces_no_side_effects() {
+        let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
+        let actor = Actor::system();
+        let (subscription_id, catalog_item_id) = store
+            .write(|kernel| {
+                let organization = kernel.upsert_organization(
+                    OrganizationUpsert {
+                        organization_id: None,
+                        name: "No Persist Test".to_string(),
+                        external_key: None,
+                        website: None,
+                        industry: None,
+                        lifecycle: OrganizationLifecycle::Active,
+                        owner_user_id: None,
+                        tags: vec!["revenue".to_string()],
+                    },
+                    actor.clone(),
+                )?;
+                let catalog_item = kernel.upsert_catalog_item(
+                    CatalogItemUpsert {
+                        catalog_item_id: None,
+                        sku: "prio-starter".to_string(),
+                        name: "Prio Starter".to_string(),
+                        description: Some("Starter plan".to_string()),
+                        plan_kind: CatalogPlanKind::Subscription,
+                        pricing: Some(crm_kernel::PricingMetadata {
+                            billing_period: BillingPeriod::Monthly,
+                            list_price: Money {
+                                currency_code: "USD".to_string(),
+                                amount_minor: 5_000_00,
+                            },
+                            meter_name: Some("starter-seat".to_string()),
+                        }),
+                        entitlement_template: EntitlementTemplate {
+                            feature_flags: vec!["workspace_access".to_string()],
+                            quotas: BTreeMap::from([("seats".to_string(), 10)]),
+                            credit_balance_minor: Some(50_000),
+                        },
+                        active: true,
+                    },
+                    actor.clone(),
+                )?;
+                let subscription = kernel.create_order_subscription(
+                    SubscriptionCreate {
+                        subscription_id: None,
+                        organization_id: organization.id,
+                        quote_id: None,
+                        catalog_item_id: Some(catalog_item.id),
+                        status: SubscriptionStatus::PendingActivation,
+                        value: Money {
+                            currency_code: "USD".to_string(),
+                            amount_minor: 5_000_00,
+                        },
+                        started_at: None,
+                    },
+                    actor.clone(),
+                )?;
+                Ok((subscription.id, catalog_item.id))
+            })
+            .expect("seed data");
+
+        let execution = execute(
+            &store,
+            &runtime_stores,
+            ActivateSubscriptionInput {
+                subscription_id,
+                catalog_item_id: Some(catalog_item_id),
+                opening_balance_minor: Some(0),
+                opening_balance_currency_code: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+                owner_user_id: None,
+                workflow_title: None,
+            },
+            actor,
+            false,
+        )
+        .expect("truth should execute");
+
+        assert!(matches!(
+            execution.result.stop_reason,
+            StopReason::CriteriaMet { .. }
+        ));
+        assert!(execution.projection.is_none());
+
+        let subscription_status = store
+            .read(|kernel| {
+                kernel
+                    .orders
+                    .get(&subscription_id)
+                    .expect("subscription should exist")
+                    .status
+            })
+            .expect("read subscription status");
+
+        assert_eq!(subscription_status, SubscriptionStatus::PendingActivation);
     }
 }

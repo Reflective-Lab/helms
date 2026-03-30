@@ -4,6 +4,20 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+// Key type aliases. These are `Uuid` today but can become newtype structs
+// (e.g., `pub struct OrganizationId(Uuid)`) when the codebase is ready to
+// enforce type-safe ID boundaries across crates.
+pub type OrganizationId = Uuid;
+pub type PersonId = Uuid;
+pub type OpportunityId = Uuid;
+pub type SubscriptionId = Uuid;
+pub type CatalogItemId = Uuid;
+pub type EntitlementId = Uuid;
+pub type LedgerEntryId = Uuid;
+pub type WorkflowCaseId = Uuid;
+pub type FactId = Uuid;
+pub type DocumentId = Uuid;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ActorKind {
     Human,
@@ -30,6 +44,7 @@ impl Actor {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum RecordKind {
     Organization,
     Person,
@@ -81,6 +96,7 @@ pub enum BillingPeriod {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum SubscriptionStatus {
     Draft,
     PendingActivation,
@@ -103,6 +119,66 @@ pub enum EntitlementValue {
     Quota(i64),
     Credits(i64),
     Text(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LeadStatus {
+    New,
+    Contacted,
+    Qualifying,
+    Qualified,
+    Disqualified,
+    Converted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TaskStatus {
+    Open,
+    InProgress,
+    Blocked,
+    Done,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum QuoteStatus {
+    Draft,
+    Sent,
+    Accepted,
+    Rejected,
+    Expired,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum JobState {
+    Pending,
+    Running,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AgentRunStatus {
+    Pending,
+    Running,
+    Completed,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum WorkflowRunStatus {
+    Pending,
+    Running,
+    Completed,
+    Failed,
+    Cancelled,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -130,6 +206,7 @@ pub enum RelationshipType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum OrganizationLifecycle {
     Prospect,
     Active,
@@ -138,6 +215,7 @@ pub enum OrganizationLifecycle {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum OpportunityStage {
     Qualifying,
     Discovery,
@@ -185,6 +263,7 @@ pub enum CommunicationDirection {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum WorkflowState {
     Open,
     AwaitingApproval,
@@ -201,6 +280,7 @@ impl WorkflowState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum WorkflowPriority {
     Low,
     Medium,
@@ -209,6 +289,7 @@ pub enum WorkflowPriority {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum TimelineEntryKind {
     Activity,
     Note,
@@ -256,6 +337,7 @@ pub enum ViewLayout {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum ApprovalStatus {
     Pending,
     Approved,
@@ -305,7 +387,7 @@ pub struct Lead {
     pub organization_id: Option<Uuid>,
     pub contact_id: Option<Uuid>,
     pub source: Option<String>,
-    pub status: String,
+    pub status: LeadStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -349,7 +431,7 @@ pub struct Activity {
 pub struct Task {
     pub id: Uuid,
     pub title: String,
-    pub status: String,
+    pub status: TaskStatus,
     pub owner_user_id: Option<String>,
     pub related_to: Vec<RecordRef>,
     pub due_at: Option<DateTime<Utc>>,
@@ -371,7 +453,7 @@ pub struct OfferQuote {
     pub id: Uuid,
     pub opportunity_id: Uuid,
     pub title: String,
-    pub status: String,
+    pub status: QuoteStatus,
     pub total: Money,
     pub created_at: DateTime<Utc>,
 }
@@ -488,6 +570,7 @@ pub struct LedgerEntry {
     pub kind: LedgerEntryKind,
     pub amount: Money,
     pub description: String,
+    pub external_reference: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -570,7 +653,7 @@ pub struct Role {
 pub struct Job {
     pub id: Uuid,
     pub title: String,
-    pub state: String,
+    pub state: JobState,
     pub intent_id: Option<Uuid>,
     pub workflow_case_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
@@ -601,7 +684,7 @@ pub struct Approval {
 pub struct AgentRun {
     pub id: Uuid,
     pub job_id: Uuid,
-    pub status: String,
+    pub status: AgentRunStatus,
     pub started_at: DateTime<Utc>,
     pub finished_at: Option<DateTime<Utc>>,
 }
@@ -631,7 +714,7 @@ pub struct WorkflowRun {
     pub id: Uuid,
     pub workflow_definition_id: Uuid,
     pub record: RecordRef,
-    pub status: String,
+    pub status: WorkflowRunStatus,
     pub started_at: DateTime<Utc>,
     pub finished_at: Option<DateTime<Utc>>,
 }

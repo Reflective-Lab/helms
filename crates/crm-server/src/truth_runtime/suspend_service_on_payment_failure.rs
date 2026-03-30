@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
-    ProposedFact, TypesRunHooks,
+    ProposedFact,
 };
 use converge_domain::packs::OverdueDetectorAgent;
 use crm_kernel::{
@@ -17,12 +17,12 @@ use tonic::Status;
 use uuid::Uuid;
 
 use super::{
-    RecordingObserver, TruthExecutionArtifacts, TruthProjection,
+    TruthExecutionArtifacts, TruthProjection,
     common::{
         has_fact_id, optional_bool, optional_i64, optional_input, payload_from_result,
         required_input, required_uuid,
     },
-    domain_event_kind_name, status_from_converge, status_from_storage,
+    domain_event_kind_name, status_from_storage,
 };
 
 const REVENUE_PACK_ID: &str = "prio-revenue-pack";
@@ -106,9 +106,35 @@ struct RecoveryPathAgent {
     seed: SuspensionSeed,
 }
 
+#[derive(Debug, Clone)]
+pub struct SuspendServiceOnPaymentFailureInput {
+    pub subscription_id: Uuid,
+    pub payment_status: String,
+    pub days_overdue: Option<i64>,
+    pub grace_days: Option<i64>,
+    pub force_manual_review: Option<bool>,
+    pub manual_review_reason: Option<String>,
+    pub strategic_account: Option<bool>,
+}
+
+impl SuspendServiceOnPaymentFailureInput {
+    pub fn from_map(inputs: &HashMap<String, String>) -> Result<Self, Status> {
+        Ok(Self {
+            subscription_id: required_uuid(inputs, "subscription_id")?,
+            payment_status: required_input(inputs, "payment_status")?.to_string(),
+            days_overdue: optional_i64(inputs, "days_overdue"),
+            grace_days: optional_i64(inputs, "grace_days"),
+            force_manual_review: optional_bool(inputs, "force_manual_review"),
+            manual_review_reason: optional_input(inputs, "manual_review_reason"),
+            strategic_account: optional_bool(inputs, "strategic_account"),
+        })
+    }
+}
+
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    inputs: HashMap<String, String>,
+    runtime_stores: &crm_storage::AppRuntimeStores,
+    inputs: SuspendServiceOnPaymentFailureInput,
     actor: CrmActor,
     persist_projection: bool,
 ) -> Result<TruthExecutionArtifacts, Status> {
@@ -126,19 +152,14 @@ pub(super) fn execute<S: KernelStore>(
     engine.register_in_pack(REVENUE_PACK_ID, EntitlementImpactAgent);
     engine.register_in_pack(WORK_PACK_ID, RecoveryPathAgent { seed: seed.clone() });
 
-    let observer = std::sync::Arc::new(RecordingObserver::default());
-    let result = engine
-        .run_with_types_intent_and_hooks(
-            seed_context(&seed)?,
-            &binding.intent,
-            TypesRunHooks {
-                criterion_evaluator: Some(std::sync::Arc::new(
-                    SuspendServiceOnPaymentFailureEvaluator,
-                )),
-                event_observer: Some(observer.clone()),
-            },
-        )
-        .map_err(status_from_converge)?;
+    let (result, experience_events) = super::run_engine_with_runtime(
+        runtime_stores,
+        &mut engine,
+        &super::RuntimeContext { scope_id: inputs.subscription_id.to_string() },
+        seed_context(&seed)?,
+        &binding.intent,
+        std::sync::Arc::new(SuspendServiceOnPaymentFailureEvaluator),
+    )?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -148,33 +169,30 @@ pub(super) fn execute<S: KernelStore>(
 
     Ok(TruthExecutionArtifacts {
         result,
-        experience_events: observer.snapshot(),
+        experience_events,
         projection,
     })
 }
 
 fn load_suspension_seed<S: KernelStore>(
     store: &S,
-    inputs: &HashMap<String, String>,
+    inputs: &SuspendServiceOnPaymentFailureInput,
 ) -> Result<SuspensionSeed, Status> {
-    let subscription_id = required_uuid(inputs, "subscription_id")?;
-    let payment_status = payment_failure_status(required_input(inputs, "payment_status")?)?;
-    let days_overdue = optional_i64(inputs, "days_overdue").unwrap_or(0).max(0);
-    let grace_days = optional_i64(inputs, "grace_days")
-        .unwrap_or(DEFAULT_GRACE_DAYS)
-        .max(0);
-    let force_manual_review = optional_bool(inputs, "force_manual_review").unwrap_or(false);
-    let manual_review_reason = optional_input(inputs, "manual_review_reason");
-    let strategic_override = optional_bool(inputs, "strategic_account");
+    let payment_status = payment_failure_status(&inputs.payment_status)?;
+    let days_overdue = inputs.days_overdue.unwrap_or(0).max(0);
+    let grace_days = inputs.grace_days.unwrap_or(DEFAULT_GRACE_DAYS).max(0);
 
     store
         .read(|kernel| {
             let subscription = kernel
                 .orders
-                .get(&subscription_id)
+                .get(&inputs.subscription_id)
                 .cloned()
                 .ok_or_else(|| {
-                    Status::not_found(format!("subscription not found: {subscription_id}"))
+                    Status::not_found(format!(
+                        "subscription not found: {}",
+                        inputs.subscription_id
+                    ))
                 })?;
             if subscription.status != crm_kernel::SubscriptionStatus::Active {
                 return Err(Status::failed_precondition(
@@ -192,7 +210,7 @@ fn load_suspension_seed<S: KernelStore>(
                     ))
                 })?;
 
-            let is_strategic = strategic_override.unwrap_or_else(|| {
+            let is_strategic = inputs.strategic_account.unwrap_or_else(|| {
                 organization.tags.iter().any(|tag| {
                     let tag = tag.trim().to_ascii_lowercase();
                     tag == "strategic" || tag == "vip"
@@ -200,18 +218,19 @@ fn load_suspension_seed<S: KernelStore>(
             });
             let should_suspend =
                 payment_status == PaymentFailureStatus::Failed || days_overdue > grace_days;
-            let policy_review_reason = if force_manual_review {
+            let policy_review_reason = if inputs.force_manual_review.unwrap_or(false) {
                 Some(
-                    manual_review_reason
+                    inputs
+                        .manual_review_reason
                         .clone()
                         .unwrap_or_else(|| "manual review requested by operator".to_string()),
                 )
             } else if should_suspend && is_strategic {
-                Some(manual_review_reason.clone().unwrap_or_else(|| {
+                Some(inputs.manual_review_reason.clone().unwrap_or_else(|| {
                     "strategic account suspension requires approval".to_string()
                 }))
             } else {
-                manual_review_reason.clone()
+                inputs.manual_review_reason.clone()
             };
 
             Ok(SuspensionSeed {
@@ -228,14 +247,14 @@ fn load_suspension_seed<S: KernelStore>(
 
 fn project<S: KernelStore>(
     store: &S,
-    inputs: &HashMap<String, String>,
+    inputs: &SuspendServiceOnPaymentFailureInput,
     result: &ConvergeResult,
     actor: CrmActor,
 ) -> Result<TruthProjection, Status> {
     let manual_review = manual_review_from_result(result)?;
 
     if let Some(review) = manual_review {
-        let subscription_id = required_uuid(inputs, "subscription_id")?;
+        let subscription_id = inputs.subscription_id;
         let StoreWriteResult { value, events } = store
             .write_with_events(|kernel| {
                 let subscription =
@@ -384,7 +403,7 @@ fn project<S: KernelStore>(
     }
 
     let deferred = suspension_deferred_from_result(result)?;
-    let subscription_id = required_uuid(inputs, "subscription_id")?;
+    let subscription_id = inputs.subscription_id;
     let StoreWriteResult { value, events } = store
         .write_with_events(|kernel| {
             let subscription = kernel
@@ -832,15 +851,27 @@ mod tests {
     #[test]
     fn suspend_service_on_payment_failure_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
         let actor = Actor::system();
         let subscription_id = seeded_active_subscription_for_suspension(&store, &actor, Vec::new());
 
         let execution = execute(
             &store,
-            HashMap::from([
-                ("subscription_id".to_string(), subscription_id.to_string()),
-                ("payment_status".to_string(), "failed".to_string()),
-            ]),
+            &runtime_stores,
+            SuspendServiceOnPaymentFailureInput {
+                subscription_id,
+                payment_status: "failed".to_string(),
+                days_overdue: None,
+                grace_days: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+                strategic_account: None,
+            },
             actor.clone(),
             true,
         )
@@ -900,17 +931,27 @@ mod tests {
     #[test]
     fn suspend_service_on_payment_failure_respects_grace_period() {
         let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
         let actor = Actor::system();
         let subscription_id = seeded_active_subscription_for_suspension(&store, &actor, Vec::new());
 
         let execution = execute(
             &store,
-            HashMap::from([
-                ("subscription_id".to_string(), subscription_id.to_string()),
-                ("payment_status".to_string(), "overdue".to_string()),
-                ("days_overdue".to_string(), "3".to_string()),
-                ("grace_days".to_string(), "7".to_string()),
-            ]),
+            &runtime_stores,
+            SuspendServiceOnPaymentFailureInput {
+                subscription_id,
+                payment_status: "overdue".to_string(),
+                days_overdue: Some(3),
+                grace_days: Some(7),
+                force_manual_review: None,
+                manual_review_reason: None,
+                strategic_account: None,
+            },
             actor,
             true,
         )
@@ -940,6 +981,12 @@ mod tests {
     #[test]
     fn suspend_service_on_payment_failure_blocks_for_strategic_accounts() {
         let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
         let actor = Actor::system();
         let subscription_id = seeded_active_subscription_for_suspension(
             &store,
@@ -949,10 +996,16 @@ mod tests {
 
         let execution = execute(
             &store,
-            HashMap::from([
-                ("subscription_id".to_string(), subscription_id.to_string()),
-                ("payment_status".to_string(), "failed".to_string()),
-            ]),
+            &runtime_stores,
+            SuspendServiceOnPaymentFailureInput {
+                subscription_id,
+                payment_status: "failed".to_string(),
+                days_overdue: None,
+                grace_days: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+                strategic_account: None,
+            },
             actor,
             true,
         )

@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::{KernelError, KernelResult};
@@ -239,7 +240,7 @@ pub struct ViewDefinitionUpsert {
     pub owner_user_id: Option<String>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CrmKernel {
     pub organizations: HashMap<Uuid, Organization>,
     pub people: HashMap<Uuid, Person>,
@@ -275,6 +276,7 @@ pub struct CrmKernel {
     pub workflow_runs: HashMap<Uuid, WorkflowRun>,
     pub audit_trail: Vec<AuditEntry>,
     pub timeline: Vec<TimelineEntry>,
+    #[serde(skip, default)]
     pub pending_events: Vec<DomainEvent>,
 }
 
@@ -1128,6 +1130,7 @@ impl CrmKernel {
                 .opening_balance
                 .unwrap_or_else(|| zero_money(&activated.value.currency_code)),
             description: format!("Opening balance for {}", catalog_item.sku),
+            external_reference: None,
             created_at: now,
         };
         validate_money(&opening_balance.amount)?;
@@ -1306,6 +1309,7 @@ impl CrmKernel {
                     command.effective_at.to_rfc3339()
                 )
             }),
+            external_reference: None,
             created_at: command.effective_at,
         };
         validate_money(&ledger_entry.amount)?;
@@ -1505,6 +1509,15 @@ impl CrmKernel {
             required("credit_grant.payment_reference", &command.payment_reference)?;
         let reason = optional_trimmed(command.reason);
 
+        if self.ledger_entries.values().any(|entry| {
+            entry.kind == LedgerEntryKind::CreditGrant
+                && entry.external_reference.as_deref() == Some(payment_reference.as_str())
+        }) {
+            return Err(KernelError::Conflict(format!(
+                "credit grant already exists for payment reference {payment_reference}"
+            )));
+        }
+
         let entitlement = self
             .entitlements
             .values()
@@ -1543,6 +1556,7 @@ impl CrmKernel {
             description: reason
                 .clone()
                 .unwrap_or_else(|| format!("Credit grant from payment {}", payment_reference)),
+            external_reference: Some(payment_reference.to_string()),
             created_at: Utc::now(),
         };
         self.ledger_entries
@@ -1633,6 +1647,74 @@ impl CrmKernel {
                 .then_with(|| left.id.cmp(&right.id))
         });
         entries
+    }
+
+    #[must_use]
+    pub fn list_subscriptions(&self, organization_id: Option<Uuid>) -> Vec<OrderSubscription> {
+        let mut items = self
+            .orders
+            .values()
+            .filter(|subscription| {
+                organization_id.map_or(true, |id| subscription.organization_id == id)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        items.sort_by(|left, right| {
+            right
+                .activated_at
+                .unwrap_or(right.started_at)
+                .cmp(&left.activated_at.unwrap_or(left.started_at))
+                .then_with(|| right.id.cmp(&left.id))
+        });
+        items
+    }
+
+    #[must_use]
+    pub fn list_catalog_items(&self, active_only: bool) -> Vec<CatalogItem> {
+        let mut items = self
+            .catalog_items
+            .values()
+            .filter(|item| !active_only || item.active)
+            .cloned()
+            .collect::<Vec<_>>();
+        items.sort_by(|left, right| {
+            left.sku
+                .cmp(&right.sku)
+                .then_with(|| left.id.cmp(&right.id))
+        });
+        items
+    }
+
+    #[must_use]
+    pub fn list_workflow_cases(&self, state: Option<WorkflowState>) -> Vec<WorkflowCase> {
+        let mut items = self
+            .workflow_cases
+            .values()
+            .filter(|case| state.is_none_or(|expected| case.state == expected))
+            .cloned()
+            .collect::<Vec<_>>();
+        items.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+        items
+    }
+
+    pub fn get_organization(&self, id: Uuid) -> KernelResult<Organization> {
+        self.organizations
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| KernelError::NotFound {
+                kind: "organization",
+                id: id.to_string(),
+            })
+    }
+
+    pub fn get_subscription(&self, id: Uuid) -> KernelResult<OrderSubscription> {
+        self.orders
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| KernelError::NotFound {
+                kind: "subscription",
+                id: id.to_string(),
+            })
     }
 
     pub fn record_fact(&mut self, command: FactRecord, actor: Actor) -> KernelResult<Fact> {

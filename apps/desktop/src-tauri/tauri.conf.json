@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "ai.prio.crm",
   "build": {
-    "beforeDevCommand": "npm run dev:web",
-    "beforeBuildCommand": "npm run build:web",
+    "beforeDevCommand": "bun run dev:web",
+    "beforeBuildCommand": "bun run build:web",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../build"
   },

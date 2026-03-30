@@ -18,6 +18,7 @@ Layer 1: Storage + projections     (in-memory kernel, SurrealDB/LanceDB shapes)
 Truths compose modules into cross-functional jobs. Each truth maps to a `TypesRootIntent` with pack activation, success criteria, hard constraints, and approval points. The engine runs pack-scoped agents, evaluates criteria post-convergence, and the server projects results into durable CRM state.
 
 See `docs/converge-application.md` for the full integration model.
+See `docs/coordinator-handoff.md` for the current implementor assumptions and project framing.
 
 ## Truth Execution
 
@@ -27,6 +28,7 @@ Current executable truths:
 - `activate-subscription`
 - `upgrade-subscription-plan`
 - `suspend-service-on-payment-failure`
+- `reconcile-model-usage-against-customer-ledger`
 - `refill-prepaid-ai-credits`
 - `score-inbound-fit`
 - `plan-outbound-campaign`
@@ -43,6 +45,20 @@ The execution flow is the same for each truth:
 7. Response includes convergence result, experience events, and projected entities
 
 Per-truth executors live in `crates/crm-server/src/truth_runtime/`. Fact content uses typed JSON codecs. Confidence mapping between converge (f32) and CRM (basis points) is explicit.
+
+Phase 1 billing integration is now live on the CRM side through a normalized HTTP ingress:
+
+- `POST /v1/integrations/billing/events`
+- bearer auth via `CRM_BILLING_INGRESS_TOKEN`
+- successful events are idempotent by `idempotency_key` or `source:truth:event_id`
+- runtime billing maps normalized events to truths instead of calling kernel commands directly
+
+Current normalized billing event kinds:
+
+- `prepaid_top_up_settled` -> `refill-prepaid-ai-credits`
+- `subscription_activation_requested` -> `activate-subscription`
+- `subscription_payment_failed` -> `suspend-service-on-payment-failure`
+- `ledger_reconciliation_requested` -> `reconcile-model-usage-against-customer-ledger`
 
 Blocked truths are now first-class at the runtime boundary:
 
@@ -69,6 +85,12 @@ Blocked truths are now first-class at the runtime boundary:
 
 - it registers `OverdueDetectorAgent` from the Money pack to detect overdue invoice state
 - it then applies CRM-local suspension policy, recovery workflow, and strategic-account approval routing on top
+
+`reconcile-model-usage-against-customer-ledger` is the first auditor truth in the revenue path:
+
+- it normalizes runtime usage, provider billing, CRM ledger, and CRM entitlement state through explicit source adapters
+- it reuses `ReconciliationMatcherAgent` from the Money pack for provider-to-ledger matching
+- it projects only facts and workflows, never balance mutations
 
 ## Workspace Layout
 
@@ -114,6 +136,12 @@ Current capability packages:
 - `prio.modules.v1` capability module registry
 - `prio.truths.v1` truth catalog, Converge bindings, `ExecuteTruth` RPC
 
+Current HTTP integration packages:
+
+- `/health` liveness
+- `/v1/system/profile` runtime config + module registry
+- `/v1/integrations/billing/events` normalized billing ingress for runtime adapters
+
 ## Converge Dependency
 
 `converge-core` is a local path dependency from `../../../converge.zone/crates/core`. The CRM uses:
@@ -131,7 +159,7 @@ Current capability packages:
 just server    # cargo run -p crm-server
 just test      # cargo test --workspace
 just fmt        # cargo fmt --all
-just desktop   # cd apps/desktop && npm run dev
+just desktop   # cd apps/desktop && bun run dev
 ```
 
 Rust 2024, toolchain floor `rustc 1.94.0`.

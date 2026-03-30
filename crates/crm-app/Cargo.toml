@@ -1,0 +1,17 @@
+[package]
+name = "crm-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono.workspace = true
+crm-kernel = { path = "../crm-kernel" }
+crm-storage = { path = "../crm-storage" }
+prio-module-core = { path = "../prio-module-core" }
+prio-modules = { path = "../prio-modules" }
+prio-truths = { path = "../prio-truths" }
+serde.workspace = true
+thiserror.workspace = true
+uuid.workspace = true

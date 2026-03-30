@@ -8,11 +8,20 @@ default-run = "prio-crm-desktop"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+crm-app = { path = "../../../crates/crm-app" }
+crm-kernel = { path = "../../../crates/crm-kernel" }
+crm-storage = { path = "../../../crates/crm-storage" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = [] }
+uuid = { version = "1", features = ["v4", "serde"] }
 
 [[bin]]
 name = "prio-crm-desktop"
 path = "src/main.rs"
 
+[[bin]]
+name = "tester"
+path = "src/bin/tester.rs"
+
+[workspace]

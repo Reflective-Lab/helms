@@ -36,5 +36,9 @@ tracing-subscriber.workspace = true
 tempfile = "3"
 uuid.workspace = true
 
+[dev-dependencies]
+tower = "0.5"
+proptest = { workspace = true }
+
 [build-dependencies]
 tonic-build.workspace = true

@@ -25,6 +25,7 @@ pub struct ActivateSubscriptionEvaluator;
 pub struct RefillPrepaidAiCreditsEvaluator;
 pub struct UpgradeSubscriptionPlanEvaluator;
 pub struct SuspendServiceOnPaymentFailureEvaluator;
+pub struct ReconcileModelUsageAgainstCustomerLedgerEvaluator;
 pub struct ScoreInboundFitEvaluator;
 pub struct PlanOutboundCampaignEvaluator;
 pub struct MatchRenewalContextEvaluator;
@@ -392,6 +393,60 @@ impl CriterionEvaluator for SuspendServiceOnPaymentFailureEvaluator {
                 ContextKey::Strategies,
                 "subscription:recovery-path",
             ),
+            _ => CriterionResult::Indeterminate,
+        }
+    }
+}
+
+impl CriterionEvaluator for ReconcileModelUsageAgainstCustomerLedgerEvaluator {
+    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+        if let Some(review_fact) = find_fact_id(
+            context,
+            ContextKey::Evaluations,
+            "reconciliation:manual-review-required",
+        ) {
+            return CriterionResult::Blocked {
+                reason: format!(
+                    "manual review is required before reconciliation can be accepted ({review_fact})"
+                ),
+                approval_ref: Some(review_fact),
+            };
+        }
+
+        match criterion.id.as_str() {
+            "outcome.usage-and-financial-state-reconcile-cleanly" => {
+                require_fact(context, ContextKey::Evaluations, "reconciliation:clean")
+            }
+            "outcome.exceptions-are-recorded-and-routed" => {
+                if let Some(clean_fact) =
+                    find_fact_id(context, ContextKey::Evaluations, "reconciliation:clean")
+                {
+                    return CriterionResult::Met {
+                        evidence: vec![FactId::new(clean_fact)],
+                    };
+                }
+
+                let exception_fact =
+                    find_fact_id(context, ContextKey::Evaluations, "reconciliation:exception");
+                let route_fact =
+                    find_fact_id(context, ContextKey::Strategies, "reconciliation:route");
+                match (exception_fact, route_fact) {
+                    (Some(exception_fact), Some(route_fact)) => CriterionResult::Met {
+                        evidence: vec![FactId::new(exception_fact), FactId::new(route_fact)],
+                    },
+                    (None, Some(_)) => CriterionResult::Unmet {
+                        reason: "reconciliation exception fact is missing".to_string(),
+                    },
+                    (Some(_), None) => CriterionResult::Unmet {
+                        reason: "reconciliation route fact is missing".to_string(),
+                    },
+                    (None, None) => CriterionResult::Unmet {
+                        reason:
+                            "reconciliation outcome facts are missing from the converge context"
+                                .to_string(),
+                    },
+                }
+            }
             _ => CriterionResult::Indeterminate,
         }
     }

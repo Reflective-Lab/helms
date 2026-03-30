@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
-    ProposedFact, TypesRunHooks,
+    ProposedFact,
 };
 use crm_kernel::{
     Actor as CrmActor, CreditGrantApply, EntitlementValue, FactRecord, Money, OrderSubscription,
@@ -16,12 +16,12 @@ use tonic::Status;
 use uuid::Uuid;
 
 use super::{
-    RecordingObserver, TruthExecutionArtifacts, TruthProjection,
+    TruthExecutionArtifacts, TruthProjection,
     common::{
         has_fact_id, optional_bool, optional_i64, optional_input, payload_from_result,
         required_input, required_uuid,
     },
-    domain_event_kind_name, status_from_converge, status_from_storage,
+    domain_event_kind_name, status_from_storage,
 };
 
 const REVENUE_PACK_ID: &str = "prio-revenue-pack";
@@ -97,9 +97,37 @@ struct EntitlementAdjustmentAgent {
     seed: RefillSeed,
 }
 
+#[derive(Debug, Clone)]
+pub struct RefillPrepaidAiCreditsInput {
+    pub subscription_id: Uuid,
+    pub top_up_amount_minor: Option<i64>,
+    pub payment_reference: String,
+    pub payment_confirmed: Option<bool>,
+    pub payment_status: Option<String>,
+    pub risk_signal: Option<bool>,
+    pub force_manual_review: Option<bool>,
+    pub manual_review_reason: Option<String>,
+}
+
+impl RefillPrepaidAiCreditsInput {
+    pub fn from_map(inputs: &HashMap<String, String>) -> Result<Self, Status> {
+        Ok(Self {
+            subscription_id: required_uuid(inputs, "subscription_id")?,
+            top_up_amount_minor: optional_i64(inputs, "top_up_amount_minor"),
+            payment_reference: required_input(inputs, "payment_reference")?.to_string(),
+            payment_confirmed: optional_bool(inputs, "payment_confirmed"),
+            payment_status: optional_input(inputs, "payment_status"),
+            risk_signal: optional_bool(inputs, "risk_signal"),
+            force_manual_review: optional_bool(inputs, "force_manual_review"),
+            manual_review_reason: optional_input(inputs, "manual_review_reason"),
+        })
+    }
+}
+
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    inputs: HashMap<String, String>,
+    runtime_stores: &crm_storage::AppRuntimeStores,
+    inputs: RefillPrepaidAiCreditsInput,
     actor: CrmActor,
     persist_projection: bool,
 ) -> Result<TruthExecutionArtifacts, Status> {
@@ -119,17 +147,14 @@ pub(super) fn execute<S: KernelStore>(
         EntitlementAdjustmentAgent { seed: seed.clone() },
     );
 
-    let observer = std::sync::Arc::new(RecordingObserver::default());
-    let result = engine
-        .run_with_types_intent_and_hooks(
-            seed_context(seed.subscription.id)?,
-            &binding.intent,
-            TypesRunHooks {
-                criterion_evaluator: Some(std::sync::Arc::new(RefillPrepaidAiCreditsEvaluator)),
-                event_observer: Some(observer.clone()),
-            },
-        )
-        .map_err(status_from_converge)?;
+    let (result, experience_events) = super::run_engine_with_runtime(
+        runtime_stores,
+        &mut engine,
+        &super::RuntimeContext { scope_id: inputs.subscription_id.to_string() },
+        seed_context(seed.subscription.id)?,
+        &binding.intent,
+        std::sync::Arc::new(RefillPrepaidAiCreditsEvaluator),
+    )?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -139,32 +164,32 @@ pub(super) fn execute<S: KernelStore>(
 
     Ok(TruthExecutionArtifacts {
         result,
-        experience_events: observer.snapshot(),
+        experience_events,
         projection,
     })
 }
 
 fn load_refill_seed<S: KernelStore>(
     store: &S,
-    inputs: &HashMap<String, String>,
+    inputs: &RefillPrepaidAiCreditsInput,
 ) -> Result<RefillSeed, Status> {
-    let subscription_id = required_uuid(inputs, "subscription_id")?;
-    let top_up_amount_minor = optional_i64(inputs, "top_up_amount_minor")
+    let top_up_amount_minor = inputs
+        .top_up_amount_minor
         .filter(|amount| *amount > 0)
         .ok_or_else(|| Status::invalid_argument("top_up_amount_minor must be positive"))?;
-    let payment_reference = required_input(inputs, "payment_reference")?.to_string();
     let payment_status = payment_status_from_inputs(inputs);
-    let risk_signal = optional_bool(inputs, "risk_signal").unwrap_or(false);
-    let manual_review_reason = optional_input(inputs, "manual_review_reason");
 
     store
         .read(|kernel| {
             let subscription = kernel
                 .orders
-                .get(&subscription_id)
+                .get(&inputs.subscription_id)
                 .cloned()
                 .ok_or_else(|| {
-                    Status::not_found(format!("subscription not found: {subscription_id}"))
+                    Status::not_found(format!(
+                        "subscription not found: {}",
+                        inputs.subscription_id
+                    ))
                 })?;
             if subscription.status != crm_kernel::SubscriptionStatus::Active {
                 return Err(Status::failed_precondition(
@@ -198,7 +223,7 @@ fn load_refill_seed<S: KernelStore>(
                     "payment {} is not confirmed; credit grant is blocked",
                     payment_status_name(payment_status)
                 ))
-            } else if risk_signal {
+            } else if inputs.risk_signal.unwrap_or(false) {
                 Some("top-up flagged for risk review".to_string())
             } else if top_up_amount_minor >= HIGH_RISK_THRESHOLD_MINOR {
                 Some("top-up size exceeds the automatic approval threshold".to_string())
@@ -206,11 +231,20 @@ fn load_refill_seed<S: KernelStore>(
                 None
             };
 
+            let manual_review_reason = if inputs.force_manual_review.unwrap_or(false) {
+                inputs
+                    .manual_review_reason
+                    .clone()
+                    .or_else(|| Some("manual review requested by operator".to_string()))
+            } else {
+                inputs.manual_review_reason.clone()
+            };
+
             Ok(RefillSeed {
                 subscription,
                 current_credit_balance_minor,
                 top_up_amount_minor,
-                payment_reference,
+                payment_reference: inputs.payment_reference.clone(),
                 payment_status,
                 manual_review_reason: manual_review_reason.or(policy_review_reason),
             })
@@ -220,15 +254,15 @@ fn load_refill_seed<S: KernelStore>(
 
 fn project<S: KernelStore>(
     store: &S,
-    inputs: &HashMap<String, String>,
+    inputs: &RefillPrepaidAiCreditsInput,
     result: &ConvergeResult,
     actor: CrmActor,
 ) -> Result<TruthProjection, Status> {
     let manual_review = manual_review_from_result(result)?;
 
     if let Some(review) = manual_review {
-        let subscription_id = required_uuid(inputs, "subscription_id")?;
-        let payment_reference = required_input(inputs, "payment_reference")?.to_string();
+        let subscription_id = inputs.subscription_id;
+        let payment_reference = inputs.payment_reference.clone();
         let StoreWriteResult { value, events } = store
             .write_with_events(|kernel| {
                 let subscription =
@@ -469,8 +503,8 @@ impl Agent for EntitlementAdjustmentAgent {
     }
 }
 
-fn payment_status_from_inputs(inputs: &HashMap<String, String>) -> PaymentStatus {
-    if let Some(confirmed) = optional_bool(inputs, "payment_confirmed") {
+fn payment_status_from_inputs(inputs: &RefillPrepaidAiCreditsInput) -> PaymentStatus {
+    if let Some(confirmed) = inputs.payment_confirmed {
         return if confirmed {
             PaymentStatus::Confirmed
         } else {
@@ -478,8 +512,10 @@ fn payment_status_from_inputs(inputs: &HashMap<String, String>) -> PaymentStatus
         };
     }
 
-    match optional_input(inputs, "payment_status")
-        .unwrap_or_else(|| "unknown".to_string())
+    match inputs
+        .payment_status
+        .as_deref()
+        .unwrap_or("unknown")
         .to_ascii_lowercase()
         .as_str()
     {
@@ -639,17 +675,28 @@ mod tests {
     #[test]
     fn refill_prepaid_ai_credits_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
         let actor = Actor::system();
         let (_organization_id, subscription_id) = seeded_active_credit_subscription(&store, &actor);
 
         let execution = execute(
             &store,
-            HashMap::from([
-                ("subscription_id".to_string(), subscription_id.to_string()),
-                ("top_up_amount_minor".to_string(), "250000".to_string()),
-                ("payment_reference".to_string(), "pay_topup_123".to_string()),
-                ("payment_status".to_string(), "confirmed".to_string()),
-            ]),
+            &runtime_stores,
+            RefillPrepaidAiCreditsInput {
+                subscription_id,
+                top_up_amount_minor: Some(250000),
+                payment_reference: "pay_topup_123".to_string(),
+                payment_confirmed: None,
+                payment_status: Some("confirmed".to_string()),
+                risk_signal: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+            },
             actor.clone(),
             true,
         )
@@ -672,20 +719,28 @@ mod tests {
     #[test]
     fn refill_prepaid_ai_credits_blocks_when_payment_is_unconfirmed() {
         let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
         let actor = Actor::system();
         let (_organization_id, subscription_id) = seeded_active_credit_subscription(&store, &actor);
 
         let execution = execute(
             &store,
-            HashMap::from([
-                ("subscription_id".to_string(), subscription_id.to_string()),
-                ("top_up_amount_minor".to_string(), "250000".to_string()),
-                (
-                    "payment_reference".to_string(),
-                    "pay_topup_blocked".to_string(),
-                ),
-                ("payment_status".to_string(), "pending".to_string()),
-            ]),
+            &runtime_stores,
+            RefillPrepaidAiCreditsInput {
+                subscription_id,
+                top_up_amount_minor: Some(250000),
+                payment_reference: "pay_topup_blocked".to_string(),
+                payment_confirmed: None,
+                payment_status: Some("pending".to_string()),
+                risk_signal: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+            },
             actor.clone(),
             true,
         )
@@ -714,5 +769,256 @@ mod tests {
             projection.workflow_cases[0].state,
             WorkflowState::AwaitingApproval
         ));
+    }
+
+    #[test]
+    fn refill_without_active_subscription_returns_error() {
+        let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
+        let actor = Actor::system();
+        let subscription_id = Uuid::new_v4();
+
+        let result = execute(
+            &store,
+            &runtime_stores,
+            RefillPrepaidAiCreditsInput {
+                subscription_id,
+                top_up_amount_minor: Some(100000),
+                payment_reference: "pay_no_sub".to_string(),
+                payment_confirmed: None,
+                payment_status: Some("confirmed".to_string()),
+                risk_signal: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+            },
+            actor,
+            true,
+        );
+
+        assert!(result.is_err());
+        let status = result.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::NotFound);
+    }
+
+    #[test]
+    fn refill_with_zero_amount_returns_error() {
+        let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
+        let actor = Actor::system();
+        let (_organization_id, subscription_id) = seeded_active_credit_subscription(&store, &actor);
+
+        let result = execute(
+            &store,
+            &runtime_stores,
+            RefillPrepaidAiCreditsInput {
+                subscription_id,
+                top_up_amount_minor: Some(0),
+                payment_reference: "pay_zero".to_string(),
+                payment_confirmed: None,
+                payment_status: Some("confirmed".to_string()),
+                risk_signal: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+            },
+            actor,
+            true,
+        );
+
+        assert!(result.is_err());
+        let status = result.unwrap_err();
+        assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    }
+
+    #[test]
+    fn refill_without_persist_produces_no_side_effects() {
+        let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
+        let actor = Actor::system();
+        let (_organization_id, subscription_id) = seeded_active_credit_subscription(&store, &actor);
+
+        let ledger_count_before = store
+            .read(|kernel| kernel.ledger_entries.len())
+            .expect("read ledger count");
+        let entitlement_balance_before: i64 = store
+            .read(|kernel| {
+                let entitlement = kernel
+                    .entitlements
+                    .values()
+                    .find(|e| {
+                        e.subscription_id == subscription_id && e.key == "credit_balance_minor"
+                    })
+                    .expect("entitlement should exist");
+                match entitlement.value {
+                    EntitlementValue::Credits(v) => v,
+                    _ => panic!("expected credits entitlement"),
+                }
+            })
+            .expect("read entitlement balance");
+
+        let execution = execute(
+            &store,
+            &runtime_stores,
+            RefillPrepaidAiCreditsInput {
+                subscription_id,
+                top_up_amount_minor: Some(250000),
+                payment_reference: "pay_no_persist".to_string(),
+                payment_confirmed: None,
+                payment_status: Some("confirmed".to_string()),
+                risk_signal: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+            },
+            actor,
+            false,
+        )
+        .expect("truth should execute");
+
+        assert!(matches!(
+            execution.result.stop_reason,
+            StopReason::CriteriaMet { .. }
+        ));
+        assert!(execution.projection.is_none());
+
+        let ledger_count_after = store
+            .read(|kernel| kernel.ledger_entries.len())
+            .expect("read ledger count");
+        let entitlement_balance_after: i64 = store
+            .read(|kernel| {
+                let entitlement = kernel
+                    .entitlements
+                    .values()
+                    .find(|e| {
+                        e.subscription_id == subscription_id && e.key == "credit_balance_minor"
+                    })
+                    .expect("entitlement should exist");
+                match entitlement.value {
+                    EntitlementValue::Credits(v) => v,
+                    _ => panic!("expected credits entitlement"),
+                }
+            })
+            .expect("read entitlement balance");
+
+        assert_eq!(ledger_count_before, ledger_count_after);
+        assert_eq!(entitlement_balance_before, entitlement_balance_after);
+    }
+
+    #[test]
+    fn sequential_refills_accumulate_balance() {
+        let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
+        let actor = Actor::system();
+        let (_organization_id, subscription_id) = seeded_active_credit_subscription(&store, &actor);
+
+        let initial_balance: i64 = store
+            .read(|kernel| {
+                let entitlement = kernel
+                    .entitlements
+                    .values()
+                    .find(|e| {
+                        e.subscription_id == subscription_id && e.key == "credit_balance_minor"
+                    })
+                    .expect("entitlement should exist");
+                match entitlement.value {
+                    EntitlementValue::Credits(v) => v,
+                    _ => panic!("expected credits entitlement"),
+                }
+            })
+            .expect("read initial balance");
+
+        let first_refill = execute(
+            &store,
+            &runtime_stores,
+            RefillPrepaidAiCreditsInput {
+                subscription_id,
+                top_up_amount_minor: Some(100000),
+                payment_reference: "pay_seq_first".to_string(),
+                payment_confirmed: None,
+                payment_status: Some("confirmed".to_string()),
+                risk_signal: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+            },
+            actor.clone(),
+            true,
+        )
+        .expect("first refill should execute");
+
+        assert!(matches!(
+            first_refill.result.stop_reason,
+            StopReason::CriteriaMet { .. }
+        ));
+
+        let second_refill = execute(
+            &store,
+            &runtime_stores,
+            RefillPrepaidAiCreditsInput {
+                subscription_id,
+                top_up_amount_minor: Some(50000),
+                payment_reference: "pay_seq_second".to_string(),
+                payment_confirmed: None,
+                payment_status: Some("confirmed".to_string()),
+                risk_signal: None,
+                force_manual_review: None,
+                manual_review_reason: None,
+            },
+            actor,
+            true,
+        )
+        .expect("second refill should execute");
+
+        assert!(matches!(
+            second_refill.result.stop_reason,
+            StopReason::CriteriaMet { .. }
+        ));
+
+        let final_balance: i64 = store
+            .read(|kernel| {
+                let entitlement = kernel
+                    .entitlements
+                    .values()
+                    .find(|e| {
+                        e.subscription_id == subscription_id && e.key == "credit_balance_minor"
+                    })
+                    .expect("entitlement should exist");
+                match entitlement.value {
+                    EntitlementValue::Credits(v) => v,
+                    _ => panic!("expected credits entitlement"),
+                }
+            })
+            .expect("read final balance");
+
+        assert_eq!(final_balance, initial_balance + 100_000 + 50_000);
+
+        let ledger_count = store
+            .read(|kernel| {
+                kernel
+                    .ledger_entries
+                    .values()
+                    .filter(|entry| entry.subscription_id == subscription_id)
+                    .count()
+            })
+            .expect("read ledger count");
+
+        assert_eq!(ledger_count, 3);
     }
 }

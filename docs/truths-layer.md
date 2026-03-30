@@ -77,7 +77,7 @@ This keeps the split clean:
 - modules specify reusable business capabilities
 - Converge executes the contract against the selected packs
 
-Today, eight truths are executable end-to-end through Converge: `qualify-inbound-lead`, `activate-subscription`, `upgrade-subscription-plan`, `suspend-service-on-payment-failure`, `refill-prepaid-ai-credits`, `score-inbound-fit`, `plan-outbound-campaign`, and `match-renewal-context`.
+Today, nine truths are executable end-to-end through Converge: `qualify-inbound-lead`, `activate-subscription`, `upgrade-subscription-plan`, `suspend-service-on-payment-failure`, `reconcile-model-usage-against-customer-ledger`, `refill-prepaid-ai-credits`, `score-inbound-fit`, `plan-outbound-campaign`, and `match-renewal-context`.
 
 ## Design Rule
 

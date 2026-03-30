@@ -12,7 +12,7 @@ use crm_kernel::{
     TimelineEntry, ViewDefinition, ViewDefinitionUpsert, ViewLayout, WorkflowCase,
     WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority, WorkflowState,
 };
-use crm_storage::{InMemoryKernelStore, KernelStore, StorageError};
+use crm_storage::{AppRuntimeStores, InMemoryKernelStore, KernelStore, StorageError};
 use prio_module_core::{CapabilityModule, ModuleSuite};
 use prio_modules::all_modules;
 use prio_truths::{
@@ -79,6 +79,7 @@ pub struct ModuleRegistryGrpc;
 #[derive(Clone)]
 pub struct TruthCatalogGrpc<S = InMemoryKernelStore> {
     store: S,
+    runtime_stores: AppRuntimeStores,
 }
 
 macro_rules! impl_new_store {
@@ -108,7 +109,15 @@ impl ModuleRegistryGrpc {
     }
 }
 
-impl_new_store!(TruthCatalogGrpc);
+impl<S> TruthCatalogGrpc<S> {
+    #[must_use]
+    pub fn new(store: S, runtime_stores: AppRuntimeStores) -> Self {
+        Self {
+            store,
+            runtime_stores,
+        }
+    }
+}
 
 #[tonic::async_trait]
 impl<S> identity_pb::identity_service_server::IdentityService for IdentityGrpc<S>
@@ -808,6 +817,7 @@ where
             find_truth(key).ok_or_else(|| Status::not_found(format!("truth not found: {key}")))?;
         let execution = execute_truth(
             &self.store,
+            &self.runtime_stores,
             key,
             request.inputs,
             actor_from_proto(request.actor),
@@ -824,6 +834,12 @@ fn status_from_storage(error: StorageError) -> Status {
     match error {
         StorageError::LockPoisoned => Status::internal("storage lock poisoned"),
         StorageError::Kernel(error) => status_from_kernel(error),
+        StorageError::ConnectionFailed { backend, message } => {
+            Status::unavailable(format!("{backend} connection failed: {message}"))
+        }
+        StorageError::SerializationFailed { message } => Status::internal(message),
+        StorageError::Timeout { operation } => Status::deadline_exceeded(operation),
+        StorageError::RuntimeStore { message } => Status::internal(message),
     }
 }
 
@@ -834,6 +850,7 @@ fn status_from_kernel(error: crm_kernel::KernelError) -> Status {
             Status::not_found(format!("{kind} not found: {id}"))
         }
         crm_kernel::KernelError::Invariant(message) => Status::failed_precondition(message),
+        crm_kernel::KernelError::Conflict(message) => Status::already_exists(message),
     }
 }
 

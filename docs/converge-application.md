@@ -19,6 +19,7 @@ This repository keeps:
 - converge agent implementations for each truth
 - criterion evaluators that check success against converged context
 - gRPC application boundaries
+- HTTP integration boundaries for runtime adapters
 - thin desktop and operator-facing surfaces
 
 This repository does not recreate:
@@ -37,6 +38,7 @@ Current executable truths:
 - `activate-subscription`
 - `upgrade-subscription-plan`
 - `suspend-service-on-payment-failure`
+- `reconcile-model-usage-against-customer-ledger`
 - `refill-prepaid-ai-credits`
 - `score-inbound-fit`
 - `plan-outbound-campaign`
@@ -54,6 +56,13 @@ Current executable truths:
 8. Response includes convergence result, experience events, and projected entities
 
 Fact content uses typed JSON codecs. Confidence mapping is explicit via `converge_confidence_to_bps()`.
+
+Phase 1 billing integration now has a concrete application boundary on the CRM side:
+
+- `POST /v1/integrations/billing/events`
+- bearer auth via `CRM_BILLING_INGRESS_TOKEN`
+- normalized event kinds map to truths instead of bypassing the job layer
+- successful deliveries are cached by idempotency key so duplicate runtime retries do not double-project business state
 
 Truth execution now distinguishes three important end states:
 
@@ -115,11 +124,27 @@ These were pushed into converge-core to support application-level use:
 - confirmed payment leads to a governed `CreditGrant` ledger entry and entitlement increase
 - unconfirmed payment or elevated risk converges to an approval workflow with no credit grant applied
 
+The live billing ingress maps runtime-side normalized events into those revenue truths:
+
+- `prepaid_top_up_settled` -> `refill-prepaid-ai-credits`
+- `subscription_activation_requested` -> `activate-subscription`
+- `subscription_payment_failed` -> `suspend-service-on-payment-failure`
+- `ledger_reconciliation_requested` -> `reconcile-model-usage-against-customer-ledger`
+
+That keeps Stripe/provider concerns in runtime adapters while CRM remains the truth-executing application boundary.
+
 `suspend-service-on-payment-failure` is now live end-to-end and is the first CRM truth that reuses a converge-domain agent directly:
 
 - `OverdueDetectorAgent` from the Money pack detects overdue invoice state inside the truth pipeline
 - CRM-local policy then converges to one of three governed outcomes: suspend, defer inside grace, or block for strategic-account approval
 - suspended subscriptions now prevent downstream credit grants through the same revenue-domain kernel surface
+
+`reconcile-model-usage-against-customer-ledger` is now live end-to-end and proves the auditor pattern:
+
+- source adapters load runtime usage, provider billing, CRM ledger, and CRM entitlement state into a comparable truth context
+- `ReconciliationMatcherAgent` from the Money pack performs the first provider-to-ledger matching pass
+- CRM-local assessment then converges to one of three governed outcomes: clean reconciliation, routed exception, or approval-gated manual review
+- projection writes only facts and workflow cases, never balance adjustments or entitlement mutations
 
 Future revenue truths should reuse the same revenue-domain kernel surface rather than introducing a parallel balance model.
 

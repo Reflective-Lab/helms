@@ -1,13 +1,10 @@
+mod http_api;
 mod proto;
 mod service;
 mod truth_runtime;
 
 use anyhow::Result;
-use axum::{Json, Router, extract::State, routing::get};
-use crm_storage::{AppConfig, InMemoryKernelStore};
-use prio_module_core::CapabilityModule;
-use prio_modules::all_modules;
-use serde::Serialize;
+use crm_storage::{AppConfig, open_kernel_store, open_runtime_stores};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tonic::transport::Server;
@@ -15,6 +12,7 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use crate::http_api::{HttpState, app_router};
 use crate::proto::{
     conversations::conversations_service_server::ConversationsServiceServer,
     documents::documents_service_server::DocumentsServiceServer,
@@ -32,22 +30,6 @@ use crate::service::{
     OpportunitiesGrpc, PartiesGrpc, TruthCatalogGrpc, WorkflowGrpc,
 };
 
-#[derive(Clone)]
-struct HttpState {
-    config: AppConfig,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct HealthPayload {
-    status: &'static str,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct SystemProfilePayload {
-    config: AppConfig,
-    modules: Vec<CapabilityModule>,
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::registry()
@@ -64,15 +46,17 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| "127.0.0.1:8081".to_string())
         .parse()?;
 
-    let store = InMemoryKernelStore::default_local();
-    let http_state = HttpState {
-        config: store.config.clone(),
-    };
+    let config = AppConfig::from_env();
+    let store = open_kernel_store(config.clone()).await?;
+    let runtime_stores = open_runtime_stores(&config).await?;
+    let http_state = HttpState::new(
+        config,
+        store.clone(),
+        runtime_stores.clone(),
+        std::env::var("CRM_BILLING_INGRESS_TOKEN").ok(),
+    );
 
-    let http_app = Router::new()
-        .route("/health", get(health))
-        .route("/v1/system/profile", get(system_profile))
-        .with_state(http_state)
+    let http_app = app_router(http_state)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 
@@ -85,7 +69,7 @@ async fn main() -> Result<()> {
     let facts_service = FactsGrpc::new(store.clone());
     let metadata_service = MetadataGrpc::new(store.clone());
     let module_registry_service = ModuleRegistryGrpc::new();
-    let truth_catalog_service = TruthCatalogGrpc::new(store);
+    let truth_catalog_service = TruthCatalogGrpc::new(store, runtime_stores);
 
     info!("starting gRPC server on {}", grpc_addr);
     info!("starting HTTP server on {}", http_addr);
@@ -115,15 +99,4 @@ async fn main() -> Result<()> {
 
     tokio::try_join!(grpc, http)?;
     Ok(())
-}
-
-async fn health() -> Json<HealthPayload> {
-    Json(HealthPayload { status: "ok" })
-}
-
-async fn system_profile(State(state): State<HttpState>) -> Json<SystemProfilePayload> {
-    Json(SystemProfilePayload {
-        config: state.config,
-        modules: all_modules(),
-    })
 }

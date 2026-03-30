@@ -4,8 +4,9 @@ use serde::Serialize;
 
 pub use converge::{
     ActivateSubscriptionEvaluator, MatchRenewalContextEvaluator, PlanOutboundCampaignEvaluator,
-    QualifyInboundLeadEvaluator, RefillPrepaidAiCreditsEvaluator, ScoreInboundFitEvaluator,
-    StaticTruthCatalog, SuspendServiceOnPaymentFailureEvaluator, UpgradeSubscriptionPlanEvaluator,
+    QualifyInboundLeadEvaluator, ReconcileModelUsageAgainstCustomerLedgerEvaluator,
+    RefillPrepaidAiCreditsEvaluator, ScoreInboundFitEvaluator, StaticTruthCatalog,
+    SuspendServiceOnPaymentFailureEvaluator, UpgradeSubscriptionPlanEvaluator,
     converge_truth_definition,
 };
 pub use converge::{TruthConvergeBinding, converge_binding_for_truth};
@@ -494,6 +495,10 @@ pub const TRUTHS: &[TruthDefinition] = &[
             TruthModuleTouch {
                 module_key: "subscriptions",
                 responsibility: "resolve commercial terms and billing period context",
+            },
+            TruthModuleTouch {
+                module_key: "workflow",
+                responsibility: "route reconciliation exceptions into operator review flows",
             },
             TruthModuleTouch {
                 module_key: "audit",

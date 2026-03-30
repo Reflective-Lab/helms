@@ -8,6 +8,8 @@ pub enum KernelError {
     NotFound { kind: &'static str, id: String },
     #[error("invariant violated: {0}")]
     Invariant(String),
+    #[error("conflict: {0}")]
+    Conflict(String),
 }
 
 pub type KernelResult<T> = Result<T, KernelError>;

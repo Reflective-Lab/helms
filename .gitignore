@@ -2,5 +2,9 @@
 /apps/desktop/.svelte-kit
 /apps/desktop/node_modules
 /apps/desktop/src-tauri/target
+/apps/desktop/src-tauri/gen
+/apps/desktop/src-tauri/.desktop-surreal*
 /apps/desktop/dist
+/crates/crm-server/proptest-regressions
+*.py
 

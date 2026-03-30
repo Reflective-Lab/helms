@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
-    ProposedFact, TypesRunHooks,
+    ProposedFact,
 };
 use converge_knowledge::{KnowledgeBase, KnowledgeEntry, SearchOptions};
 use crm_kernel::{
@@ -17,9 +17,9 @@ use tonic::Status;
 use uuid::Uuid;
 
 use super::{
-    RecordingObserver, TruthExecutionArtifacts, TruthProjection,
+    TruthExecutionArtifacts, TruthProjection,
     common::{block_on_async, has_fact_id, optional_uuid, payload_from_result, required_uuid},
-    domain_event_kind_name, status_from_converge, status_from_storage,
+    domain_event_kind_name, status_from_storage,
 };
 
 const RELATIONSHIP_PACK_ID: &str = "prio-relationship-pack";
@@ -83,16 +83,32 @@ struct NegotiationBriefAgent;
 
 struct RenewalTermsAgent;
 
+#[derive(Debug, Clone)]
+pub struct MatchRenewalContextInput {
+    pub organization_id: Uuid,
+    pub opportunity_id: Option<Uuid>,
+}
+
+impl MatchRenewalContextInput {
+    pub fn from_map(inputs: &HashMap<String, String>) -> Result<Self, Status> {
+        Ok(Self {
+            organization_id: required_uuid(inputs, "organization_id")?,
+            opportunity_id: optional_uuid(inputs, "opportunity_id")?,
+        })
+    }
+}
+
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    inputs: HashMap<String, String>,
+    runtime_stores: &crm_storage::AppRuntimeStores,
+    inputs: MatchRenewalContextInput,
     actor: CrmActor,
     persist_projection: bool,
 ) -> Result<TruthExecutionArtifacts, Status> {
     let binding = converge_binding_for_truth("match-renewal-context")
         .ok_or_else(|| Status::not_found("truth not found: match-renewal-context"))?;
 
-    let organization_id = required_uuid(&inputs, "organization_id")?;
+    let organization_id = inputs.organization_id;
     let scratch = tempfile::tempdir().map_err(|error| {
         Status::internal(format!("failed to create renewal scratch dir: {error}"))
     })?;
@@ -121,17 +137,14 @@ pub(super) fn execute<S: KernelStore>(
     engine.register_in_pack(WORK_PACK_ID, NegotiationBriefAgent);
     engine.register_in_pack(COMMERCIAL_PACK_ID, RenewalTermsAgent);
 
-    let observer = std::sync::Arc::new(RecordingObserver::default());
-    let result = engine
-        .run_with_types_intent_and_hooks(
-            seed_context(organization_id)?,
-            &binding.intent,
-            TypesRunHooks {
-                criterion_evaluator: Some(std::sync::Arc::new(MatchRenewalContextEvaluator)),
-                event_observer: Some(observer.clone()),
-            },
-        )
-        .map_err(status_from_converge)?;
+    let (result, experience_events) = super::run_engine_with_runtime(
+        runtime_stores,
+        &mut engine,
+        &super::RuntimeContext { scope_id: inputs.organization_id.to_string() },
+        seed_context(organization_id)?,
+        &binding.intent,
+        std::sync::Arc::new(MatchRenewalContextEvaluator),
+    )?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -141,7 +154,7 @@ pub(super) fn execute<S: KernelStore>(
 
     Ok(TruthExecutionArtifacts {
         result,
-        experience_events: observer.snapshot(),
+        experience_events,
         projection,
     })
 }
@@ -235,7 +248,7 @@ impl Agent for RenewalSignalAgent {
         let mut effect = AgentEffect::empty();
         for (signal_id, query) in queries {
             let options = SearchOptions::new(1)
-                .with_min_similarity(0.05)
+                .with_min_similarity(0.0)
                 .with_diversity(0.2)
                 .hybrid(0.35);
             let knowledge_base = self.knowledge_base.clone();
@@ -417,12 +430,12 @@ impl Agent for RenewalTermsAgent {
 
 fn project<S: KernelStore>(
     store: &S,
-    inputs: &HashMap<String, String>,
+    inputs: &MatchRenewalContextInput,
     result: &ConvergeResult,
     actor: CrmActor,
 ) -> Result<TruthProjection, Status> {
-    let organization_id = required_uuid(inputs, "organization_id")?;
-    let opportunity_id = optional_uuid(inputs, "opportunity_id")?;
+    let organization_id = inputs.organization_id;
+    let opportunity_id = inputs.opportunity_id;
     let _brief = renewal_brief_from_result(result)?;
     let terms = renewal_terms_from_result(result)?;
     let signals = renewal_signals_from_result(result)?;
@@ -546,6 +559,10 @@ fn account_summary_from_store<S: KernelStore>(
         Ok(Err(error)) => Err(error.to_string()),
         Err(StorageError::LockPoisoned) => Err("storage lock poisoned".to_string()),
         Err(StorageError::Kernel(error)) => Err(error.to_string()),
+        Err(StorageError::ConnectionFailed { message, .. }) => Err(message),
+        Err(StorageError::SerializationFailed { message }) => Err(message),
+        Err(StorageError::Timeout { operation }) => Err(operation),
+        Err(StorageError::RuntimeStore { message }) => Err(message),
     }
 }
 
@@ -643,6 +660,12 @@ mod tests {
     #[test]
     fn match_renewal_context_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
         let actor = Actor::system();
         let organization_id = store
             .write(|kernel| {
@@ -686,9 +709,13 @@ mod tests {
             })
             .expect("seed organization");
 
-        let inputs = HashMap::from([("organization_id".to_string(), organization_id.to_string())]);
+        let inputs = MatchRenewalContextInput {
+            organization_id,
+            opportunity_id: None,
+        };
 
-        let execution = execute(&store, inputs, actor, true).expect("truth should execute");
+        let execution =
+            execute(&store, &runtime_stores, inputs, actor, true).expect("truth should execute");
         assert!(execution.result.converged);
         assert!(
             execution

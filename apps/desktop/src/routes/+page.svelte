@@ -1,167 +1,178 @@
 <script lang="ts">
-	const activeJobs = [
-		{
-			title: 'Convert website intent into account signals',
-			status: 'Listening to analyticsIngest and analyticsAggregates',
-			note: 'Anonymous sessions will later correlate into people and organizations.'
-		},
-		{
-			title: 'Govern LinkedIn research before promotion',
-			status: 'Runtime module: linkedin-scan',
-			note: 'Evidence stays proposed until approval or policy promotion.'
-		},
-		{
-			title: 'Route follow-up work through optimization',
-			status: 'Module planned: lead-routing',
-			note: 'Priority is derived from CRM state and first-party usage, not inbox order.'
+	import { onMount } from 'svelte'
+	import AccountsSection from '$lib/components/AccountsSection.svelte'
+	import ApprovalsSection from '$lib/components/ApprovalsSection.svelte'
+	import JobsSection from '$lib/components/JobsSection.svelte'
+	import RightRail from '$lib/components/RightRail.svelte'
+	import SystemSection from '$lib/components/SystemSection.svelte'
+	import WorkflowSection from '$lib/components/WorkflowSection.svelte'
+	import { executeTruth, getAccountSummary, loadOperatorShell } from '$lib/api'
+	import { navSections, type AccountWorkspaceSummary, type ApprovalListItem, type OperatorDashboard, type OpportunityListItem, type OrganizationListItem, type Section, type SystemProfile, type TruthExecutionInputs, type TruthExecutionSession, type TruthListItem, type WorkflowCaseListItem } from '$lib/types'
+
+	let activeSection = $state<Section>('jobs')
+	let dashboard = $state<OperatorDashboard | null>(null)
+	let truths = $state<TruthListItem[]>([])
+	let organizations = $state<OrganizationListItem[]>([])
+	let opportunities = $state<OpportunityListItem[]>([])
+	let workflows = $state<WorkflowCaseListItem[]>([])
+	let approvals = $state<ApprovalListItem[]>([])
+	let account = $state<AccountWorkspaceSummary | null>(null)
+	let profile = $state<SystemProfile | null>(null)
+	let selectedOrganizationId = $state<string | null>(null)
+	let latestExecution = $state<TruthExecutionSession | null>(null)
+	let loading = $state(true)
+	let running = $state(false)
+	let error = $state('')
+
+	async function loadShell() {
+		loading = true
+		error = ''
+		try {
+			const shell = await loadOperatorShell()
+
+			dashboard = shell.dashboard
+			truths = shell.truths
+			organizations = shell.organizations
+			opportunities = shell.opportunities
+			workflows = shell.workflows
+			approvals = shell.approvals
+			profile = shell.profile
+
+			if (!selectedOrganizationId && organizations.length > 0) {
+				selectedOrganizationId = organizations[0].id
+			}
+			if (selectedOrganizationId) {
+				account = await getAccountSummary(selectedOrganizationId)
+			}
+		} catch (cause) {
+			error = String(cause)
+		} finally {
+			loading = false
 		}
-	]
+	}
 
-	const approvals = [
-		'Promote “high-intent pricing revisit” from usage signal to account fact',
-		'Approve LinkedIn-derived stakeholder graph for Northwind',
-		'Confirm pipeline stage move before quote generation'
-	]
+	async function selectOrganization(orgId: string) {
+		selectedOrganizationId = orgId
+		account = await getAccountSummary(orgId)
+		activeSection = 'accounts'
+	}
 
-	const timeline = [
-		{
-			kicker: 'FACT PROMOTION',
-			headline: 'Pricing-page revisit elevated to account signal',
-			body: 'Three sessions from the same company domain crossed the JTBD threshold.'
-		},
-		{
-			kicker: 'WORKFLOW CASE',
-			headline: 'Security review opened for enterprise opportunity',
-			body: 'Waiting on product constraints, evidence pack, and human approval.'
-		},
-		{
-			kicker: 'COMMUNICATION',
-			headline: 'Discovery call captured against opportunity',
-			body: 'Champion confirmed need for governed agent workflows and audit trail.'
+	function sampleTruthInputs(requireManualReview: boolean): TruthExecutionInputs {
+		return {
+			organization_name: requireManualReview ? 'Helios Freight' : 'Praxis Systems',
+			inbound_summary: requireManualReview
+				? 'Buyer asked for exception handling, legal review, and staged rollout.'
+				: 'Inbound buyer wants a governed CRM substrate with operator workflows.',
+			contact_name: requireManualReview ? 'Jordan Vale' : 'Riley Park',
+			contact_title: requireManualReview ? 'Finance Director' : 'COO',
+			owner_user_id: requireManualReview ? 'commercial-review' : 'kenneth',
+			next_step: requireManualReview
+				? 'Open approval path and validate non-standard commercials.'
+				: 'Schedule qualification follow-up and share architecture note.',
+			opportunity_value_minor: requireManualReview ? '45000000' : '18000000',
+			require_manual_review: requireManualReview ? 'true' : 'false',
+			manual_review_reason: 'Commercial terms fall outside the standard path.'
 		}
-	]
+	}
 
-	const surfaces = ['crm.prio.ai', 'analytics.prio.ai', 'hr.prio.ai', 'plan.prio.ai']
+	async function runSampleTruth(requireManualReview: boolean) {
+		running = true
+		error = ''
+		try {
+			latestExecution = await executeTruth('qualify-inbound-lead', sampleTruthInputs(requireManualReview))
+			activeSection = requireManualReview ? 'approvals' : 'jobs'
+			await loadShell()
+		} catch (cause) {
+			error = String(cause)
+		} finally {
+			running = false
+		}
+	}
+
+	onMount(() => {
+		loadShell()
+	})
 </script>
 
 <div class="page">
-	<section class="hero">
-		<p class="eyebrow">Prio CRM Shell</p>
-		<h1>Jobs first. Records second.</h1>
-		<p>
-			This desktop surface is intentionally thin. Converge owns interaction and orchestration;
-			the CRM kernel owns durable business truth, auditability, metadata, and workflow state.
-		</p>
-		<div class="pill-row">
-			{#each surfaces as surface}
-				<div class="pill">{surface}</div>
-			{/each}
+	<header class="hero">
+		<div>
+			<p class="eyebrow">Prio CRM Operator Cockpit</p>
+			<h1>Jobs first. Exceptions visible. Records close at hand.</h1>
 		</div>
-	</section>
+		<div class="button-row">
+			<a class="button secondary button-link" href="/revenue">Revenue View</a>
+			<button class="button" onclick={() => runSampleTruth(false)} disabled={running}>
+				Run Happy Path
+			</button>
+			<button class="button secondary" onclick={() => runSampleTruth(true)} disabled={running}>
+				Run Blocked Path
+			</button>
+		</div>
+	</header>
 
-	<div class="layout">
-		<div class="stack">
-			<section class="panel">
-				<h2>Active Jobs</h2>
-				<p>The main UI is a workspace for intent, execution, and promotion gates.</p>
+	{#if error}
+		<section class="panel danger">
+			<strong>Desktop shell error</strong>
+			<p>{error}</p>
+		</section>
+	{/if}
 
-				<div class="list">
-					{#each activeJobs as job}
-						<div class="list-item">
-							<strong>{job.title}</strong>
-							<div class="meta">{job.status}</div>
-							<div>{job.note}</div>
-						</div>
+	{#if loading}
+		<section class="panel">
+			<p>Loading operator shell...</p>
+		</section>
+	{:else}
+		<div class="cockpit">
+			<nav class="panel sidebar">
+				<div class="sidebar-header">
+					<h2>Workspace</h2>
+					<p>Week 2 cleanup in progress on top of `crm-app`.</p>
+				</div>
+
+				<div class="nav-list">
+					{#each navSections as item}
+						<button
+							class:active={activeSection === item.id}
+							class="nav-button"
+							onclick={() => (activeSection = item.id)}
+						>
+							<span>{item.label}</span>
+						</button>
 					{/each}
 				</div>
-			</section>
 
-			<section class="panel">
-				<h2>Account Summary</h2>
-				<div class="grid two">
-					<div class="card">
-						<strong>Northwind</strong>
-						<div class="meta">Active opportunity · CTO champion · enterprise evaluation</div>
+				<section class="mini-panel">
+					<div class="section-title">Accounts</div>
+					<div class="mini-list">
+						{#each organizations as organization}
+							<div class:selected={selectedOrganizationId === organization.id} class="account-row">
+								<button class="account-select" onclick={() => selectOrganization(organization.id)}>
+									<strong>{organization.name}</strong>
+									<span>{organization.lifecycle} · {organization.open_opportunity_count} open opps</span>
+								</button>
+								<a class="detail-link" href={`/accounts/${organization.id}`}>Open</a>
+							</div>
+						{/each}
 					</div>
-					<div class="card">
-						<strong>Behavioral context</strong>
-						<div class="meta">Pricing revisits, release-readiness traffic, podcast affinity</div>
-					</div>
-					<div class="card">
-						<strong>Open workflow cases</strong>
-						<div class="meta">Security review, procurement path, approval sequencing</div>
-					</div>
-					<div class="card">
-						<strong>Metadata layer</strong>
-						<div class="meta">Custom object: usage_event · Saved view: high-intent visits</div>
-					</div>
-				</div>
-			</section>
+				</section>
+			</nav>
 
-			<section class="panel">
-				<h2>Timeline</h2>
-				<div class="list">
-					{#each timeline as item}
-						<div class="list-item">
-							<div class="kicker">{item.kicker}</div>
-							<strong>{item.headline}</strong>
-							<div>{item.body}</div>
-						</div>
-					{/each}
-				</div>
-			</section>
+			<main class="panel content">
+				{#if activeSection === 'jobs'}
+					<JobsSection {truths} {latestExecution} />
+				{:else if activeSection === 'accounts'}
+					<AccountsSection {account} />
+				{:else if activeSection === 'workflows'}
+					<WorkflowSection {workflows} />
+				{:else if activeSection === 'approvals'}
+					<ApprovalsSection {approvals} />
+				{:else if activeSection === 'system'}
+					<SystemSection {profile} />
+				{/if}
+			</main>
+
+			<RightRail {dashboard} />
 		</div>
-
-		<div class="stack">
-			<section class="panel">
-				<h3>Approvals</h3>
-				<div class="list">
-					{#each approvals as approval}
-						<div class="list-item">
-							<div class="kicker">HUMAN REQUIRED</div>
-							<strong>{approval}</strong>
-						</div>
-					{/each}
-				</div>
-			</section>
-
-			<section class="panel">
-				<h3>Runtime Hooks</h3>
-				<div class="list">
-					<div class="list-item">
-						<div class="kicker">ANALYTICS</div>
-						<strong>First-party site events only</strong>
-						<div>Use Firebase functions and your own event model. Plausible stays off.</div>
-					</div>
-					<div class="list-item">
-						<div class="kicker">OPTIMIZATION</div>
-						<strong>Lead routing and queue pressure</strong>
-						<div>Use converge-optimization as soon as signal quality is credible.</div>
-					</div>
-					<div class="list-item">
-						<div class="kicker">LINKEDIN</div>
-						<strong>Research module needs runtime work</strong>
-						<div>The provider seam exists in Converge, but the production integration is not there yet.</div>
-					</div>
-				</div>
-			</section>
-
-			<section class="panel warning">
-				<h3>Exceptions</h3>
-				<div class="list">
-					<div class="list-item">
-						<div class="kicker">WARNING</div>
-						<strong>Do not drift toward a classic CRM UI</strong>
-						<div>Humans should navigate jobs, summaries, approvals, and exceptions, not raw tables all day.</div>
-					</div>
-					<div class="list-item">
-						<div class="kicker">WARNING</div>
-						<strong>Keep metadata and workflow first-class</strong>
-						<div>Standard objects are not enough if custom signals and domain growth matter.</div>
-					</div>
-				</div>
-			</section>
-		</div>
-	</div>
+	{/if}
 </div>
-

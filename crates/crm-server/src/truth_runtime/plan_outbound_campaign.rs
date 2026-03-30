@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
-    ProposedFact, TypesRunHooks,
+    ProposedFact,
 };
 use converge_optimization::gate::ObjectiveSpec;
 use converge_optimization::packs::Pack;
@@ -23,9 +23,9 @@ use tonic::Status;
 use uuid::Uuid;
 
 use super::{
-    RecordingObserver, TruthExecutionArtifacts, TruthProjection,
-    common::{converge_confidence_to_bps, has_fact_id, payload_from_result, required_input},
-    domain_event_kind_name, status_from_converge, status_from_storage,
+    TruthExecutionArtifacts, TruthProjection,
+    common::{converge_confidence_to_bps, has_fact_id, optional_i64, payload_from_result, required_input},
+    domain_event_kind_name, status_from_storage,
 };
 
 const COMMERCIAL_PACK_ID: &str = "prio-commercial-pack";
@@ -123,20 +123,46 @@ struct BudgetGuardAgent {
     outreach_cost_minor: i64,
 }
 
+#[derive(Debug, Clone)]
+pub struct PlanOutboundCampaignInput {
+    pub campaign_name: String,
+    pub prospects_json: String,
+    pub reps_json: String,
+    pub campaign_budget_minor: i64,
+    pub outreach_cost_minor: Option<i64>,
+}
+
+impl PlanOutboundCampaignInput {
+    pub fn from_map(inputs: &HashMap<String, String>) -> Result<Self, Status> {
+        Ok(Self {
+            campaign_name: required_input(inputs, "campaign_name")?.to_string(),
+            prospects_json: required_input(inputs, "prospects_json")?.to_string(),
+            reps_json: required_input(inputs, "reps_json")?.to_string(),
+            campaign_budget_minor: required_input(inputs, "campaign_budget_minor")?
+                .parse()
+                .map_err(|e| {
+                    Status::invalid_argument(format!("invalid campaign_budget_minor: {e}"))
+                })?,
+            outreach_cost_minor: optional_i64(inputs, "outreach_cost_minor"),
+        })
+    }
+}
+
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    inputs: HashMap<String, String>,
+    runtime_stores: &crm_storage::AppRuntimeStores,
+    inputs: PlanOutboundCampaignInput,
     actor: CrmActor,
     persist_projection: bool,
 ) -> Result<TruthExecutionArtifacts, Status> {
     let binding = converge_binding_for_truth("plan-outbound-campaign")
         .ok_or_else(|| Status::not_found("truth not found: plan-outbound-campaign"))?;
 
-    let campaign_name = required_input(&inputs, "campaign_name")?.to_string();
+    let campaign_name = inputs.campaign_name.clone();
     let prospects = prospects_from_inputs(&inputs)?;
     let reps = reps_from_inputs(&inputs)?;
-    let campaign_budget_minor = required_i64(&inputs, "campaign_budget_minor")?;
-    let outreach_cost_minor = optional_i64(&inputs, "outreach_cost_minor").unwrap_or(2_500);
+    let campaign_budget_minor = inputs.campaign_budget_minor;
+    let outreach_cost_minor = inputs.outreach_cost_minor.unwrap_or(2_500);
 
     let mut engine = Engine::new();
     engine.register_in_pack(
@@ -162,17 +188,14 @@ pub(super) fn execute<S: KernelStore>(
         },
     );
 
-    let observer = std::sync::Arc::new(RecordingObserver::default());
-    let result = engine
-        .run_with_types_intent_and_hooks(
-            seed_context()?,
-            &binding.intent,
-            TypesRunHooks {
-                criterion_evaluator: Some(std::sync::Arc::new(PlanOutboundCampaignEvaluator)),
-                event_observer: Some(observer.clone()),
-            },
-        )
-        .map_err(status_from_converge)?;
+    let (result, experience_events) = super::run_engine_with_runtime(
+        runtime_stores,
+        &mut engine,
+        &super::RuntimeContext { scope_id: slug(&inputs.campaign_name) },
+        seed_context()?,
+        &binding.intent,
+        std::sync::Arc::new(PlanOutboundCampaignEvaluator),
+    )?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -182,7 +205,7 @@ pub(super) fn execute<S: KernelStore>(
 
     Ok(TruthExecutionArtifacts {
         result,
-        experience_events: observer.snapshot(),
+        experience_events,
         projection,
     })
 }
@@ -441,11 +464,11 @@ impl Agent for BudgetGuardAgent {
 
 fn project<S: KernelStore>(
     store: &S,
-    inputs: &HashMap<String, String>,
+    inputs: &PlanOutboundCampaignInput,
     result: &ConvergeResult,
     actor: CrmActor,
 ) -> Result<TruthProjection, Status> {
-    let campaign_name = required_input(inputs, "campaign_name")?.to_string();
+    let campaign_name = inputs.campaign_name.clone();
     let plan = campaign_plan_from_result(result)?;
     let budget = budget_status_from_result(result)?;
     let related_to = related_record_refs(&plan.assignments);
@@ -596,16 +619,14 @@ fn seed_context() -> Result<Context, Status> {
 }
 
 fn prospects_from_inputs(
-    inputs: &HashMap<String, String>,
+    inputs: &PlanOutboundCampaignInput,
 ) -> Result<Vec<CampaignProspectSeed>, Status> {
-    let raw = required_input(inputs, "prospects_json")?;
-    serde_json::from_str(raw)
+    serde_json::from_str(&inputs.prospects_json)
         .map_err(|error| Status::invalid_argument(format!("invalid prospects_json: {error}")))
 }
 
-fn reps_from_inputs(inputs: &HashMap<String, String>) -> Result<Vec<CampaignRepSeed>, Status> {
-    let raw = required_input(inputs, "reps_json")?;
-    serde_json::from_str(raw)
+fn reps_from_inputs(inputs: &PlanOutboundCampaignInput) -> Result<Vec<CampaignRepSeed>, Status> {
+    serde_json::from_str(&inputs.reps_json)
         .map_err(|error| Status::invalid_argument(format!("invalid reps_json: {error}")))
 }
 
@@ -629,16 +650,6 @@ fn related_record_refs(assignments: &[CampaignAssignmentPayload]) -> Vec<RecordR
     refs.sort_by_key(|reference| reference.id);
     refs.dedup_by_key(|reference| reference.id);
     refs
-}
-
-fn required_i64(inputs: &HashMap<String, String>, key: &str) -> Result<i64, Status> {
-    required_input(inputs, key)?
-        .parse::<i64>()
-        .map_err(|error| Status::invalid_argument(format!("invalid i64 for {key}: {error}")))
-}
-
-fn optional_i64(inputs: &HashMap<String, String>, key: &str) -> Option<i64> {
-    inputs.get(key).and_then(|value| value.parse::<i64>().ok())
 }
 
 fn slug(value: &str) -> String {
@@ -685,6 +696,12 @@ mod tests {
     #[test]
     fn plan_outbound_campaign_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
         let actor = Actor::system();
         let west_org_id = store
             .write(|kernel| {
@@ -724,65 +741,60 @@ mod tests {
                     .map(|organization| organization.id)
             })
             .expect("east prospect seed");
-        let inputs = HashMap::from([
-            ("campaign_name".to_string(), "Q2 outbound".to_string()),
-            (
-                "prospects_json".to_string(),
-                serde_json::json!([
-                    {
-                        "lead_id": "lead-1",
-                        "organization_id": west_org_id,
-                        "score": 88.0,
-                        "territory": "west",
-                        "segment": "enterprise",
-                        "required_skills": ["cloud"],
-                        "estimated_value": 120000.0,
-                        "priority": 1
-                    },
-                    {
-                        "lead_id": "lead-2",
-                        "organization_id": east_org_id,
-                        "score": 72.0,
-                        "territory": "east",
-                        "segment": "smb",
-                        "required_skills": [],
-                        "estimated_value": 25000.0,
-                        "priority": 3
-                    }
-                ])
-                .to_string(),
-            ),
-            (
-                "reps_json".to_string(),
-                serde_json::json!([
-                    {
-                        "rep_id": "rep-1",
-                        "name": "Alice",
-                        "capacity": 5,
-                        "current_load": 1,
-                        "territories": ["west"],
-                        "segments": ["enterprise"],
-                        "skills": ["cloud"],
-                        "performance_score": 92.0
-                    },
-                    {
-                        "rep_id": "rep-2",
-                        "name": "Bob",
-                        "capacity": 5,
-                        "current_load": 2,
-                        "territories": ["east", "west"],
-                        "segments": ["smb", "enterprise"],
-                        "skills": [],
-                        "performance_score": 80.0
-                    }
-                ])
-                .to_string(),
-            ),
-            ("campaign_budget_minor".to_string(), "6000".to_string()),
-            ("outreach_cost_minor".to_string(), "2500".to_string()),
-        ]);
+        let inputs = PlanOutboundCampaignInput {
+            campaign_name: "Q2 outbound".to_string(),
+            prospects_json: serde_json::json!([
+                {
+                    "lead_id": "lead-1",
+                    "organization_id": west_org_id,
+                    "score": 88.0,
+                    "territory": "west",
+                    "segment": "enterprise",
+                    "required_skills": ["cloud"],
+                    "estimated_value": 120000.0,
+                    "priority": 1
+                },
+                {
+                    "lead_id": "lead-2",
+                    "organization_id": east_org_id,
+                    "score": 72.0,
+                    "territory": "east",
+                    "segment": "smb",
+                    "required_skills": [],
+                    "estimated_value": 25000.0,
+                    "priority": 3
+                }
+            ])
+            .to_string(),
+            reps_json: serde_json::json!([
+                {
+                    "rep_id": "rep-1",
+                    "name": "Alice",
+                    "capacity": 5,
+                    "current_load": 1,
+                    "territories": ["west"],
+                    "segments": ["enterprise"],
+                    "skills": ["cloud"],
+                    "performance_score": 92.0
+                },
+                {
+                    "rep_id": "rep-2",
+                    "name": "Bob",
+                    "capacity": 5,
+                    "current_load": 2,
+                    "territories": ["east", "west"],
+                    "segments": ["smb", "enterprise"],
+                    "skills": [],
+                    "performance_score": 80.0
+                }
+            ])
+            .to_string(),
+            campaign_budget_minor: 6000,
+            outreach_cost_minor: Some(2500),
+        };
 
-        let execution = execute(&store, inputs, actor, true).expect("truth should execute");
+        let execution =
+            execute(&store, &runtime_stores, inputs, actor, true).expect("truth should execute");
         assert!(execution.result.converged);
         assert!(
             execution

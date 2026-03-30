@@ -38,9 +38,11 @@ Pattern for each truth:
 5. If `persist_projection`, project converge context facts into CRM kernel via single `write_with_events` transaction
 6. Return `TruthExecutionArtifacts { result, experience_events, projection }`
 
-Currently executable: `qualify-inbound-lead`, `activate-subscription`, `upgrade-subscription-plan`, `suspend-service-on-payment-failure`, `refill-prepaid-ai-credits`, `score-inbound-fit`, `plan-outbound-campaign`, `match-renewal-context`.
+Currently executable: `qualify-inbound-lead`, `activate-subscription`, `upgrade-subscription-plan`, `suspend-service-on-payment-failure`, `reconcile-model-usage-against-customer-ledger`, `refill-prepaid-ai-credits`, `score-inbound-fit`, `plan-outbound-campaign`, `match-renewal-context`.
 
 `refill-prepaid-ai-credits` is the reference payment-gated revenue truth. Confirmed payments project a `CreditGrant` ledger entry plus an updated credit entitlement. Unconfirmed or risky top-ups project an approval workflow and no balance mutation.
+
+Phase 1 billing ingress now exists on the CRM side at `POST /v1/integrations/billing/events`, protected by `CRM_BILLING_INGRESS_TOKEN`. Runtime billing should normalize provider events into that endpoint instead of calling kernel commands directly.
 
 ## Module Structure
 
@@ -67,7 +69,7 @@ Currently executable: `qualify-inbound-lead`, `activate-subscription`, `upgrade-
 
 - Status enums for `Lead`, `Task`, `OfferQuote`, `OrderSubscription`, `Job`, `AgentRun`, `WorkflowRun`
 - Domain error taxonomy (specific `KernelError` variants per operation)
-- next revenue-domain truths over the same revenue-domain kernel surface, starting with deeper Money pack reuse in `refill-prepaid-ai-credits` and then `reconcile-model-usage-against-customer-ledger`
+- next revenue-domain truths over the same revenue-domain kernel surface, starting with deeper Money pack reuse in `refill-prepaid-ai-credits` and then `detect-abnormal-token-burn`
 - follow-up revenue hardening: richer error variants, list/query surfaces, and module-specific gRPC contracts for catalog, subscriptions, entitlements, and ledger
 - `ContextStore` implementation for durable state across runs
 - Parquet-aware analytical path for website usage batches, audit/timeline export, and LanceDB interchange. Do not mix this with the SurrealDB transactional path.

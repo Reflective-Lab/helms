@@ -3,6 +3,7 @@ mod common;
 mod match_renewal_context;
 mod plan_outbound_campaign;
 mod qualify_inbound_lead;
+mod reconcile_model_usage_against_customer_ledger;
 mod refill_prepaid_ai_credits;
 mod score_inbound_fit;
 mod suspend_service_on_payment_failure;
@@ -11,14 +12,15 @@ mod upgrade_subscription_plan;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use converge_core::ExperienceEventObserver;
-use converge_core::{ConvergeResult, ExperienceEvent};
+use converge_core::{Context, Engine, ExperienceEventObserver, TypesRootIntent, TypesRunHooks};
+use converge_core::{ConvergeResult, CriterionEvaluator, ExperienceEvent, ExperienceEventEnvelope};
 use crm_kernel::{
     Actor as CrmActor, Document, Entitlement, Fact as CrmFact, LedgerEntry, Opportunity,
     OrderSubscription, Organization, Person, WorkflowCase,
 };
-use crm_storage::{KernelStore, StorageError};
+use crm_storage::{AppRuntimeStores, KernelStore, StorageError};
 use tonic::Status;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct TruthExecutionArtifacts {
@@ -66,6 +68,7 @@ impl ExperienceEventObserver for RecordingObserver {
 
 pub fn execute_truth<S: KernelStore>(
     store: &S,
+    runtime_stores: &AppRuntimeStores,
     truth_key: &str,
     inputs: HashMap<String, String>,
     actor: CrmActor,
@@ -73,26 +76,74 @@ pub fn execute_truth<S: KernelStore>(
 ) -> Result<TruthExecutionArtifacts, Status> {
     match truth_key {
         "activate-subscription" => {
-            activate_subscription::execute(store, inputs, actor, persist_projection)
+            let parsed = activate_subscription::ActivateSubscriptionInput::from_map(&inputs)?;
+            activate_subscription::execute(store, runtime_stores, parsed, actor, persist_projection)
         }
         "upgrade-subscription-plan" => {
-            upgrade_subscription_plan::execute(store, inputs, actor, persist_projection)
+            let parsed =
+                upgrade_subscription_plan::UpgradeSubscriptionPlanInput::from_map(&inputs)?;
+            upgrade_subscription_plan::execute(
+                store,
+                runtime_stores,
+                parsed,
+                actor,
+                persist_projection,
+            )
         }
         "suspend-service-on-payment-failure" => {
-            suspend_service_on_payment_failure::execute(store, inputs, actor, persist_projection)
+            let parsed =
+                suspend_service_on_payment_failure::SuspendServiceOnPaymentFailureInput::from_map(
+                    &inputs,
+                )?;
+            suspend_service_on_payment_failure::execute(
+                store,
+                runtime_stores,
+                parsed,
+                actor,
+                persist_projection,
+            )
+        }
+        "reconcile-model-usage-against-customer-ledger" => {
+            let parsed = reconcile_model_usage_against_customer_ledger::ReconcileModelUsageAgainstCustomerLedgerInput::from_map(&inputs)?;
+            reconcile_model_usage_against_customer_ledger::execute(
+                store,
+                runtime_stores,
+                parsed,
+                actor,
+                persist_projection,
+            )
         }
         "refill-prepaid-ai-credits" => {
-            refill_prepaid_ai_credits::execute(store, inputs, actor, persist_projection)
+            let parsed = refill_prepaid_ai_credits::RefillPrepaidAiCreditsInput::from_map(&inputs)?;
+            refill_prepaid_ai_credits::execute(
+                store,
+                runtime_stores,
+                parsed,
+                actor,
+                persist_projection,
+            )
         }
         "qualify-inbound-lead" => {
-            qualify_inbound_lead::execute(store, inputs, actor, persist_projection)
+            let parsed = qualify_inbound_lead::QualifyInboundLeadInput::from_map(&inputs)?;
+            qualify_inbound_lead::execute(store, runtime_stores, parsed, actor, persist_projection)
         }
-        "score-inbound-fit" => score_inbound_fit::execute(store, inputs, actor, persist_projection),
+        "score-inbound-fit" => {
+            let parsed = score_inbound_fit::ScoreInboundFitInput::from_map(&inputs)?;
+            score_inbound_fit::execute(store, runtime_stores, parsed, actor, persist_projection)
+        }
         "plan-outbound-campaign" => {
-            plan_outbound_campaign::execute(store, inputs, actor, persist_projection)
+            let parsed = plan_outbound_campaign::PlanOutboundCampaignInput::from_map(&inputs)?;
+            plan_outbound_campaign::execute(
+                store,
+                runtime_stores,
+                parsed,
+                actor,
+                persist_projection,
+            )
         }
         "match-renewal-context" => {
-            match_renewal_context::execute(store, inputs, actor, persist_projection)
+            let parsed = match_renewal_context::MatchRenewalContextInput::from_map(&inputs)?;
+            match_renewal_context::execute(store, runtime_stores, parsed, actor, persist_projection)
         }
         _ => Err(Status::unimplemented(format!(
             "truth execution is not implemented yet for {truth_key}"
@@ -120,7 +171,24 @@ pub(super) fn status_from_converge(error: converge_core::ConvergeError) -> Statu
 pub(super) fn status_from_storage(error: StorageError) -> Status {
     match error {
         StorageError::LockPoisoned => Status::internal("storage lock poisoned"),
-        StorageError::Kernel(error) => Status::failed_precondition(error.to_string()),
+        StorageError::Kernel(crm_kernel::KernelError::Validation(message)) => {
+            Status::invalid_argument(message)
+        }
+        StorageError::Kernel(crm_kernel::KernelError::NotFound { kind, id }) => {
+            Status::not_found(format!("{kind} not found: {id}"))
+        }
+        StorageError::Kernel(crm_kernel::KernelError::Invariant(message)) => {
+            Status::failed_precondition(message)
+        }
+        StorageError::Kernel(crm_kernel::KernelError::Conflict(message)) => {
+            Status::already_exists(message)
+        }
+        StorageError::ConnectionFailed { backend, message } => {
+            Status::unavailable(format!("{backend} connection failed: {message}"))
+        }
+        StorageError::SerializationFailed { message } => Status::internal(message),
+        StorageError::Timeout { operation } => Status::deadline_exceeded(operation),
+        StorageError::RuntimeStore { message } => Status::internal(message),
     }
 }
 
@@ -155,3 +223,51 @@ pub(super) fn domain_event_kind_name(event: &crm_kernel::DomainEvent) -> &'stati
         crm_kernel::DomainEvent::TimelineEntryRecorded { .. } => "timeline-entry-recorded",
     }
 }
+
+pub(super) struct RuntimeContext {
+    pub scope_id: String,
+}
+
+pub(super) fn run_engine_with_runtime(
+    runtime_stores: &AppRuntimeStores,
+    engine: &mut Engine,
+    runtime_ctx: &RuntimeContext,
+    seed_context: Context,
+    intent: &TypesRootIntent,
+    criterion_evaluator: std::sync::Arc<dyn CriterionEvaluator>,
+) -> Result<(ConvergeResult, Vec<ExperienceEvent>), Status> {
+    let observer = std::sync::Arc::new(RecordingObserver::default());
+    let result = engine
+        .run_with_types_intent_and_hooks(
+            seed_context,
+            intent,
+            TypesRunHooks {
+                criterion_evaluator: Some(criterion_evaluator),
+                event_observer: Some(observer.clone()),
+            },
+        )
+        .map_err(status_from_converge)?;
+
+    runtime_stores
+        .save_context(&runtime_ctx.scope_id, &result.context)
+        .map_err(status_from_storage)?;
+
+    let experience_events = observer.snapshot();
+    let envelopes = experience_events
+        .iter()
+        .enumerate()
+        .map(|(index, event)| {
+            ExperienceEventEnvelope::new(
+                format!("evt-{}-{:04}", Uuid::new_v4().simple(), index + 1),
+                event.clone(),
+            )
+            .with_correlation(runtime_ctx.scope_id.clone())
+        })
+        .collect::<Vec<_>>();
+    runtime_stores
+        .append_experience_events(&envelopes)
+        .map_err(status_from_storage)?;
+
+    Ok((result, experience_events))
+}
+

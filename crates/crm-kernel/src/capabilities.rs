@@ -6,10 +6,11 @@ use crate::{
     Document, DocumentAttach, Entitlement, Fact, FactRecord, KernelResult, LedgerEntry, Note,
     NoteAppend, ObjectDefinition, ObjectDefinitionUpsert, Opportunity, OpportunityAdvance,
     OpportunityCreate, OrderSubscription, Organization, OrganizationUpsert, PermissionGrant,
-    PermissionGrantInput, Person, PersonUpsert, Relationship, RelationshipLink,
+    PermissionGrantInput, Person, PersonUpsert, RecordRef, Relationship, RelationshipLink,
     SubscriptionActivate, SubscriptionActivation, SubscriptionCreate, SubscriptionPlanChange,
     SubscriptionPlanChangeResult, SubscriptionSuspend, SubscriptionSuspension, TimelineEntry,
     ViewDefinition, ViewDefinitionUpsert, WorkflowCase, WorkflowCaseAdvance, WorkflowCaseCreate,
+    WorkflowState,
 };
 
 pub trait PartiesCommands {
@@ -73,6 +74,7 @@ pub trait WorkflowCommands {
         command: WorkflowCaseAdvance,
         actor: Actor,
     ) -> KernelResult<WorkflowCase>;
+    fn list_workflow_cases(&self, state: Option<WorkflowState>) -> Vec<WorkflowCase>;
 }
 
 pub trait IdentityCommands {
@@ -85,6 +87,7 @@ pub trait IdentityCommands {
 
 pub trait FactsCommands {
     fn record_fact(&mut self, command: FactRecord, actor: Actor) -> KernelResult<Fact>;
+    fn list_timeline(&self, anchors: &[RecordRef], limit: usize) -> Vec<TimelineEntry>;
 }
 
 pub trait RevenueCommands {
@@ -118,6 +121,9 @@ pub trait RevenueCommands {
         command: CreditGrantApply,
         actor: Actor,
     ) -> KernelResult<CreditGrantApplication>;
+    fn get_subscription(&self, id: Uuid) -> KernelResult<OrderSubscription>;
+    fn list_subscriptions(&self, organization_id: Option<Uuid>) -> Vec<OrderSubscription>;
+    fn list_catalog_items(&self, active_only: bool) -> Vec<CatalogItem>;
     fn list_entitlements(&self, organization_id: Option<Uuid>) -> Vec<Entitlement>;
     fn list_ledger_entries(&self, organization_id: Option<Uuid>) -> Vec<LedgerEntry>;
 }
@@ -241,6 +247,10 @@ impl WorkflowCommands for CrmKernel {
     ) -> KernelResult<WorkflowCase> {
         CrmKernel::advance_workflow_case(self, command, actor)
     }
+
+    fn list_workflow_cases(&self, state: Option<WorkflowState>) -> Vec<WorkflowCase> {
+        CrmKernel::list_workflow_cases(self, state)
+    }
 }
 
 impl IdentityCommands for CrmKernel {
@@ -256,6 +266,10 @@ impl IdentityCommands for CrmKernel {
 impl FactsCommands for CrmKernel {
     fn record_fact(&mut self, command: FactRecord, actor: Actor) -> KernelResult<Fact> {
         CrmKernel::record_fact(self, command, actor)
+    }
+
+    fn list_timeline(&self, anchors: &[RecordRef], limit: usize) -> Vec<TimelineEntry> {
+        CrmKernel::list_timeline(self, anchors, limit)
     }
 }
 
@@ -306,6 +320,18 @@ impl RevenueCommands for CrmKernel {
         actor: Actor,
     ) -> KernelResult<CreditGrantApplication> {
         CrmKernel::apply_credit_grant(self, command, actor)
+    }
+
+    fn get_subscription(&self, id: Uuid) -> KernelResult<OrderSubscription> {
+        CrmKernel::get_subscription(self, id)
+    }
+
+    fn list_subscriptions(&self, organization_id: Option<Uuid>) -> Vec<OrderSubscription> {
+        CrmKernel::list_subscriptions(self, organization_id)
+    }
+
+    fn list_catalog_items(&self, active_only: bool) -> Vec<CatalogItem> {
+        CrmKernel::list_catalog_items(self, active_only)
     }
 
     fn list_entitlements(&self, organization_id: Option<Uuid>) -> Vec<Entitlement> {

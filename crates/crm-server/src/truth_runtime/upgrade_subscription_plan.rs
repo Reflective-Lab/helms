@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
-    ProposedFact, TypesRunHooks,
+    ProposedFact,
 };
 use crm_kernel::{
     Actor as CrmActor, BillingPeriod, CatalogItem, CatalogPlanKind, EntitlementValue, FactRecord,
@@ -17,12 +17,12 @@ use tonic::Status;
 use uuid::Uuid;
 
 use super::{
-    RecordingObserver, TruthExecutionArtifacts, TruthProjection,
+    TruthExecutionArtifacts, TruthProjection,
     common::{
         has_fact_id, optional_bool, optional_i64, optional_input, payload_from_result,
         required_datetime, required_uuid,
     },
-    domain_event_kind_name, status_from_converge, status_from_storage,
+    domain_event_kind_name, status_from_storage,
 };
 
 const COMMERCIAL_PACK_ID: &str = "prio-commercial-pack";
@@ -103,9 +103,35 @@ struct CommercialDeltaAgent {
     seed: PlanChangeSeed,
 }
 
+#[derive(Debug, Clone)]
+pub struct UpgradeSubscriptionPlanInput {
+    pub subscription_id: Uuid,
+    pub target_catalog_item_id: Uuid,
+    pub effective_at: DateTime<Utc>,
+    pub force_manual_review: Option<bool>,
+    pub manual_review_reason: Option<String>,
+    pub target_value_minor: Option<i64>,
+    pub target_value_currency_code: Option<String>,
+}
+
+impl UpgradeSubscriptionPlanInput {
+    pub fn from_map(inputs: &HashMap<String, String>) -> Result<Self, Status> {
+        Ok(Self {
+            subscription_id: required_uuid(inputs, "subscription_id")?,
+            target_catalog_item_id: required_uuid(inputs, "target_catalog_item_id")?,
+            effective_at: required_datetime(inputs, "effective_at")?,
+            force_manual_review: optional_bool(inputs, "force_manual_review"),
+            manual_review_reason: optional_input(inputs, "manual_review_reason"),
+            target_value_minor: optional_i64(inputs, "target_value_minor"),
+            target_value_currency_code: optional_input(inputs, "target_value_currency_code"),
+        })
+    }
+}
+
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    inputs: HashMap<String, String>,
+    runtime_stores: &crm_storage::AppRuntimeStores,
+    inputs: UpgradeSubscriptionPlanInput,
     actor: CrmActor,
     persist_projection: bool,
 ) -> Result<TruthExecutionArtifacts, Status> {
@@ -125,17 +151,14 @@ pub(super) fn execute<S: KernelStore>(
     );
     engine.register_in_pack(REVENUE_PACK_ID, CommercialDeltaAgent { seed: seed.clone() });
 
-    let observer = std::sync::Arc::new(RecordingObserver::default());
-    let result = engine
-        .run_with_types_intent_and_hooks(
-            seed_context(seed.subscription.id)?,
-            &binding.intent,
-            TypesRunHooks {
-                criterion_evaluator: Some(std::sync::Arc::new(UpgradeSubscriptionPlanEvaluator)),
-                event_observer: Some(observer.clone()),
-            },
-        )
-        .map_err(status_from_converge)?;
+    let (result, experience_events) = super::run_engine_with_runtime(
+        runtime_stores,
+        &mut engine,
+        &super::RuntimeContext { scope_id: inputs.subscription_id.to_string() },
+        seed_context(seed.subscription.id)?,
+        &binding.intent,
+        std::sync::Arc::new(UpgradeSubscriptionPlanEvaluator),
+    )?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -145,31 +168,26 @@ pub(super) fn execute<S: KernelStore>(
 
     Ok(TruthExecutionArtifacts {
         result,
-        experience_events: observer.snapshot(),
+        experience_events,
         projection,
     })
 }
 
 fn load_plan_change_seed<S: KernelStore>(
     store: &S,
-    inputs: &HashMap<String, String>,
+    inputs: &UpgradeSubscriptionPlanInput,
 ) -> Result<PlanChangeSeed, Status> {
-    let subscription_id = required_uuid(inputs, "subscription_id")?;
-    let target_catalog_item_id = required_uuid(inputs, "target_catalog_item_id")?;
-    let effective_at = required_datetime(inputs, "effective_at")?;
-    let force_manual_review = optional_bool(inputs, "force_manual_review").unwrap_or(false);
-    let manual_review_reason = optional_input(inputs, "manual_review_reason");
-    let explicit_target_value_minor = optional_i64(inputs, "target_value_minor");
-    let explicit_target_currency = optional_input(inputs, "target_value_currency_code");
-
     store
         .read(|kernel| {
             let subscription = kernel
                 .orders
-                .get(&subscription_id)
+                .get(&inputs.subscription_id)
                 .cloned()
                 .ok_or_else(|| {
-                    Status::not_found(format!("subscription not found: {subscription_id}"))
+                    Status::not_found(format!(
+                        "subscription not found: {}",
+                        inputs.subscription_id
+                    ))
                 })?;
             if subscription.status != crm_kernel::SubscriptionStatus::Active {
                 return Err(Status::failed_precondition(
@@ -182,7 +200,7 @@ fn load_plan_change_seed<S: KernelStore>(
                     "active subscription does not resolve to a current catalog plan".to_string(),
                 )
             })?;
-            if current_catalog_item_id == target_catalog_item_id {
+            if current_catalog_item_id == inputs.target_catalog_item_id {
                 return Err(Status::invalid_argument(
                     "target_catalog_item_id must differ from the current subscription plan"
                         .to_string(),
@@ -198,14 +216,18 @@ fn load_plan_change_seed<S: KernelStore>(
                 })?;
             let target_catalog_item = kernel
                 .catalog_items
-                .get(&target_catalog_item_id)
+                .get(&inputs.target_catalog_item_id)
                 .cloned()
                 .ok_or_else(|| {
-                    Status::not_found(format!("catalog item not found: {target_catalog_item_id}"))
+                    Status::not_found(format!(
+                        "catalog item not found: {}",
+                        inputs.target_catalog_item_id
+                    ))
                 })?;
 
-            let explicit_target_value = explicit_target_value_minor.map(|amount_minor| Money {
-                currency_code: explicit_target_currency
+            let explicit_target_value = inputs.target_value_minor.map(|amount_minor| Money {
+                currency_code: inputs
+                    .target_value_currency_code
                     .clone()
                     .unwrap_or_else(|| subscription.value.currency_code.clone()),
                 amount_minor,
@@ -248,20 +270,25 @@ fn load_plan_change_seed<S: KernelStore>(
                 explicit_target_value.as_ref(),
                 &target_value,
             );
-            let review_reason = if force_manual_review {
+            let review_reason = if inputs.force_manual_review.unwrap_or(false) {
                 Some(
-                    manual_review_reason
+                    inputs
+                        .manual_review_reason
+                        .clone()
                         .unwrap_or_else(|| "manual review requested by operator".to_string()),
                 )
             } else {
-                manual_review_reason.or(inferred_review_reason)
+                inputs
+                    .manual_review_reason
+                    .clone()
+                    .or(inferred_review_reason)
             };
 
             Ok(PlanChangeSeed {
                 subscription,
                 current_catalog_item,
                 target_catalog_item,
-                effective_at,
+                effective_at: inputs.effective_at,
                 target_value,
                 resulting_credit_balance_minor,
                 manual_review_reason: review_reason,
@@ -272,16 +299,16 @@ fn load_plan_change_seed<S: KernelStore>(
 
 fn project<S: KernelStore>(
     store: &S,
-    inputs: &HashMap<String, String>,
+    inputs: &UpgradeSubscriptionPlanInput,
     result: &ConvergeResult,
     actor: CrmActor,
 ) -> Result<TruthProjection, Status> {
     let manual_review = manual_review_from_result(result)?;
 
     if let Some(review) = manual_review {
-        let subscription_id = required_uuid(inputs, "subscription_id")?;
-        let target_catalog_item_id = required_uuid(inputs, "target_catalog_item_id")?;
-        let effective_at = required_datetime(inputs, "effective_at")?;
+        let subscription_id = inputs.subscription_id;
+        let target_catalog_item_id = inputs.target_catalog_item_id;
+        let effective_at = inputs.effective_at;
         let StoreWriteResult { value, events } = store
             .write_with_events(|kernel| {
                 let subscription =
@@ -813,20 +840,28 @@ mod tests {
     #[test]
     fn upgrade_subscription_plan_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
         let actor = Actor::system();
         let (_organization_id, subscription_id, target_catalog_item_id) =
             seeded_active_subscription_for_upgrade(&store, &actor);
 
         let execution = execute(
             &store,
-            HashMap::from([
-                ("subscription_id".to_string(), subscription_id.to_string()),
-                (
-                    "target_catalog_item_id".to_string(),
-                    target_catalog_item_id.to_string(),
-                ),
-                ("effective_at".to_string(), Utc::now().to_rfc3339()),
-            ]),
+            &runtime_stores,
+            UpgradeSubscriptionPlanInput {
+                subscription_id,
+                target_catalog_item_id,
+                effective_at: Utc::now(),
+                force_manual_review: None,
+                manual_review_reason: None,
+                target_value_minor: None,
+                target_value_currency_code: None,
+            },
             actor,
             true,
         )
@@ -864,21 +899,28 @@ mod tests {
     #[test]
     fn upgrade_subscription_plan_blocks_for_price_override() {
         let store = InMemoryKernelStore::default_local();
+        let runtime_stores = crm_storage::AppRuntimeStores {
+            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
+            experience: crm_storage::AppExperienceStore::Memory(
+                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            ),
+        };
         let actor = Actor::system();
         let (_organization_id, subscription_id, target_catalog_item_id) =
             seeded_active_subscription_for_upgrade(&store, &actor);
 
         let execution = execute(
             &store,
-            HashMap::from([
-                ("subscription_id".to_string(), subscription_id.to_string()),
-                (
-                    "target_catalog_item_id".to_string(),
-                    target_catalog_item_id.to_string(),
-                ),
-                ("effective_at".to_string(), Utc::now().to_rfc3339()),
-                ("target_value_minor".to_string(), "450000".to_string()),
-            ]),
+            &runtime_stores,
+            UpgradeSubscriptionPlanInput {
+                subscription_id,
+                target_catalog_item_id,
+                effective_at: Utc::now(),
+                force_manual_review: None,
+                manual_review_reason: None,
+                target_value_minor: Some(450000),
+                target_value_currency_code: None,
+            },
             actor,
             true,
         )
