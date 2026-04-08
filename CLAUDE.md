@@ -12,6 +12,9 @@ A JTBD-driven CRM/ERP built as a Converge application. Not a standalone system. 
 - **Agents emit proposals, not direct facts.** Everything goes through converge's promotion gate. The routing agent fix (second pass) is the correct pattern.
 - **Fact content uses typed JSON codecs.** No pipe-delimited or custom string formats. Fact IDs are the stable contract between agents.
 
+## Milestones
+Read `MILESTONES.md` at the start of every session. Scope all work to the current milestone. If work drifts outside it, flag it. For pasting into non-Claude LLMs, see `docs/session-preamble.md`.
+
 ## Build & Test
 
 ```bash
@@ -24,7 +27,7 @@ Rust 2024, edition 2021 for formatting, toolchain floor `rustc 1.94.0`.
 
 ## Converge Dependency
 
-`converge-core` is at `../../../converge.zone/crates/core` (local path). Only `prio-truths` depends on it directly; `crm-server` gets it transitively. Both workspaces must build cleanly.
+`converge-core` is at `../../../converge/crates/core` (local path). Only `prio-truths` depends on it directly; `crm-server` gets it transitively. Both workspaces must build cleanly.
 
 ## Truth Execution Pattern
 

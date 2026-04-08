@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Converge",
+  "version": "0.1.0",
+  "description": "Governed job state — see what work is happening, not which app to open.",
+  "permissions": ["sidePanel"],
+  "host_permissions": ["http://localhost:8081/*"],
+  "side_panel": {
+    "default_path": "src/sidepanel.html"
+  },
+  "action": {
+    "default_title": "Converge"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

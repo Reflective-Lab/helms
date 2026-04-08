@@ -6,7 +6,7 @@ The CRM kernel should assume near-term integration with:
 
 - `converge-analytics` for usage funnels, conversion cohorts, account scoring, and behavioral segmentation
 - `converge-optimization` for lead routing, follow-up prioritization, queue balancing, and constrained work allocation
-- `converge-llm` as the current ML-adjacent reasoning kernel in `../converge.zone`
+- `converge-llm` as the current ML-adjacent reasoning kernel in `../converge`
 
 There is no `converge-ml` crate in the adjacent workspace snapshot. The closest current building blocks are `converge-analytics` and `converge-llm`.
 
@@ -19,9 +19,9 @@ There is no `converge-ml` crate in the adjacent workspace snapshot. The closest 
 
 ## Confirmed Converge Assets
 
-- `../converge.zone/crates/runtime/templates/linkedin-research.yaml`
-- `../converge.zone/crates/provider/src/linkedin.rs`
-- `../converge.zone/crates/application/src/packs.rs`
+- `../converge/crates/runtime/templates/linkedin-research.yaml`
+- `../converge/crates/provider/src/linkedin.rs`
+- `../converge/crates/application/src/packs.rs`
 
 The LinkedIn pieces exist, but the provider is still a placeholder. Treat it as an integration seam, not a production ingestion path yet.
 

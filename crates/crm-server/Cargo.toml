@@ -13,11 +13,11 @@ path = "src/main.rs"
 anyhow.workspace = true
 axum.workspace = true
 chrono.workspace = true
-converge-analytics = { path = "../../../converge.zone/crates/analytics" }
-converge-core = { path = "../../../converge.zone/crates/core" }
-converge-domain = { path = "../../../converge.zone/crates/domain" }
-converge-knowledge = { path = "../../../converge.zone/crates/knowledge" }
-converge-optimization = { path = "../../../converge.zone/crates/optimization" }
+converge-analytics = { path = "../../../converge/crates/analytics" }
+converge-core = { path = "../../../converge/crates/core" }
+converge-domain = { path = "../../../converge/crates/domain" }
+converge-knowledge = { path = "../../../converge/crates/knowledge" }
+converge-optimization = { path = "../../../converge/crates/optimization" }
 crm-kernel = { path = "../crm-kernel" }
 crm-storage = { path = "../crm-storage" }
 prost.workspace = true

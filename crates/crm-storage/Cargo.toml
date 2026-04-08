@@ -6,8 +6,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-converge-core = { path = "../../../converge.zone/crates/core" }
-converge-experience = { path = "../../../converge.zone/crates/experience" }
+converge-core = { path = "../../../converge/crates/core" }
+converge-experience = { path = "../../../converge/crates/experience" }
 crm-kernel = { path = "../crm-kernel" }
 serde.workspace = true
 serde_json.workspace = true

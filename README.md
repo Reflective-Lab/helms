@@ -144,7 +144,7 @@ Current HTTP integration packages:
 
 ## Converge Dependency
 
-`converge-core` is a local path dependency from `../../../converge.zone/crates/core`. The CRM uses:
+`converge-core` is a local path dependency from `../../../converge/crates/core`. The CRM uses:
 
 - `TypesRootIntent`, `TypesRunHooks` for intent construction and execution hooks
 - `Agent`, `AgentEffect`, `ProposedFact` for pack-scoped agent implementations

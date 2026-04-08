@@ -5,6 +5,7 @@ mod plan_outbound_campaign;
 mod qualify_inbound_lead;
 mod reconcile_model_usage_against_customer_ledger;
 mod refill_prepaid_ai_credits;
+mod schedule_strategic_meetings;
 mod score_inbound_fit;
 mod suspend_service_on_payment_failure;
 mod upgrade_subscription_plan;
@@ -144,6 +145,17 @@ pub fn execute_truth<S: KernelStore>(
         "match-renewal-context" => {
             let parsed = match_renewal_context::MatchRenewalContextInput::from_map(&inputs)?;
             match_renewal_context::execute(store, runtime_stores, parsed, actor, persist_projection)
+        }
+        "schedule-strategic-meetings" => {
+            let parsed =
+                schedule_strategic_meetings::ScheduleStrategicMeetingsInput::from_map(&inputs)?;
+            schedule_strategic_meetings::execute(
+                store,
+                runtime_stores,
+                parsed,
+                actor,
+                persist_projection,
+            )
         }
         _ => Err(Status::unimplemented(format!(
             "truth execution is not implemented yet for {truth_key}"

@@ -42,6 +42,15 @@ desktop-rust-fmt:
 desktop:
     just desktop-dev
 
+extension-install:
+    cd apps/extension && bun install
+
+extension-build:
+    cd apps/extension && bun run build
+
+extension-dev:
+    cd apps/extension && bun run dev
+
 info:
     @echo "bun:   $(bun --version)"
     @echo "cargo: $(cargo --version)"

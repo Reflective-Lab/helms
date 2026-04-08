@@ -29,6 +29,9 @@ pub struct ReconcileModelUsageAgainstCustomerLedgerEvaluator;
 pub struct ScoreInboundFitEvaluator;
 pub struct PlanOutboundCampaignEvaluator;
 pub struct MatchRenewalContextEvaluator;
+pub struct ScheduleStrategicMeetingsEvaluator;
+pub struct MonitorBrandSignalEvaluator;
+pub struct MatchVisualToTaglineEvaluator;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TruthConvergeBinding {
@@ -476,6 +479,51 @@ impl CriterionEvaluator for MatchRenewalContextEvaluator {
                 require_any_fact(context, ContextKey::Signals, "renewal:signal:")
             }
             _ => CriterionResult::Indeterminate,
+        }
+    }
+}
+
+impl CriterionEvaluator for ScheduleStrategicMeetingsEvaluator {
+    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+        if let Some(review_fact) = find_fact_id(
+            context,
+            ContextKey::Evaluations,
+            "meeting:human-confirmation-required",
+        ) {
+            return CriterionResult::Blocked {
+                reason: format!(
+                    "human confirmation required before booking meetings ({review_fact})"
+                ),
+                approval_ref: Some(review_fact),
+            };
+        }
+
+        match criterion.id.as_str() {
+            "outcome.a-ranked-meeting-slate-is-proposed-with-reasoning" => {
+                require_fact(context, ContextKey::Strategies, "meeting:slate")
+            }
+            "outcome.each-proposed-meeting-cites-strategy-alignment-evidence" => {
+                require_any_fact(context, ContextKey::Signals, "meeting:alignment:")
+            }
+            _ => CriterionResult::Indeterminate,
+        }
+    }
+}
+
+impl CriterionEvaluator for MonitorBrandSignalEvaluator {
+    fn evaluate(&self, _criterion: &Criterion, _context: &Context) -> CriterionResult {
+        CriterionResult::Blocked {
+            reason: "monitor-brand-signal runtime is not yet implemented".to_string(),
+            approval_ref: None,
+        }
+    }
+}
+
+impl CriterionEvaluator for MatchVisualToTaglineEvaluator {
+    fn evaluate(&self, _criterion: &Criterion, _context: &Context) -> CriterionResult {
+        CriterionResult::Blocked {
+            reason: "match-visual-to-tagline runtime is not yet implemented".to_string(),
+            approval_ref: None,
         }
     }
 }

@@ -234,7 +234,7 @@ Initialize in Tauri's `setup` hook. For now, use `InMemoryKernelStore`. When the
 
 **Directory:** `apps/desktop/src/`
 
-Replace the current static shell with a real operator cockpit. Use Svelte 5. You can reference `../wolfgang-app` for structural inspiration (app shell, store patterns, nav conventions) but do NOT reuse Wolfgang's chat-centric layout.
+Replace the current static shell with a real operator cockpit. Use Svelte 5. You can reference `../wolfgang` for structural inspiration (app shell, store patterns, nav conventions) but do NOT reuse Wolfgang's chat-centric layout.
 
 **Layout:**
 ```
@@ -330,7 +330,7 @@ Do NOT inherit Wolfgang's theme. This is a different product with different info
 - `crates/prio-truths/src/lib.rs` — full truth catalog with 18 definitions
 - `crates/crm-kernel/` — domain model, kernel methods, capabilities traits
 
-The `../wolfgang-app` directory has a working Svelte/Tauri app you can reference for patterns.
+The `../wolfgang` directory has a working Svelte/Tauri app you can reference for patterns.
 
 ## Verification
 
