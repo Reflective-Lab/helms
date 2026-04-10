@@ -29,6 +29,7 @@ members = [
     "crates/prio-memory",
     "crates/prio-agent-ops",
     "crates/prio-truths",
+    "crates/seed-gen",
 ]
 
 [workspace.package]

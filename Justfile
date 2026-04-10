@@ -51,6 +51,9 @@ extension-build:
 extension-dev:
     cd apps/extension && bun run dev
 
+gen-seed-data:
+    cargo run -p seed-gen
+
 info:
     @echo "bun:   $(bun --version)"
     @echo "cargo: $(cargo --version)"

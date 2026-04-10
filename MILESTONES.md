@@ -25,52 +25,87 @@
 
 ---
 
-## Current: Stage 1 — Converge Browser Extension (Whatfix Demo)
+## Deferred: Converge Browser Extension (Whatfix Demo)
 
-**Deadline: 2026-04-18** (15 days)
+Moved to backlog 2026-04-10. See `DEMO.md` for original narrative.
 
-**Goal:** A Chrome extension side panel that shows governed job state powered by
-Converge. Demo-ready for Whatfix meeting. See `DEMO.md` for full narrative.
+---
 
-**Thesis:** DAP instruments applications. Converge governs jobs.
+## Current: Stage 1 — Desktop End-to-End Showcase
+
+**Deadline: 2026-04-25**
+
+**Goal:** Desktop app runs a governed multi-truth pipeline end-to-end,
+from inbound signal to scheduled meeting, with live convergence visibility
+and human-in-the-loop approvals. One compelling use case that spans
+data analysis, routing, scheduling, and HITL — all visible in real time.
+
+**Showcase pipeline:**
+`score-inbound-fit` → `qualify-inbound-lead` → `schedule-strategic-meetings`
 
 ### Deliverables
 
-#### Extension shell
-- [ ] Chrome manifest v3 extension with side panel
-- [ ] Svelte UI in side panel (reuse desktop component patterns)
-- [ ] Connect to crm-server HTTP API (localhost for demo)
+#### Synthetic data generation
+- [ ] `just gen-seed-data` recipe writes Parquet to `data/seed/`
+- [ ] Website behavior events: ~50-100k rows per prospect, 30-60 day window (pageviews, feature clicks, docs reads, pricing visits, time-on-page)
+- [ ] Account context signals: firmographic data, past interactions, email engagement
+- [ ] Calendar/availability blocks for scheduling step
+- [ ] Uses `converge-analytics` Parquet write path (`write_parquet_to_store` / local)
+- [ ] Deterministic seed (reproducible across runs)
 
-#### Job state view
-- [ ] Active truth execution list with convergence progress
-- [ ] Fact timeline per job (proposed → promoted, with agents identified)
-- [ ] Blocked step rendering with policy reason visible
-- [ ] Approval action button (calls truth execute / approval endpoint)
+#### Pipeline orchestration
+- [ ] Pipeline coordinator: score → qualify → schedule as a chained truth sequence
+- [ ] Each step visible as a distinct convergence run in the UI
+- [ ] Pipeline state persists across steps (output of step N seeds step N+1)
+- [ ] `score-inbound-fit` consumes Parquet via `extract_temporal_features()` + batch inference
 
-#### Live updates
-- [ ] Polling or SSE from server for real-time job state changes
-- [ ] Side panel updates when billing event arrives
+#### Live convergence visibility
+- [ ] SSE endpoint for truth execution progress (fact proposals, promotions, blocks)
+- [ ] Desktop UI subscribes to SSE and renders convergence in real time
+- [ ] Fact timeline updates live as agents propose and converge promotes
+
+#### HITL approval flow
+- [ ] Qualification gate: ambiguous fit pauses pipeline, surfaces for human review
+- [ ] Meeting booking gate: proposed slate requires human confirmation
+- [ ] Desktop approval UI: review evidence, approve/reject, pipeline resumes
+
+#### Desktop connectivity
+- [ ] Desktop app talks to crm-server HTTP API (not just Tauri IPC)
+- [ ] Operator cockpit shows pipeline progress across all three truths
+- [ ] Blocked-step rendering shows which agent is waiting and why
 
 #### Demo scenario
-- [ ] Seed data script: Acme Corp onboarding (org, contact, catalog item, subscription)
-- [ ] Scripted flow: billing event → truth fires → 3 steps converge → 1 blocked → approve → done
-- [ ] Repeatable reset (re-run seed to start fresh)
-
-#### Narrative
-- [ ] 3-5 slide deck framing the thesis (DAP + Converge positioning)
-- [ ] 90-second demo script practiced and timed
-
-### Converge.zone primitives driven
-
-- [ ] SSE or webhook surface for external consumers of convergence state (if needed)
+- [ ] Seed script: realistic inbound lead with behavioral Parquet data
+- [ ] Full pipeline run: score → qualify → schedule, with 2 HITL stops
+- [ ] Repeatable reset (re-gen seed data + clear kernel state)
 
 ### Not in scope
 
-- DOM injection or page reading
-- Integration with any specific enterprise app
-- Authentication or multi-tenancy
+- Chrome extension (deferred)
 - Production deployment
-- New truths (existing 9 are sufficient)
+- Authentication or multi-tenancy
+- New truth runtimes beyond the three in the showcase pipeline
+
+### Stretch: Mobile Daily Priorities App
+
+A mobile-first JTBD surface for daily operator work. The user opens the app,
+spends 2 minutes swiping left/right on surfaced cards to triage and prioritize
+their day, then agent flows fire with well-defined truths behind each action.
+
+#### Deliverables
+- [ ] React Native or Tauri Mobile shell (single screen: card stack + done state)
+- [ ] Priority card feed: pulls today's pending approvals, blocked truths, scheduled meetings, and open opportunities from crm-server HTTP API
+- [ ] Swipe-left (defer/dismiss) / swipe-right (act now) gesture with haptic
+- [ ] Swipe-right triggers the associated truth execution (e.g. approve meeting, advance qualification, acknowledge incident)
+- [ ] Card rendering: one-line context, agent reasoning summary, urgency signal, HITL action label
+- [ ] "Day started" projection: after triage, the system has a prioritized work queue and launched agent flows
+- [ ] Connects to same crm-server HTTP API + SSE as desktop (no separate backend)
+
+#### Design constraints
+- 2-minute session target — no deep navigation, no settings, no dashboards
+- Cards are generated from truth state, not manually curated
+- Every swipe is a governed action (proposal → promotion, not a raw mutation)
+- Offline-safe: queue swipe decisions locally, sync when connected
 
 ---
 

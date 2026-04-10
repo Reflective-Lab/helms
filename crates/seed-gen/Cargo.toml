@@ -1,0 +1,16 @@
+[package]
+name = "seed-gen"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "seed-gen"
+path = "src/main.rs"
+
+[dependencies]
+polars = { version = "0.51.0", features = ["lazy", "parquet", "rows"] }
+rand = { version = "0.9", features = ["small_rng"] }
+chrono.workspace = true
+anyhow.workspace = true

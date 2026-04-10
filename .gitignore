@@ -8,5 +8,6 @@
 /crates/crm-server/proptest-regressions
 /apps/extension/node_modules
 /apps/extension/dist
+data/seed/*.parquet
 *.py
 
