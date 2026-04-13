@@ -1,4 +1,8 @@
 /target
+build/
+dist/
+.svelte-kit/
+.obsidian/
 /apps/desktop/.svelte-kit
 /apps/desktop/node_modules
 /apps/desktop/src-tauri/target
