@@ -9,5 +9,9 @@
 /apps/extension/node_modules
 /apps/extension/dist
 data/seed/*.parquet
-*.py
+.env
+.env.*
+!.env.example
+.DS_Store
+/patch*.py
 
