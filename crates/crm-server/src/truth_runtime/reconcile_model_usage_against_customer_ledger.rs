@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
+use application_kernel::{
+    Actor as CrmActor, EntitlementValue, FactRecord, LedgerEntryKind, OrderSubscription,
+    RecordKind, RecordRef, WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority,
+    WorkflowState,
+};
+use application_storage::{KernelStore, StoreWriteResult};
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
     ProposedFact,
 };
 use converge_domain::packs::ReconciliationMatcherAgent;
-use crm_kernel::{
-    Actor as CrmActor, EntitlementValue, FactRecord, LedgerEntryKind, OrderSubscription,
-    RecordKind, RecordRef, WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority,
-    WorkflowState,
-};
-use crm_storage::{KernelStore, StoreWriteResult};
 use prio_truths::{ReconcileModelUsageAgainstCustomerLedgerEvaluator, converge_binding_for_truth};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
@@ -360,7 +360,7 @@ impl ReconcileModelUsageAgainstCustomerLedgerInput {
 
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    runtime_stores: &crm_storage::AppRuntimeStores,
+    runtime_stores: &application_storage::AppRuntimeStores,
     inputs: ReconcileModelUsageAgainstCustomerLedgerInput,
     actor: CrmActor,
     persist_projection: bool,
@@ -393,7 +393,9 @@ pub(super) fn execute<S: KernelStore>(
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext { scope_id: inputs.subscription_id.to_string() },
+        &super::RuntimeContext {
+            scope_id: inputs.subscription_id.to_string(),
+        },
         seed_context(seed.subscription.id)?,
         &binding.intent,
         std::sync::Arc::new(ReconcileModelUsageAgainstCustomerLedgerEvaluator),
@@ -466,7 +468,7 @@ fn project<S: KernelStore>(
                         .orders
                         .get(&subscription_id)
                         .cloned()
-                        .ok_or_else(|| crm_kernel::KernelError::NotFound {
+                        .ok_or_else(|| application_kernel::KernelError::NotFound {
                             kind: "subscription",
                             id: subscription_id.to_string(),
                         })?;
@@ -528,7 +530,7 @@ fn project<S: KernelStore>(
                         .orders
                         .get(&subscription_id)
                         .cloned()
-                        .ok_or_else(|| crm_kernel::KernelError::NotFound {
+                        .ok_or_else(|| application_kernel::KernelError::NotFound {
                             kind: "subscription",
                             id: subscription_id.to_string(),
                         })?;
@@ -578,7 +580,7 @@ fn project<S: KernelStore>(
                 .orders
                 .get(&subscription_id)
                 .cloned()
-                .ok_or_else(|| crm_kernel::KernelError::NotFound {
+                .ok_or_else(|| application_kernel::KernelError::NotFound {
                     kind: "subscription",
                     id: subscription_id.to_string(),
                 })?;
@@ -1000,14 +1002,14 @@ fn seed_context(subscription_id: Uuid) -> Result<Context, Status> {
 mod tests {
     use std::collections::BTreeMap;
 
-    use chrono::Utc;
-    use converge_core::{CriterionResult, StopReason};
-    use crm_kernel::{
+    use application_kernel::{
         Actor, CatalogItemUpsert, CreditGrantApply, EntitlementTemplate, LedgerEntry, Money,
         OrganizationLifecycle, OrganizationUpsert, SubscriptionActivate, SubscriptionCreate,
         SubscriptionStatus,
     };
-    use crm_storage::InMemoryKernelStore;
+    use application_storage::InMemoryKernelStore;
+    use chrono::Utc;
+    use converge_core::{CriterionResult, StopReason};
 
     use super::*;
 
@@ -1033,9 +1035,9 @@ mod tests {
                         sku: "prio-metered".to_string(),
                         name: "Prio Metered".to_string(),
                         description: Some("Metered credits".to_string()),
-                        plan_kind: crm_kernel::CatalogPlanKind::Subscription,
-                        pricing: Some(crm_kernel::PricingMetadata {
-                            billing_period: crm_kernel::BillingPeriod::Monthly,
+                        plan_kind: application_kernel::CatalogPlanKind::Subscription,
+                        pricing: Some(application_kernel::PricingMetadata {
+                            billing_period: application_kernel::BillingPeriod::Monthly,
                             list_price: Money {
                                 currency_code: "USD".to_string(),
                                 amount_minor: 2_000_00,
@@ -1114,10 +1116,12 @@ mod tests {
     #[test]
     fn reconcile_model_usage_against_customer_ledger_executes_cleanly() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -1159,10 +1163,12 @@ mod tests {
     #[test]
     fn reconcile_model_usage_against_customer_ledger_routes_exceptions() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -1200,10 +1206,12 @@ mod tests {
     #[test]
     fn reconcile_model_usage_against_customer_ledger_blocks_for_large_drift() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();

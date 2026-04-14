@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
+use application_kernel::{
+    ActivityAppend, ActivityOutcome, Actor as CrmActor, FactRecord, OrganizationLifecycle,
+    OrganizationUpsert, RecordKind, RecordRef,
+};
+use application_storage::{KernelStore, StoreWriteResult};
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
     ProposedFact,
 };
-use crm_kernel::{
-    Actor as CrmActor, ActivityAppend, ActivityOutcome, FactRecord, OrganizationLifecycle,
-    OrganizationUpsert, RecordKind, RecordRef,
-};
-use crm_storage::{KernelStore, StoreWriteResult};
 use prio_truths::{ScheduleStrategicMeetingsEvaluator, converge_binding_for_truth};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
@@ -160,7 +160,7 @@ struct AlignmentEvidence {
 
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    runtime_stores: &crm_storage::AppRuntimeStores,
+    runtime_stores: &application_storage::AppRuntimeStores,
     inputs: ScheduleStrategicMeetingsInput,
     actor: CrmActor,
     persist_projection: bool,
@@ -184,9 +184,7 @@ pub(super) fn execute<S: KernelStore>(
     );
     engine.register_in_pack(
         COMMERCIAL_PACK_ID,
-        AvailabilityResolverAgent {
-            calendar_slots,
-        },
+        AvailabilityResolverAgent { calendar_slots },
     );
     engine.register_in_pack(
         WORK_PACK_ID,
@@ -250,8 +248,8 @@ impl Agent for CandidateRankerAgent {
             .map(|prospect| {
                 let strategy_score = compute_strategy_score(prospect, &self.strategy);
                 let readiness_score = compute_readiness_score(prospect);
-                let combined = ((u32::from(strategy_score) * 6 + u32::from(readiness_score) * 4)
-                    / 10) as u16;
+                let combined =
+                    ((u32::from(strategy_score) * 6 + u32::from(readiness_score) * 4) / 10) as u16;
                 let reasoning = build_ranking_reasoning(prospect, &self.strategy);
 
                 RankedCandidate {
@@ -315,8 +313,7 @@ impl Agent for AvailabilityResolverAgent {
     }
 
     fn accepts(&self, ctx: &dyn converge_core::ContextView) -> bool {
-        ctx.has(ContextKey::Seeds)
-            && !has_fact_id(ctx, ContextKey::Signals, AVAILABILITY_FACT_ID)
+        ctx.has(ContextKey::Seeds) && !has_fact_id(ctx, ContextKey::Signals, AVAILABILITY_FACT_ID)
     }
 
     fn execute(&self, _ctx: &dyn converge_core::ContextView) -> AgentEffect {
@@ -400,11 +397,7 @@ impl Agent for SlateProposerAgent {
                     ),
                     suggested_agenda: format!(
                         "Explore {} fit for {}",
-                        candidate
-                            .prospect
-                            .segment
-                            .as_deref()
-                            .unwrap_or("general"),
+                        candidate.prospect.segment.as_deref().unwrap_or("general"),
                         candidate.prospect.name
                     ),
                     combined_score_bps: candidate.combined_score_bps,
@@ -459,11 +452,7 @@ fn compute_strategy_score(prospect: &ProspectSeed, strategy: &StrategyContext) -
     }
 
     if let Some(ref territory) = prospect.territory {
-        if strategy
-            .priority_territories
-            .iter()
-            .any(|t| t == territory)
-        {
+        if strategy.priority_territories.iter().any(|t| t == territory) {
             score += 1_000;
         }
     }
@@ -523,11 +512,7 @@ fn build_ranking_reasoning(prospect: &ProspectSeed, strategy: &StrategyContext) 
     }
 
     if let Some(ref territory) = prospect.territory {
-        if strategy
-            .priority_territories
-            .iter()
-            .any(|t| t == territory)
-        {
+        if strategy.priority_territories.iter().any(|t| t == territory) {
             reasons.push(format!("in priority territory '{territory}'"));
         }
     }
@@ -572,11 +557,7 @@ fn collect_alignment_signals(
     }
 
     if let Some(ref territory) = candidate.prospect.territory {
-        if strategy
-            .priority_territories
-            .iter()
-            .any(|t| t == territory)
-        {
+        if strategy.priority_territories.iter().any(|t| t == territory) {
             signals.push(format!("priority-territory:{territory}"));
         }
     }
@@ -604,15 +585,11 @@ fn seed_context(inputs: &ScheduleStrategicMeetingsInput) -> Result<Context, Stat
 
 // --- Parse inputs ---
 
-fn parse_prospects(
-    inputs: &ScheduleStrategicMeetingsInput,
-) -> Result<Vec<ProspectSeed>, Status> {
+fn parse_prospects(inputs: &ScheduleStrategicMeetingsInput) -> Result<Vec<ProspectSeed>, Status> {
     let prospects = serde_json::from_str::<Vec<ProspectSeed>>(&inputs.prospects_json)
         .map_err(|e| Status::invalid_argument(format!("invalid prospects_json: {e}")))?;
     if prospects.is_empty() {
-        return Err(Status::invalid_argument(
-            "prospects_json must not be empty",
-        ));
+        return Err(Status::invalid_argument("prospects_json must not be empty"));
     }
     Ok(prospects)
 }
@@ -646,7 +623,10 @@ fn project<S: KernelStore>(
     let slate: MeetingSlatePayload =
         payload_from_result(result, ContextKey::Strategies, SLATE_FACT_ID)?;
 
-    let StoreWriteResult { value: facts, events } = store
+    let StoreWriteResult {
+        value: facts,
+        events,
+    } = store
         .write_with_events(|kernel| {
             let mut facts = Vec::new();
             let mut org_refs = Vec::new();
@@ -764,16 +744,16 @@ fn slug(value: &str) -> String {
 mod tests {
     use super::*;
 
-    use crm_kernel::Actor;
-    use crm_storage::InMemoryKernelStore;
+    use application_kernel::Actor;
+    use application_storage::InMemoryKernelStore;
 
-    fn test_runtime_stores() -> crm_storage::AppRuntimeStores {
-        crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(
-                crm_storage::InMemoryContextStore::new(),
+    fn test_runtime_stores() -> application_storage::AppRuntimeStores {
+        application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
             ),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         }
     }
@@ -869,12 +849,16 @@ mod tests {
 
         assert!(execution.result.converged, "engine should complete");
 
-        let has_blocked = execution
-            .result
-            .criteria_outcomes
-            .iter()
-            .any(|outcome| matches!(outcome.result, converge_core::CriterionResult::Blocked { .. }));
-        assert!(has_blocked, "should have blocked criteria awaiting human confirmation");
+        let has_blocked = execution.result.criteria_outcomes.iter().any(|outcome| {
+            matches!(
+                outcome.result,
+                converge_core::CriterionResult::Blocked { .. }
+            )
+        });
+        assert!(
+            has_blocked,
+            "should have blocked criteria awaiting human confirmation"
+        );
 
         let has_slate = execution
             .result
@@ -890,10 +874,7 @@ mod tests {
             .get(ContextKey::Evaluations)
             .iter()
             .any(|f| f.id == CONFIRMATION_FACT_ID);
-        assert!(
-            has_confirmation,
-            "human confirmation fact should exist"
-        );
+        assert!(has_confirmation, "human confirmation fact should exist");
 
         let alignment_count = execution
             .result
@@ -924,9 +905,7 @@ mod tests {
             "proposals should be ranked by combined score"
         );
 
-        let projection = execution
-            .projection
-            .expect("projection should persist");
+        let projection = execution.projection.expect("projection should persist");
         assert!(
             projection.facts.len() >= 4,
             "should have slate fact + alignment facts, got {}",

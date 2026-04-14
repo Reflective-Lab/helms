@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Prio CRM",
+  "productName": "Outcome Workbench",
   "version": "0.1.0",
-  "identifier": "ai.prio.crm",
+  "identifier": "ai.outcome.workbench",
   "build": {
     "beforeDevCommand": "bun run dev:web",
     "beforeBuildCommand": "bun run build:web",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Prio CRM",
+        "title": "Outcome Workbench",
         "width": 1440,
         "height": 960,
         "minWidth": 1100,

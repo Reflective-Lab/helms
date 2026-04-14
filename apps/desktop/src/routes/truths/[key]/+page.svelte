@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { page } from '$app/state'
 
-	import { executeTruth, getTruthCatalogItem } from '$lib/api'
+	import { executeTruth, getTruthDetail } from '$lib/api'
 	import type {
+		TruthDetailItem,
 		TruthExecutionInputs,
 		TruthExecutionSession,
 		TruthInputSchema,
-		TruthListItem
 	} from '$lib/types'
 	import { truthInputSchemas } from '$lib/types'
 
-	let truth = $state<TruthListItem | null>(null)
+	let truth = $state<TruthDetailItem | null>(null)
 	let execution = $state<TruthExecutionSession | null>(null)
 	let inputs = $state<TruthExecutionInputs>({})
 	let loading = $state(true)
@@ -55,17 +55,13 @@
 		error = ''
 		execution = null
 
-		try {
-			truth = await getTruthCatalogItem(key)
-			if (!truth) {
-				error = `Truth not found: ${key}`
-				inputs = {}
-				return
-			}
-
+	try {
+			truth = await getTruthDetail(key)
 			inputs = schemaDefaults(schema)
 		} catch (cause) {
 			error = String(cause)
+			truth = null
+			inputs = {}
 		} finally {
 			loading = false
 		}
@@ -105,7 +101,7 @@
 			</p>
 		</div>
 		<div class="button-row">
-			<a class="button secondary button-link" href="/">Back To Cockpit</a>
+			<a class="button secondary button-link" href="/">Back To Workbench</a>
 		</div>
 	</header>
 
@@ -152,13 +148,232 @@
 					<div class="section-title">Summary</div>
 					<p>{truth.summary}</p>
 				</div>
+
+				<div class="detail-grid">
+					<div class="card">
+						<strong>Feature</strong>
+						<div class="meta">{truth.feature_path}</div>
+					</div>
+					<div class="card">
+						<strong>Actors</strong>
+						<div class="pill-list">
+							{#each truth.actor_roles as actor}
+								<span class="pill">{actor}</span>
+							{/each}
+						</div>
+					</div>
+				</div>
+
+				<div class="content-section">
+					<div class="section-title">Desired Outcomes</div>
+					<div class="list compact">
+						{#each truth.desired_outcomes as outcome}
+							<div class="list-item">{outcome}</div>
+						{/each}
+					</div>
+				</div>
+
+				<div class="content-section">
+					<div class="section-title">Guardrails</div>
+					<div class="list compact">
+						{#each truth.guardrails as guardrail}
+							<div class="list-item">{guardrail}</div>
+						{/each}
+					</div>
+				</div>
+
+				<div class="content-section">
+					<div class="section-title">Modules</div>
+					<div class="list compact">
+						{#each truth.modules as module}
+							<div class="list-item">
+								<div class="row-between">
+									<strong>{module.module_key}</strong>
+								</div>
+								<div class="meta">{module.responsibility}</div>
+							</div>
+						{/each}
+					</div>
+				</div>
 			</section>
+
+			{#if truth.organism_resolution}
+				<section class="panel">
+					<div class="row-between">
+						<div>
+							<div class="section-title">Organism Resolution</div>
+							<h2>{truth.organism_resolution.truth_key}</h2>
+						</div>
+						<span class:muted={!truth.organism_resolution.readiness.ready} class="badge">
+							{truth.organism_resolution.readiness.ready ? 'ready' : 'has readiness gaps'}
+						</span>
+					</div>
+
+					<div class="detail-grid">
+						<div class="card">
+							<strong>Blueprint</strong>
+							<div class="meta">{truth.organism_resolution.blueprint ?? 'none'}</div>
+						</div>
+						<div class="card">
+							<strong>Completeness</strong>
+							<div class="meta">{truth.organism_resolution.completeness_confidence_bps} bps</div>
+						</div>
+					</div>
+
+					<div class="content-section">
+						<div class="section-title">Resolution Levels</div>
+						<div class="meta">
+							Attempted: {truth.organism_resolution.levels_attempted.join(', ') || 'none'}
+						</div>
+						<div class="meta">
+							Contributed: {truth.organism_resolution.levels_contributed.join(', ') || 'none'}
+						</div>
+					</div>
+
+					<div class="content-section">
+						<div class="section-title">Packs</div>
+						<div class="list compact">
+							{#each truth.organism_resolution.packs as pack}
+								<div class="list-item">
+									<div class="row-between">
+										<strong>{pack.pack_name}</strong>
+										<div class="meta">{pack.confidence_bps} bps · {pack.source}</div>
+									</div>
+									<div>{pack.reason}</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+
+					<div class="content-section">
+						<div class="section-title">Capabilities</div>
+						{#if truth.organism_resolution.capabilities.length}
+							<div class="list compact">
+								{#each truth.organism_resolution.capabilities as capability}
+									<div class="list-item">
+										<div class="row-between">
+											<strong>{capability.capability}</strong>
+											<div class="meta">{capability.confidence_bps} bps · {capability.source}</div>
+										</div>
+										<div>{capability.reason}</div>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p class="empty">No extra capability requirements declared.</p>
+						{/if}
+					</div>
+
+					<div class="content-section">
+						<div class="section-title">Invariants</div>
+						{#if truth.organism_resolution.invariants.length}
+							<div class="pill-list">
+								{#each truth.organism_resolution.invariants as invariant}
+									<span class="pill">{invariant}</span>
+								{/each}
+							</div>
+						{:else}
+							<p class="empty">No extra invariants declared beyond pack defaults.</p>
+						{/if}
+					</div>
+
+					<div class="content-section">
+						<div class="section-title">Readiness Confirmed</div>
+						{#if truth.organism_resolution.readiness.confirmed.length}
+							<div class="list compact">
+								{#each truth.organism_resolution.readiness.confirmed as item}
+									<div class="list-item">
+										<div class="row-between">
+											<strong>{item.resource}</strong>
+											<div class="meta">{item.kind}</div>
+										</div>
+										<div class="meta">{item.detail}</div>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p class="empty">No readiness confirmations recorded.</p>
+						{/if}
+					</div>
+
+					<div class="content-section">
+						<div class="section-title">Readiness Gaps</div>
+						{#if truth.organism_resolution.readiness.gaps.length}
+							<div class="list compact">
+								{#each truth.organism_resolution.readiness.gaps as gap}
+									<div class="list-item">
+										<div class="row-between">
+											<strong>{gap.resource}</strong>
+											<div class="meta">{gap.kind} · {gap.severity}</div>
+										</div>
+										<div>{gap.reason}</div>
+										{#if gap.suggestion}
+											<div class="meta">{gap.suggestion}</div>
+										{/if}
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<p class="empty">No readiness gaps.</p>
+						{/if}
+					</div>
+				</section>
+			{/if}
+
+			{#if truth.converge_resolution}
+				<section class="panel">
+					<div class="section-title">Converge Resolution</div>
+
+					<div class="detail-grid">
+						<div class="card">
+							<strong>Runtime</strong>
+							<div class="meta">{truth.converge_resolution.runtime}</div>
+						</div>
+						<div class="card">
+							<strong>Intent Kind</strong>
+							<div class="meta">{truth.converge_resolution.intent_kind}</div>
+						</div>
+					</div>
+
+					<div class="content-section">
+						<div class="section-title">Request</div>
+						<p>{truth.converge_resolution.request}</p>
+					</div>
+
+					<div class="content-section">
+						<div class="section-title">Pack IDs</div>
+						<div class="pill-list">
+							{#each truth.converge_resolution.pack_ids as packId}
+								<span class="pill">{packId}</span>
+							{/each}
+						</div>
+					</div>
+
+					<div class="content-section">
+						<div class="section-title">Required Success Criteria</div>
+						<div class="list compact">
+							{#each truth.converge_resolution.required_success_criteria as criterion}
+								<div class="list-item">{criterion}</div>
+							{/each}
+						</div>
+					</div>
+
+					<div class="content-section">
+						<div class="section-title">Hard Constraints</div>
+						<div class="list compact">
+							{#each truth.converge_resolution.hard_constraints as constraint}
+								<div class="list-item">{constraint}</div>
+							{/each}
+						</div>
+					</div>
+				</section>
+			{/if}
 
 			<section class="panel">
 				<div class="row-between">
 					<div class="section-title">Execution</div>
 					{#if !truth.executable}
-						<span class="badge muted">not yet executable in crm-app</span>
+						<span class="badge muted">not yet executable in the workbench backend</span>
 					{/if}
 				</div>
 
@@ -232,7 +447,7 @@
 					<p class="empty">This truth is executable but does not have a route input schema yet.</p>
 				{:else}
 					<p class="empty">
-						This truth is visible in the catalog, but the shared `crm-app` layer does not support
+						This truth is visible in the catalog, but the shared workbench backend does not support
 						executing it yet.
 					</p>
 				{/if}

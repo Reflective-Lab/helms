@@ -1,9 +1,9 @@
-use chrono::{DateTime, Utc};
-use crm_kernel::{
+use application_kernel::{
     ApprovalStatus, OpportunityStage, OrganizationLifecycle, RecordKind, SubscriptionStatus,
     TimelineEntryKind, WorkflowPriority, WorkflowState,
 };
-use crm_storage::{AppConfig, RuntimeModuleConfig};
+use application_storage::{AppConfig, RuntimeModuleConfig};
+use chrono::{DateTime, Utc};
 use prio_module_core::CapabilityModule;
 use prio_truths::TruthKind;
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,123 @@ pub struct TruthListItem {
     pub summary: String,
     pub packs: Vec<String>,
     pub executable: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TruthDetailItem {
+    pub key: String,
+    pub display_name: String,
+    pub kind: TruthKind,
+    pub summary: String,
+    pub feature_path: String,
+    pub actor_roles: Vec<String>,
+    pub approval_points: Vec<String>,
+    pub desired_outcomes: Vec<String>,
+    pub guardrails: Vec<String>,
+    pub modules: Vec<TruthModuleTouchItem>,
+    pub gherkin: String,
+    pub packs: Vec<String>,
+    pub executable: bool,
+    pub organism_resolution: Option<OrganismTruthResolutionView>,
+    pub converge_resolution: Option<ConvergeTruthResolutionView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TruthModuleTouchItem {
+    pub module_key: String,
+    pub responsibility: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OrganismTruthResolutionView {
+    pub truth_key: String,
+    pub blueprint: Option<String>,
+    pub packs: Vec<OrganismPackRequirementView>,
+    pub capabilities: Vec<OrganismCapabilityRequirementView>,
+    pub invariants: Vec<String>,
+    pub levels_attempted: Vec<String>,
+    pub levels_contributed: Vec<String>,
+    pub completeness_confidence_bps: u16,
+    pub readiness: TruthReadinessView,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OrganismPackRequirementView {
+    pub pack_name: String,
+    pub reason: String,
+    pub confidence_bps: u16,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OrganismCapabilityRequirementView {
+    pub capability: String,
+    pub reason: String,
+    pub confidence_bps: u16,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TruthReadinessView {
+    pub ready: bool,
+    pub confirmed: Vec<TruthReadinessConfirmationView>,
+    pub gaps: Vec<TruthReadinessGapView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TruthReadinessConfirmationView {
+    pub resource: String,
+    pub kind: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TruthReadinessGapView {
+    pub resource: String,
+    pub kind: String,
+    pub severity: String,
+    pub reason: String,
+    pub suggestion: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ConvergeTruthResolutionView {
+    pub truth_key: String,
+    pub runtime: String,
+    pub pack_ids: Vec<String>,
+    pub approval_points: Vec<String>,
+    pub intent_kind: String,
+    pub request: String,
+    pub required_success_criteria: Vec<String>,
+    pub hard_constraints: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkbenchAppStatus {
+    Ready,
+    Preview,
+    Hidden,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkbenchAppKind {
+    Workspace,
+    Utility,
+    Review,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WorkbenchAppManifest {
+    pub id: String,
+    pub display_name: String,
+    pub route: String,
+    pub summary: String,
+    pub kind: WorkbenchAppKind,
+    pub status: WorkbenchAppStatus,
+    pub capability_keys: Vec<String>,
+    pub truth_keys: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

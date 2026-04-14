@@ -1,0 +1,29 @@
+schema_version: 1
+sample_id: receipt-anthropic-pbc-max-plan-2026-04-11
+document_file: receipt-anthropic-pbc-max-plan-2026-04-11.pdf
+original_file_name: "Your receipt from Anthropic PBC 266494896888.pdf"
+document_type: receipt
+capture_type: digital-pdf
+expense_candidate: true
+related_document_file: ""
+reference_status: draft
+expected:
+  merchant: "Anthropic, PBC"
+  issue_date: "2026-04-11"
+  service_date: ""
+  service_period_start: ""
+  service_period_end: ""
+  due_date: ""
+  currency: "EUR"
+  total: "112.50"
+  subtotal: ""
+  tax: "22.50"
+  tax_rate: "25%"
+  invoice_number: "WVRUCII3-0010"
+  receipt_number: "2664-9489-6888"
+  order_id: ""
+  account_reference: ""
+  country: "Sweden"
+notes:
+  - "Online billing portal receipt."
+  - "Use this as the clean digital PDF benchmark."

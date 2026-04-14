@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
+use application_kernel::{
+    Actor as CrmActor, BillingPeriod, CatalogItem, CatalogPlanKind, EntitlementValue, FactRecord,
+    Money, OrderSubscription, RecordKind, RecordRef, SubscriptionPlanChange, WorkflowCaseAdvance,
+    WorkflowCaseCreate, WorkflowPriority, WorkflowState,
+};
+use application_storage::{KernelStore, StoreWriteResult};
 use chrono::{DateTime, Utc};
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
     ProposedFact,
 };
-use crm_kernel::{
-    Actor as CrmActor, BillingPeriod, CatalogItem, CatalogPlanKind, EntitlementValue, FactRecord,
-    Money, OrderSubscription, RecordKind, RecordRef, SubscriptionPlanChange, WorkflowCaseAdvance,
-    WorkflowCaseCreate, WorkflowPriority, WorkflowState,
-};
-use crm_storage::{KernelStore, StoreWriteResult};
 use prio_truths::{UpgradeSubscriptionPlanEvaluator, converge_binding_for_truth};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
@@ -130,7 +130,7 @@ impl UpgradeSubscriptionPlanInput {
 
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    runtime_stores: &crm_storage::AppRuntimeStores,
+    runtime_stores: &application_storage::AppRuntimeStores,
     inputs: UpgradeSubscriptionPlanInput,
     actor: CrmActor,
     persist_projection: bool,
@@ -154,7 +154,9 @@ pub(super) fn execute<S: KernelStore>(
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext { scope_id: inputs.subscription_id.to_string() },
+        &super::RuntimeContext {
+            scope_id: inputs.subscription_id.to_string(),
+        },
         seed_context(seed.subscription.id)?,
         &binding.intent,
         std::sync::Arc::new(UpgradeSubscriptionPlanEvaluator),
@@ -189,7 +191,7 @@ fn load_plan_change_seed<S: KernelStore>(
                         inputs.subscription_id
                     ))
                 })?;
-            if subscription.status != crm_kernel::SubscriptionStatus::Active {
+            if subscription.status != application_kernel::SubscriptionStatus::Active {
                 return Err(Status::failed_precondition(
                     "plan upgrades require an active subscription".to_string(),
                 ));
@@ -316,7 +318,7 @@ fn project<S: KernelStore>(
                         .orders
                         .get(&subscription_id)
                         .cloned()
-                        .ok_or_else(|| crm_kernel::KernelError::NotFound {
+                        .ok_or_else(|| application_kernel::KernelError::NotFound {
                             kind: "subscription",
                             id: subscription_id.to_string(),
                         })?;
@@ -324,7 +326,7 @@ fn project<S: KernelStore>(
                     .catalog_items
                     .get(&target_catalog_item_id)
                     .cloned()
-                    .ok_or_else(|| crm_kernel::KernelError::NotFound {
+                    .ok_or_else(|| application_kernel::KernelError::NotFound {
                         kind: "catalog_item",
                         id: target_catalog_item_id.to_string(),
                     })?;
@@ -720,12 +722,12 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use converge_core::StopReason;
-    use crm_kernel::{
+    use application_kernel::{
         Actor, CatalogItemUpsert, EntitlementTemplate, OrganizationLifecycle, OrganizationUpsert,
         SubscriptionActivate, SubscriptionCreate, SubscriptionStatus,
     };
-    use crm_storage::InMemoryKernelStore;
+    use application_storage::InMemoryKernelStore;
+    use converge_core::StopReason;
 
     fn seeded_active_subscription_for_upgrade(
         store: &InMemoryKernelStore,
@@ -753,7 +755,7 @@ mod tests {
                         name: "Prio Starter".to_string(),
                         description: Some("Starter plan".to_string()),
                         plan_kind: CatalogPlanKind::Subscription,
-                        pricing: Some(crm_kernel::PricingMetadata {
+                        pricing: Some(application_kernel::PricingMetadata {
                             billing_period: BillingPeriod::Monthly,
                             list_price: Money {
                                 currency_code: "USD".to_string(),
@@ -777,7 +779,7 @@ mod tests {
                         name: "Prio Growth".to_string(),
                         description: Some("Growth plan".to_string()),
                         plan_kind: CatalogPlanKind::Subscription,
-                        pricing: Some(crm_kernel::PricingMetadata {
+                        pricing: Some(application_kernel::PricingMetadata {
                             billing_period: BillingPeriod::Monthly,
                             list_price: Money {
                                 currency_code: "USD".to_string(),
@@ -821,7 +823,7 @@ mod tests {
                     actor.clone(),
                 )?;
                 let _ = kernel.apply_credit_grant(
-                    crm_kernel::CreditGrantApply {
+                    application_kernel::CreditGrantApply {
                         subscription_id: subscription.id,
                         amount: Money {
                             currency_code: "USD".to_string(),
@@ -840,10 +842,12 @@ mod tests {
     #[test]
     fn upgrade_subscription_plan_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -882,7 +886,7 @@ mod tests {
         assert_eq!(projection.ledger_entries.len(), 1);
         assert_eq!(
             projection.ledger_entries[0].kind,
-            crm_kernel::LedgerEntryKind::Adjustment
+            application_kernel::LedgerEntryKind::Adjustment
         );
         assert!(projection.workflow_cases.is_empty());
         assert!(matches!(
@@ -899,10 +903,12 @@ mod tests {
     #[test]
     fn upgrade_subscription_plan_blocks_for_price_override() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();

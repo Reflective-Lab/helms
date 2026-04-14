@@ -4,13 +4,16 @@ default:
     @just --list
 
 server:
-    cargo run -p crm-server
+    cargo run -p application-server
 
 test:
     cargo test --workspace
 
+workbench-backend-test:
+    cargo test -p workbench-backend
+
 crm-app-test:
-    cargo test -p crm-app
+    cargo test -p workbench-backend
 
 fmt:
     cargo fmt --all
@@ -41,6 +44,12 @@ desktop-rust-fmt:
 
 desktop:
     just desktop-dev
+
+import-apple-notes:
+    CARGO_TARGET_DIR=/tmp/prio-apple-notes-cli cargo run -p prio-apple-notes-cli
+
+truth-resolution:
+    cargo run -p prio-truths --example real-truth-resolution --
 
 extension-install:
     cd apps/extension && bun install

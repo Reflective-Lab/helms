@@ -13,13 +13,13 @@ mod upgrade_subscription_plan;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use converge_core::{Context, Engine, ExperienceEventObserver, TypesRootIntent, TypesRunHooks};
-use converge_core::{ConvergeResult, CriterionEvaluator, ExperienceEvent, ExperienceEventEnvelope};
-use crm_kernel::{
+use application_kernel::{
     Actor as CrmActor, Document, Entitlement, Fact as CrmFact, LedgerEntry, Opportunity,
     OrderSubscription, Organization, Person, WorkflowCase,
 };
-use crm_storage::{AppRuntimeStores, KernelStore, StorageError};
+use application_storage::{AppRuntimeStores, KernelStore, StorageError};
+use converge_core::{Context, Engine, ExperienceEventObserver, TypesRootIntent, TypesRunHooks};
+use converge_core::{ConvergeResult, CriterionEvaluator, ExperienceEvent, ExperienceEventEnvelope};
 use tonic::Status;
 use uuid::Uuid;
 
@@ -183,16 +183,16 @@ pub(super) fn status_from_converge(error: converge_core::ConvergeError) -> Statu
 pub(super) fn status_from_storage(error: StorageError) -> Status {
     match error {
         StorageError::LockPoisoned => Status::internal("storage lock poisoned"),
-        StorageError::Kernel(crm_kernel::KernelError::Validation(message)) => {
+        StorageError::Kernel(application_kernel::KernelError::Validation(message)) => {
             Status::invalid_argument(message)
         }
-        StorageError::Kernel(crm_kernel::KernelError::NotFound { kind, id }) => {
+        StorageError::Kernel(application_kernel::KernelError::NotFound { kind, id }) => {
             Status::not_found(format!("{kind} not found: {id}"))
         }
-        StorageError::Kernel(crm_kernel::KernelError::Invariant(message)) => {
+        StorageError::Kernel(application_kernel::KernelError::Invariant(message)) => {
             Status::failed_precondition(message)
         }
-        StorageError::Kernel(crm_kernel::KernelError::Conflict(message)) => {
+        StorageError::Kernel(application_kernel::KernelError::Conflict(message)) => {
             Status::already_exists(message)
         }
         StorageError::ConnectionFailed { backend, message } => {
@@ -204,35 +204,45 @@ pub(super) fn status_from_storage(error: StorageError) -> Status {
     }
 }
 
-pub(super) fn domain_event_kind_name(event: &crm_kernel::DomainEvent) -> &'static str {
+pub(super) fn domain_event_kind_name(event: &application_kernel::DomainEvent) -> &'static str {
     match event {
-        crm_kernel::DomainEvent::OrganizationUpserted { .. } => "organization-upserted",
-        crm_kernel::DomainEvent::PersonUpserted { .. } => "person-upserted",
-        crm_kernel::DomainEvent::RelationshipLinked { .. } => "relationship-linked",
-        crm_kernel::DomainEvent::OpportunityCreated { .. } => "opportunity-created",
-        crm_kernel::DomainEvent::OpportunityStageChanged { .. } => "opportunity-stage-changed",
-        crm_kernel::DomainEvent::ActivityAppended { .. } => "activity-appended",
-        crm_kernel::DomainEvent::NoteAppended { .. } => "note-appended",
-        crm_kernel::DomainEvent::DocumentAttached { .. } => "document-attached",
-        crm_kernel::DomainEvent::CommunicationRecorded { .. } => "communication-recorded",
-        crm_kernel::DomainEvent::WorkflowCaseCreated { .. } => "workflow-case-created",
-        crm_kernel::DomainEvent::WorkflowCaseStateChanged { .. } => "workflow-case-state-changed",
-        crm_kernel::DomainEvent::PermissionGranted { .. } => "permission-granted",
-        crm_kernel::DomainEvent::CatalogItemUpserted { .. } => "catalog-item-upserted",
-        crm_kernel::DomainEvent::OrderSubscriptionCreated { .. } => "subscription-created",
-        crm_kernel::DomainEvent::OrderSubscriptionStateChanged { .. } => {
+        application_kernel::DomainEvent::OrganizationUpserted { .. } => "organization-upserted",
+        application_kernel::DomainEvent::PersonUpserted { .. } => "person-upserted",
+        application_kernel::DomainEvent::RelationshipLinked { .. } => "relationship-linked",
+        application_kernel::DomainEvent::OpportunityCreated { .. } => "opportunity-created",
+        application_kernel::DomainEvent::OpportunityStageChanged { .. } => {
+            "opportunity-stage-changed"
+        }
+        application_kernel::DomainEvent::ActivityAppended { .. } => "activity-appended",
+        application_kernel::DomainEvent::NoteAppended { .. } => "note-appended",
+        application_kernel::DomainEvent::DocumentAttached { .. } => "document-attached",
+        application_kernel::DomainEvent::CommunicationRecorded { .. } => "communication-recorded",
+        application_kernel::DomainEvent::WorkflowCaseCreated { .. } => "workflow-case-created",
+        application_kernel::DomainEvent::WorkflowCaseStateChanged { .. } => {
+            "workflow-case-state-changed"
+        }
+        application_kernel::DomainEvent::PermissionGranted { .. } => "permission-granted",
+        application_kernel::DomainEvent::CatalogItemUpserted { .. } => "catalog-item-upserted",
+        application_kernel::DomainEvent::OrderSubscriptionCreated { .. } => "subscription-created",
+        application_kernel::DomainEvent::OrderSubscriptionStateChanged { .. } => {
             "subscription-state-changed"
         }
-        crm_kernel::DomainEvent::OrderSubscriptionPlanChanged { .. } => "subscription-plan-changed",
-        crm_kernel::DomainEvent::EntitlementsGranted { .. } => "entitlements-granted",
-        crm_kernel::DomainEvent::EntitlementsReplaced { .. } => "entitlements-replaced",
-        crm_kernel::DomainEvent::EntitlementAdjusted { .. } => "entitlement-adjusted",
-        crm_kernel::DomainEvent::LedgerEntryAppended { .. } => "ledger-entry-appended",
-        crm_kernel::DomainEvent::FactRecorded { .. } => "fact-recorded",
-        crm_kernel::DomainEvent::ObjectDefinitionUpserted { .. } => "object-definition-upserted",
-        crm_kernel::DomainEvent::ViewDefinitionUpserted { .. } => "view-definition-upserted",
-        crm_kernel::DomainEvent::AuditRecorded { .. } => "audit-recorded",
-        crm_kernel::DomainEvent::TimelineEntryRecorded { .. } => "timeline-entry-recorded",
+        application_kernel::DomainEvent::OrderSubscriptionPlanChanged { .. } => {
+            "subscription-plan-changed"
+        }
+        application_kernel::DomainEvent::EntitlementsGranted { .. } => "entitlements-granted",
+        application_kernel::DomainEvent::EntitlementsReplaced { .. } => "entitlements-replaced",
+        application_kernel::DomainEvent::EntitlementAdjusted { .. } => "entitlement-adjusted",
+        application_kernel::DomainEvent::LedgerEntryAppended { .. } => "ledger-entry-appended",
+        application_kernel::DomainEvent::FactRecorded { .. } => "fact-recorded",
+        application_kernel::DomainEvent::ObjectDefinitionUpserted { .. } => {
+            "object-definition-upserted"
+        }
+        application_kernel::DomainEvent::ViewDefinitionUpserted { .. } => {
+            "view-definition-upserted"
+        }
+        application_kernel::DomainEvent::AuditRecorded { .. } => "audit-recorded",
+        application_kernel::DomainEvent::TimelineEntryRecorded { .. } => "timeline-entry-recorded",
     }
 }
 
@@ -282,4 +292,3 @@ pub(super) fn run_engine_with_runtime(
 
     Ok((result, experience_events))
 }
-

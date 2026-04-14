@@ -1,17 +1,17 @@
 use std::collections::{HashMap, hash_map::Entry};
 use std::sync::{Arc, Mutex};
 
+use application_kernel::{
+    AccountSummary, Actor, ActorKind, CatalogItem, Document, Fact, Opportunity, OrderSubscription,
+    Organization, PermissionGrant, Person, RecordKind, RecordRef, TimelineEntry, WorkflowCase,
+    WorkflowState,
+};
+use application_storage::{AppConfig, AppRuntimeStores, InMemoryKernelStore, KernelStore};
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use crm_kernel::{
-    AccountSummary, Actor, ActorKind, CatalogItem, Document, Fact, Opportunity, OrderSubscription,
-    Organization, PermissionGrant, Person, RecordKind, RecordRef, TimelineEntry, WorkflowCase,
-    WorkflowState,
-};
-use crm_storage::{AppConfig, AppRuntimeStores, InMemoryKernelStore, KernelStore};
 use prio_module_core::CapabilityModule;
 use prio_modules::all_modules;
 use prio_truths::{TruthDefinition, TruthKind, TruthModuleTouch, all_truths, find_truth};
@@ -1213,40 +1213,42 @@ fn criterion_status_name(result: &converge_core::CriterionResult) -> BillingCrit
     }
 }
 
-fn api_error_from_storage(error: crm_storage::StorageError) -> ApiError {
+fn api_error_from_storage(error: application_storage::StorageError) -> ApiError {
     match error {
-        crm_storage::StorageError::LockPoisoned => {
+        application_storage::StorageError::LockPoisoned => {
             ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "storage lock poisoned")
         }
-        crm_storage::StorageError::Kernel(error) => api_error_from_kernel(error),
-        crm_storage::StorageError::ConnectionFailed { backend, message } => ApiError::new(
+        application_storage::StorageError::Kernel(error) => api_error_from_kernel(error),
+        application_storage::StorageError::ConnectionFailed { backend, message } => ApiError::new(
             StatusCode::SERVICE_UNAVAILABLE,
             format!("{backend} connection failed: {message}"),
         ),
-        crm_storage::StorageError::SerializationFailed { message } => {
+        application_storage::StorageError::SerializationFailed { message } => {
             ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, message)
         }
-        crm_storage::StorageError::Timeout { operation } => {
+        application_storage::StorageError::Timeout { operation } => {
             ApiError::new(StatusCode::GATEWAY_TIMEOUT, operation)
         }
-        crm_storage::StorageError::RuntimeStore { message } => {
+        application_storage::StorageError::RuntimeStore { message } => {
             ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, message)
         }
     }
 }
 
-fn api_error_from_kernel(error: crm_kernel::KernelError) -> ApiError {
+fn api_error_from_kernel(error: application_kernel::KernelError) -> ApiError {
     match error {
-        crm_kernel::KernelError::Validation(message) => {
+        application_kernel::KernelError::Validation(message) => {
             ApiError::new(StatusCode::BAD_REQUEST, message)
         }
-        crm_kernel::KernelError::NotFound { kind, id } => {
+        application_kernel::KernelError::NotFound { kind, id } => {
             ApiError::new(StatusCode::NOT_FOUND, format!("{kind} not found: {id}"))
         }
-        crm_kernel::KernelError::Invariant(message) => {
+        application_kernel::KernelError::Invariant(message) => {
             ApiError::new(StatusCode::PRECONDITION_FAILED, message)
         }
-        crm_kernel::KernelError::Conflict(message) => ApiError::new(StatusCode::CONFLICT, message),
+        application_kernel::KernelError::Conflict(message) => {
+            ApiError::new(StatusCode::CONFLICT, message)
+        }
     }
 }
 
@@ -1272,14 +1274,14 @@ fn api_error_from_tonic(status: tonic::Status) -> ApiError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::body::{Body, to_bytes};
-    use crm_kernel::{
+    use application_kernel::{
         ActivityAppend, ActivityOutcome, BillingPeriod, CatalogItemUpsert, CatalogPlanKind,
         EntitlementTemplate, Money, OpportunityCreate, OrganizationLifecycle, OrganizationUpsert,
         PricingMetadata, RecordKind, RecordRef, SubscriptionActivate, SubscriptionCreate,
         SubscriptionStatus, WorkflowCaseCreate, WorkflowPriority,
     };
-    use crm_storage::InMemoryKernelStore;
+    use application_storage::InMemoryKernelStore;
+    use axum::body::{Body, to_bytes};
     use serde::de::DeserializeOwned;
     use tower::ServiceExt;
 
@@ -1653,7 +1655,7 @@ mod tests {
                     .ledger_entries
                     .values()
                     .filter(|entry| entry.subscription_id.to_string() == subscription_id)
-                    .filter(|entry| entry.kind == crm_kernel::LedgerEntryKind::CreditGrant)
+                    .filter(|entry| entry.kind == application_kernel::LedgerEntryKind::CreditGrant)
                     .count();
                 let credit_balance_minor = kernel
                     .entitlements
@@ -1663,7 +1665,7 @@ mod tests {
                             && entitlement.key == "credit_balance_minor"
                     })
                     .and_then(|entitlement| match entitlement.value {
-                        crm_kernel::EntitlementValue::Credits(value) => Some(value),
+                        application_kernel::EntitlementValue::Credits(value) => Some(value),
                         _ => None,
                     })
                     .unwrap_or_default();

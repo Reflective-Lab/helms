@@ -20,16 +20,28 @@ fn main() -> Result<()> {
     let account_df = generate_account_context(&prospects, &mut rng)?;
     let calendar_df = generate_calendar_availability(&mut rng)?;
 
-    write_parquet(&behavior_df, &Path::new(OUTPUT_DIR).join("behavior_events.parquet"))?;
-    write_parquet(&account_df, &Path::new(OUTPUT_DIR).join("account_context.parquet"))?;
-    write_parquet(&calendar_df, &Path::new(OUTPUT_DIR).join("calendar_availability.parquet"))?;
+    write_parquet(
+        &behavior_df,
+        &Path::new(OUTPUT_DIR).join("behavior_events.parquet"),
+    )?;
+    write_parquet(
+        &account_df,
+        &Path::new(OUTPUT_DIR).join("account_context.parquet"),
+    )?;
+    write_parquet(
+        &calendar_df,
+        &Path::new(OUTPUT_DIR).join("calendar_availability.parquet"),
+    )?;
 
     let rows = behavior_df.height();
     let prospects_n = prospects.len();
     println!("seed data written to {OUTPUT_DIR}/");
     println!("  behavior_events.parquet   — {rows} rows across {prospects_n} prospects");
     println!("  account_context.parquet   — {prospects_n} rows");
-    println!("  calendar_availability.parquet — {} slots", calendar_df.height());
+    println!(
+        "  calendar_availability.parquet — {} slots",
+        calendar_df.height()
+    );
 
     Ok(())
 }
@@ -157,33 +169,93 @@ fn persona_event_weights(persona: Persona) -> &'static [(usize, u32)] {
         // (event_type index, relative weight)
         // Heavy pricing, comparison, demo, case study
         Persona::HighIntent => &[
-            (0, 15), (1, 10), (2, 5), (3, 25), (4, 8),
-            (5, 3), (6, 5), (7, 20), (8, 15), (9, 5), (10, 8), (11, 3),
+            (0, 15),
+            (1, 10),
+            (2, 5),
+            (3, 25),
+            (4, 8),
+            (5, 3),
+            (6, 5),
+            (7, 20),
+            (8, 15),
+            (9, 5),
+            (10, 8),
+            (11, 3),
         ],
         // Heavy api_docs, docs_read, feature_click
         Persona::DeepTechnical => &[
-            (0, 8), (1, 20), (2, 25), (3, 5), (4, 2),
-            (5, 30), (6, 3), (7, 3), (8, 2), (9, 1), (10, 1), (11, 2),
+            (0, 8),
+            (1, 20),
+            (2, 25),
+            (3, 5),
+            (4, 2),
+            (5, 30),
+            (6, 3),
+            (7, 3),
+            (8, 2),
+            (9, 1),
+            (10, 1),
+            (11, 2),
         ],
         // Mostly blog, light everything else
         Persona::TireKicker => &[
-            (0, 25), (1, 3), (2, 2), (3, 2), (4, 0),
-            (5, 1), (6, 35), (7, 2), (8, 5), (9, 0), (10, 0), (11, 10),
+            (0, 25),
+            (1, 3),
+            (2, 2),
+            (3, 2),
+            (4, 0),
+            (5, 1),
+            (6, 35),
+            (7, 2),
+            (8, 5),
+            (9, 0),
+            (10, 0),
+            (11, 10),
         ],
         // Broad, deep: enterprise, security, case study, pricing
         Persona::EnterpriseEvaluator => &[
-            (0, 12), (1, 8), (2, 10), (3, 15), (4, 5),
-            (5, 5), (6, 5), (7, 12), (8, 15), (9, 3), (10, 5), (11, 3),
+            (0, 12),
+            (1, 8),
+            (2, 10),
+            (3, 15),
+            (4, 5),
+            (5, 5),
+            (6, 5),
+            (7, 12),
+            (8, 15),
+            (9, 3),
+            (10, 5),
+            (11, 3),
         ],
         // Quick funnel: pageview → pricing → signup
         Persona::QuickWin => &[
-            (0, 20), (1, 10), (2, 5), (3, 20), (4, 15),
-            (5, 2), (6, 3), (7, 5), (8, 3), (9, 15), (10, 10), (11, 2),
+            (0, 20),
+            (1, 10),
+            (2, 5),
+            (3, 20),
+            (4, 15),
+            (5, 2),
+            (6, 3),
+            (7, 5),
+            (8, 3),
+            (9, 15),
+            (10, 10),
+            (11, 2),
         ],
         // Sparse, mostly old pageviews
         Persona::Dormant => &[
-            (0, 40), (1, 5), (2, 5), (3, 3), (4, 0),
-            (5, 2), (6, 15), (7, 2), (8, 5), (9, 0), (10, 0), (11, 5),
+            (0, 40),
+            (1, 5),
+            (2, 5),
+            (3, 3),
+            (4, 0),
+            (5, 2),
+            (6, 15),
+            (7, 2),
+            (8, 5),
+            (9, 0),
+            (10, 0),
+            (11, 5),
         ],
     }
 }
@@ -202,28 +274,88 @@ fn persona_row_range(persona: Persona) -> (usize, usize) {
 fn persona_section_weights(persona: Persona) -> &'static [(usize, u32)] {
     match persona {
         Persona::HighIntent => &[
-            (0, 10), (1, 25), (2, 5), (3, 5), (4, 3),
-            (5, 8), (6, 20), (7, 15), (8, 8), (9, 2), (10, 2), (11, 2),
+            (0, 10),
+            (1, 25),
+            (2, 5),
+            (3, 5),
+            (4, 3),
+            (5, 8),
+            (6, 20),
+            (7, 15),
+            (8, 8),
+            (9, 2),
+            (10, 2),
+            (11, 2),
         ],
         Persona::DeepTechnical => &[
-            (0, 8), (1, 3), (2, 25), (3, 3), (4, 30),
-            (5, 2), (6, 3), (7, 2), (8, 2), (9, 2), (10, 10), (11, 8),
+            (0, 8),
+            (1, 3),
+            (2, 25),
+            (3, 3),
+            (4, 30),
+            (5, 2),
+            (6, 3),
+            (7, 2),
+            (8, 2),
+            (9, 2),
+            (10, 10),
+            (11, 8),
         ],
         Persona::TireKicker => &[
-            (0, 15), (1, 2), (2, 2), (3, 35), (4, 1),
-            (5, 2), (6, 5), (7, 5), (8, 2), (9, 10), (10, 1), (11, 5),
+            (0, 15),
+            (1, 2),
+            (2, 2),
+            (3, 35),
+            (4, 1),
+            (5, 2),
+            (6, 5),
+            (7, 5),
+            (8, 2),
+            (9, 10),
+            (10, 1),
+            (11, 5),
         ],
         Persona::EnterpriseEvaluator => &[
-            (0, 10), (1, 12), (2, 8), (3, 5), (4, 5),
-            (5, 18), (6, 10), (7, 15), (8, 5), (9, 3), (10, 12), (11, 3),
+            (0, 10),
+            (1, 12),
+            (2, 8),
+            (3, 5),
+            (4, 5),
+            (5, 18),
+            (6, 10),
+            (7, 15),
+            (8, 5),
+            (9, 3),
+            (10, 12),
+            (11, 3),
         ],
         Persona::QuickWin => &[
-            (0, 20), (1, 20), (2, 5), (3, 3), (4, 2),
-            (5, 3), (6, 5), (7, 3), (8, 15), (9, 5), (10, 2), (11, 2),
+            (0, 20),
+            (1, 20),
+            (2, 5),
+            (3, 3),
+            (4, 2),
+            (5, 3),
+            (6, 5),
+            (7, 3),
+            (8, 15),
+            (9, 5),
+            (10, 2),
+            (11, 2),
         ],
         Persona::Dormant => &[
-            (0, 20), (1, 3), (2, 5), (3, 20), (4, 2),
-            (5, 2), (6, 5), (7, 5), (8, 2), (9, 15), (10, 2), (11, 5),
+            (0, 20),
+            (1, 3),
+            (2, 5),
+            (3, 20),
+            (4, 2),
+            (5, 2),
+            (6, 5),
+            (7, 5),
+            (8, 2),
+            (9, 15),
+            (10, 2),
+            (11, 5),
         ],
     }
 }
@@ -324,7 +456,8 @@ fn generate_behavior_events(
     ])?;
 
     // Sort by prospect_id, timestamp for temporal feature extraction
-    let df = df.lazy()
+    let df = df
+        .lazy()
         .sort(["prospect_id", "timestamp"], Default::default())
         .collect()?;
 
@@ -377,26 +510,14 @@ fn generate_account_context(
                 rng.random_range(0..2),
                 rng.random_range(3..8),
             ),
-            Persona::TireKicker => (
-                rng.random_range(1..5),
-                0i64,
-                0,
-            ),
+            Persona::TireKicker => (rng.random_range(1..5), 0i64, 0),
             Persona::EnterpriseEvaluator => (
                 rng.random_range(20..50),
                 rng.random_range(3..8),
                 rng.random_range(1..4),
             ),
-            Persona::QuickWin => (
-                rng.random_range(8..20),
-                rng.random_range(1..3),
-                0,
-            ),
-            Persona::Dormant => (
-                rng.random_range(0..3),
-                0i64,
-                0,
-            ),
+            Persona::QuickWin => (rng.random_range(8..20), rng.random_range(1..3), 0),
+            Persona::Dormant => (rng.random_range(0..3), 0i64, 0),
         };
 
         email_opens.push(opens);
@@ -443,7 +564,11 @@ fn generate_calendar_availability(rng: &mut SmallRng) -> Result<DataFrame> {
                 let start_hour = 8 + slot / 2;
                 let start_min = if slot % 2 == 0 { 0 } else { 30 };
                 let end_min = if start_min == 0 { 30 } else { 0 };
-                let end_hour = if end_min == 0 { start_hour + 1 } else { start_hour };
+                let end_hour = if end_min == 0 {
+                    start_hour + 1
+                } else {
+                    start_hour
+                };
 
                 // 70% available, with some blocked clusters (meetings)
                 let available = if rng.random_range(0..100) < 30 {

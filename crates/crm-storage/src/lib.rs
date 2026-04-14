@@ -1,14 +1,18 @@
+use std::collections::BTreeMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex, RwLock};
 
-use converge_core::Context;
+use application_kernel::{CrmKernel, DomainEvent, KernelError, KernelResult};
 use converge_core::experience_store::{EventQuery, ExperienceEventEnvelope};
-use converge_core::traits::{
-    ContextStore, ExperienceAppender, ExperienceReplayer, ReplayBatch, ReplayCursor, ReplayOptions,
-    StoreError,
+use converge_core::integrity::TrackedContext;
+use converge_core::traits::{ContextStore, StoreError};
+use converge_core::{Context, ContextKey, ContextView, ProposedFact};
+use converge_pack::fact::kernel_authority::new_fact_with_promotion;
+use converge_pack::fact::{
+    Fact, FactActor, FactActorKind, FactEvidenceRef, FactLocalTrace, FactPromotionRecord,
+    FactRemoteTrace, FactTraceLink, FactValidationSummary,
 };
-use crm_kernel::{CrmKernel, DomainEvent, KernelError, KernelResult};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use surrealdb::Surreal;
@@ -294,12 +298,340 @@ struct KernelSnapshotDocument {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ContextSnapshotDocument {
-    context: Context,
+    #[serde(default)]
+    snapshot: Option<PersistedContextSnapshot>,
+    // Earlier local builds persisted an opaque JSON context blob. Keep the field
+    // for backward compatibility, but reconstruct only from the serde-safe snapshot.
+    #[serde(default, alias = "context", alias = "context_json")]
+    legacy_context_json: Option<JsonValue>,
 }
 
 const KERNEL_SNAPSHOT_TABLE: &str = "crm_kernel";
 const KERNEL_SNAPSHOT_ID: &str = "default";
 const CONTEXT_SNAPSHOT_TABLE: &str = "converge_context";
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct PersistedContextSnapshot {
+    #[serde(default)]
+    facts: BTreeMap<ContextKey, Vec<PersistedFact>>,
+    #[serde(default)]
+    proposals: BTreeMap<ContextKey, Vec<ProposedFact>>,
+    #[serde(default)]
+    version: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedFact {
+    id: String,
+    content: String,
+    promotion_record: PersistedFactPromotionRecord,
+    created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedFactPromotionRecord {
+    gate_id: String,
+    policy_version_hash: String,
+    approver: PersistedFactActor,
+    validation_summary: PersistedFactValidationSummary,
+    evidence_refs: Vec<PersistedFactEvidenceRef>,
+    trace_link: PersistedFactTraceLink,
+    promoted_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedFactActor {
+    id: String,
+    kind: PersistedFactActorKind,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+enum PersistedFactActorKind {
+    Human,
+    Suggestor,
+    System,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct PersistedFactValidationSummary {
+    #[serde(default)]
+    checks_passed: Vec<String>,
+    #[serde(default)]
+    checks_skipped: Vec<String>,
+    #[serde(default)]
+    warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "id")]
+enum PersistedFactEvidenceRef {
+    Observation(String),
+    HumanApproval(String),
+    Derived(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedFactLocalTrace {
+    trace_id: String,
+    span_id: String,
+    parent_span_id: Option<String>,
+    sampled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PersistedFactRemoteTrace {
+    system: String,
+    reference: String,
+    retrieval_auth: Option<String>,
+    retention_hint: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+enum PersistedFactTraceLink {
+    Local(PersistedFactLocalTrace),
+    Remote(PersistedFactRemoteTrace),
+}
+
+const CONTEXT_KEYS: [ContextKey; 9] = [
+    ContextKey::Seeds,
+    ContextKey::Hypotheses,
+    ContextKey::Strategies,
+    ContextKey::Constraints,
+    ContextKey::Signals,
+    ContextKey::Competitors,
+    ContextKey::Evaluations,
+    ContextKey::Proposals,
+    ContextKey::Diagnostic,
+];
+
+impl PersistedContextSnapshot {
+    fn from_runtime(context: &Context) -> Self {
+        let mut facts = BTreeMap::new();
+        let mut fact_keys = context.all_keys();
+        fact_keys.sort();
+        for key in fact_keys {
+            let items = context
+                .get(key)
+                .iter()
+                .map(PersistedFact::from_runtime)
+                .collect::<Vec<_>>();
+            if !items.is_empty() {
+                facts.insert(key, items);
+            }
+        }
+
+        let mut proposals = BTreeMap::new();
+        for key in CONTEXT_KEYS {
+            let items = context.get_proposals(key).to_vec();
+            if !items.is_empty() {
+                proposals.insert(key, items);
+            }
+        }
+
+        Self {
+            facts,
+            proposals,
+            version: context.version(),
+        }
+    }
+
+    fn into_runtime(self) -> Result<Context, StoreError> {
+        let mut tracked = TrackedContext::empty();
+
+        for key in CONTEXT_KEYS {
+            if let Some(facts) = self.facts.get(&key) {
+                for fact in facts {
+                    tracked
+                        .add_fact(fact.clone().into_runtime(key))
+                        .map_err(|error| StoreError::InvariantViolation {
+                            message: format!("failed to restore fact snapshot: {error}"),
+                        })?;
+                }
+            }
+        }
+        tracked.context.clear_dirty();
+
+        for key in CONTEXT_KEYS {
+            if let Some(proposals) = self.proposals.get(&key) {
+                for proposal in proposals {
+                    if proposal.key != key {
+                        return Err(StoreError::InvariantViolation {
+                            message: format!(
+                                "proposal snapshot key mismatch for {}: stored under {:?}",
+                                proposal.id, key
+                            ),
+                        });
+                    }
+                    tracked
+                        .context
+                        .add_proposal(proposal.clone())
+                        .map_err(|error| StoreError::InvariantViolation {
+                            message: format!("failed to restore proposal snapshot: {error}"),
+                        })?;
+                }
+            }
+        }
+
+        Ok(tracked.context)
+    }
+}
+
+impl PersistedFact {
+    fn from_runtime(fact: &Fact) -> Self {
+        Self {
+            id: fact.id.clone(),
+            content: fact.content.clone(),
+            promotion_record: PersistedFactPromotionRecord::from_runtime(fact.promotion_record()),
+            created_at: fact.created_at().to_string(),
+        }
+    }
+
+    fn into_runtime(self, key: ContextKey) -> Fact {
+        new_fact_with_promotion(
+            key,
+            self.id,
+            self.content,
+            self.promotion_record.into_runtime(),
+            self.created_at,
+        )
+    }
+}
+
+impl PersistedFactPromotionRecord {
+    fn from_runtime(record: &FactPromotionRecord) -> Self {
+        Self {
+            gate_id: record.gate_id().to_string(),
+            policy_version_hash: record.policy_version_hash().to_string(),
+            approver: PersistedFactActor::from_runtime(record.approver()),
+            validation_summary: PersistedFactValidationSummary::from_runtime(
+                record.validation_summary(),
+            ),
+            evidence_refs: record
+                .evidence_refs()
+                .iter()
+                .cloned()
+                .map(PersistedFactEvidenceRef::from_runtime)
+                .collect(),
+            trace_link: PersistedFactTraceLink::from_runtime(record.trace_link()),
+            promoted_at: record.promoted_at().to_string(),
+        }
+    }
+
+    fn into_runtime(self) -> FactPromotionRecord {
+        FactPromotionRecord::new(
+            self.gate_id,
+            self.policy_version_hash,
+            self.approver.into_runtime(),
+            self.validation_summary.into_runtime(),
+            self.evidence_refs
+                .into_iter()
+                .map(PersistedFactEvidenceRef::into_runtime)
+                .collect(),
+            self.trace_link.into_runtime(),
+            self.promoted_at,
+        )
+    }
+}
+
+impl PersistedFactActor {
+    fn from_runtime(actor: &FactActor) -> Self {
+        Self {
+            id: actor.id().to_string(),
+            kind: PersistedFactActorKind::from_runtime(actor.kind()),
+        }
+    }
+
+    fn into_runtime(self) -> FactActor {
+        FactActor::new(self.id, self.kind.into_runtime())
+    }
+}
+
+impl PersistedFactActorKind {
+    fn from_runtime(kind: FactActorKind) -> Self {
+        match kind {
+            FactActorKind::Human => Self::Human,
+            FactActorKind::Suggestor => Self::Suggestor,
+            FactActorKind::System => Self::System,
+        }
+    }
+
+    fn into_runtime(self) -> FactActorKind {
+        match self {
+            Self::Human => FactActorKind::Human,
+            Self::Suggestor => FactActorKind::Suggestor,
+            Self::System => FactActorKind::System,
+        }
+    }
+}
+
+impl PersistedFactValidationSummary {
+    fn from_runtime(summary: &FactValidationSummary) -> Self {
+        Self {
+            checks_passed: summary.checks_passed().to_vec(),
+            checks_skipped: summary.checks_skipped().to_vec(),
+            warnings: summary.warnings().to_vec(),
+        }
+    }
+
+    fn into_runtime(self) -> FactValidationSummary {
+        FactValidationSummary::new(self.checks_passed, self.checks_skipped, self.warnings)
+    }
+}
+
+impl PersistedFactEvidenceRef {
+    fn from_runtime(reference: FactEvidenceRef) -> Self {
+        match reference {
+            FactEvidenceRef::Observation(id) => Self::Observation(id),
+            FactEvidenceRef::HumanApproval(id) => Self::HumanApproval(id),
+            FactEvidenceRef::Derived(id) => Self::Derived(id),
+        }
+    }
+
+    fn into_runtime(self) -> FactEvidenceRef {
+        match self {
+            Self::Observation(id) => FactEvidenceRef::Observation(id),
+            Self::HumanApproval(id) => FactEvidenceRef::HumanApproval(id),
+            Self::Derived(id) => FactEvidenceRef::Derived(id),
+        }
+    }
+}
+
+impl PersistedFactTraceLink {
+    fn from_runtime(link: &FactTraceLink) -> Self {
+        match link {
+            FactTraceLink::Local(trace) => Self::Local(PersistedFactLocalTrace {
+                trace_id: trace.trace_id().to_string(),
+                span_id: trace.span_id().to_string(),
+                parent_span_id: trace.parent_span_id().map(str::to_string),
+                sampled: trace.sampled(),
+            }),
+            FactTraceLink::Remote(trace) => Self::Remote(PersistedFactRemoteTrace {
+                system: trace.system().to_string(),
+                reference: trace.reference().to_string(),
+                retrieval_auth: trace.retrieval_auth().map(str::to_string),
+                retention_hint: trace.retention_hint().map(str::to_string),
+            }),
+        }
+    }
+
+    fn into_runtime(self) -> FactTraceLink {
+        match self {
+            Self::Local(trace) => FactTraceLink::Local(FactLocalTrace::new(
+                trace.trace_id,
+                trace.span_id,
+                trace.parent_span_id,
+                trace.sampled,
+            )),
+            Self::Remote(trace) => FactTraceLink::Remote(FactRemoteTrace::new(
+                trace.system,
+                trace.reference,
+                trace.retrieval_auth,
+                trace.retention_hint,
+            )),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct InMemoryKernelStore {
@@ -439,40 +771,19 @@ impl Default for InMemoryExperienceStoreAdapter {
     }
 }
 
-impl ExperienceAppender for InMemoryExperienceStoreAdapter {
-    type AppendFut<'a>
-        = Pin<Box<dyn Future<Output = Result<(), StoreError>> + Send + 'a>>
-    where
-        Self: 'a;
-
-    fn append<'a>(&'a self, events: &'a [ExperienceEventEnvelope]) -> Self::AppendFut<'a> {
+impl InMemoryExperienceStoreAdapter {
+    fn append<'a>(
+        &'a self,
+        events: &'a [ExperienceEventEnvelope],
+    ) -> Pin<Box<dyn Future<Output = Result<(), StoreError>> + Send + 'a>> {
         Box::pin(async move { self.append_sync(events) })
     }
-}
 
-impl ExperienceReplayer for InMemoryExperienceStoreAdapter {
-    type ReplayFut<'a>
-        = Pin<Box<dyn Future<Output = Result<ReplayBatch, StoreError>> + Send + 'a>>
-    where
-        Self: 'a;
-    type QueryFut<'a>
-        =
-        Pin<Box<dyn Future<Output = Result<Vec<ExperienceEventEnvelope>, StoreError>> + Send + 'a>>
-    where
-        Self: 'a;
-
-    fn replay<'a>(
+    fn query<'a>(
         &'a self,
-        options: &'a ReplayOptions,
-        cursor: &'a ReplayCursor,
-    ) -> Self::ReplayFut<'a> {
-        Box::pin(async move {
-            let events = self.query_sync(&options.to_event_query())?;
-            Ok(replay_batch_from_events(events, options.batch_size, cursor))
-        })
-    }
-
-    fn query<'a>(&'a self, query: &'a EventQuery) -> Self::QueryFut<'a> {
+        query: &'a EventQuery,
+    ) -> Pin<Box<dyn Future<Output = Result<Vec<ExperienceEventEnvelope>, StoreError>> + Send + 'a>>
+    {
         Box::pin(async move { self.query_sync(query) })
     }
 }
@@ -554,11 +865,21 @@ impl SurrealDbContextStore {
                 }
             };
         match document {
-            Some(document) => serde_json::from_value::<ContextSnapshotDocument>(document)
-                .map(|value| Some(value.context))
-                .map_err(|error| StorageError::SerializationFailed {
-                    message: error.to_string(),
-                }),
+            Some(document) => {
+                let document = serde_json::from_value::<ContextSnapshotDocument>(document)
+                    .map_err(|error| StorageError::SerializationFailed {
+                        message: error.to_string(),
+                    })?;
+
+                match document.snapshot {
+                    Some(snapshot) => snapshot.into_runtime().map(Some).map_err(|error| {
+                        StorageError::SerializationFailed {
+                            message: error.to_string(),
+                        }
+                    }),
+                    None => Ok(None),
+                }
+            }
             None => Ok(None),
         }
     }
@@ -569,7 +890,8 @@ impl SurrealDbContextStore {
             .lock()
             .map_err(|_| StorageError::LockPoisoned)?;
         let document = serde_json::to_value(ContextSnapshotDocument {
-            context: context.clone(),
+            snapshot: Some(PersistedContextSnapshot::from_runtime(context)),
+            legacy_context_json: None,
         })
         .map_err(|error| StorageError::SerializationFailed {
             message: error.to_string(),
@@ -1008,29 +1330,6 @@ fn map_legacy_experience_error(error: converge_core::ExperienceStoreError) -> St
     }
 }
 
-fn replay_batch_from_events(
-    mut events: Vec<ExperienceEventEnvelope>,
-    batch_size: Option<usize>,
-    cursor: &ReplayCursor,
-) -> ReplayBatch {
-    events.sort_by(|left, right| left.occurred_at.cmp(&right.occurred_at));
-    let start = cursor.position.parse::<usize>().unwrap_or_default();
-    let batch_size = batch_size.unwrap_or(events.len().max(1));
-    let end = (start + batch_size).min(events.len());
-    let has_more = end < events.len();
-    ReplayBatch {
-        events: events.into_iter().skip(start).take(batch_size).collect(),
-        cursor: if has_more {
-            ReplayCursor {
-                position: end.to_string(),
-                has_more: true,
-            }
-        } else {
-            ReplayCursor::end()
-        },
-    }
-}
-
 impl AppConfig {
     #[must_use]
     pub fn from_env() -> Self {
@@ -1105,7 +1404,9 @@ pub fn runtime_modules_for_local_crm() -> Vec<RuntimeModuleConfig> {
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crm_kernel::{Actor, ActorKind, DomainEvent, OrganizationLifecycle, OrganizationUpsert};
+    use application_kernel::{
+        Actor, ActorKind, DomainEvent, OrganizationLifecycle, OrganizationUpsert,
+    };
 
     use super::{
         AppConfig, InMemoryKernelStore, RecordStoreConfig, SurrealDbKernelStore, SurrealStoreConfig,
@@ -1186,7 +1487,7 @@ mod tests {
                     },
                     actor.clone(),
                 )?;
-                Err(crm_kernel::KernelError::Invariant(
+                Err(application_kernel::KernelError::Invariant(
                     "projection failure after first mutation".to_string(),
                 ))
             });
@@ -1194,7 +1495,7 @@ mod tests {
         assert!(matches!(
             result,
             Err(super::StorageError::Kernel(
-                crm_kernel::KernelError::Invariant(_)
+                application_kernel::KernelError::Invariant(_)
             ))
         ));
         assert_eq!(
@@ -1265,7 +1566,7 @@ mod tests {
                     },
                     actor.clone(),
                 )?;
-                Err(crm_kernel::KernelError::Invariant(
+                Err(application_kernel::KernelError::Invariant(
                     "projection failure after first mutation".to_string(),
                 ))
             });
@@ -1273,7 +1574,7 @@ mod tests {
         assert!(matches!(
             result,
             Err(super::StorageError::Kernel(
-                crm_kernel::KernelError::Invariant(_)
+                application_kernel::KernelError::Invariant(_)
             ))
         ));
         assert_eq!(

@@ -12,6 +12,7 @@ prio-audit = { path = "../prio-audit" }
 prio-catalog = { path = "../prio-catalog" }
 prio-conversations = { path = "../prio-conversations" }
 prio-documents = { path = "../prio-documents" }
+prio-expenses = { path = "../prio-expenses" }
 prio-entitlements = { path = "../prio-entitlements" }
 prio-facts = { path = "../prio-facts" }
 prio-identity = { path = "../prio-identity" }

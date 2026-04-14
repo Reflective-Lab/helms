@@ -3,31 +3,41 @@ mod views;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use chrono::Utc;
-use crm_kernel::{
+use application_kernel::{
     ActivityOutcome, Actor, ActorKind, Approval, ApprovalStatus, BillingPeriod, CatalogPlanKind,
     CommunicationChannel, CommunicationDirection, CommunicationRecord, CreditGrantApply,
-    FactRecord, Money, NoteAppend, OpportunityCreate, OpportunityStage, Organization,
-    OrganizationLifecycle, OrganizationUpsert, Person, PersonUpsert, RecordKind, RecordRef,
-    SubscriptionActivate, TimelineEntry, WorkflowCase, WorkflowCaseCreate, WorkflowPriority,
-    WorkflowState,
+    DocumentAttach, DocumentStatus, FactRecord, Money, NoteAppend, OpportunityCreate,
+    OpportunityStage, Organization, OrganizationLifecycle, OrganizationUpsert, Person,
+    PersonUpsert, RecordKind, RecordRef, SubscriptionActivate, TimelineEntry, WorkflowCase,
+    WorkflowCaseCreate, WorkflowPriority, WorkflowState,
 };
-use crm_storage::{AppConfig, InMemoryKernelStore, KernelStore, StorageError, StoreWriteResult};
+use application_storage::{
+    AppConfig, InMemoryKernelStore, KernelStore, StorageError, StoreWriteResult,
+};
+use chrono::Utc;
 use prio_modules::all_modules;
-use prio_truths::{TruthDefinition, all_truths, converge_binding_for_truth, find_truth};
+use prio_truths::{
+    TruthDefinition, all_truths, converge_binding_for_truth, display_pack_names_for_truth,
+    find_truth,
+};
 use thiserror::Error;
 use uuid::Uuid;
 
 pub use views::{
     AccountWorkspaceSummary, ApprovalFilter, ApprovalListItem, CatalogItemListItem,
-    CriteriaOutcomeItem, CriterionStatus, EntitlementListItem, ExecutionState, FeatureToggles,
-    OperatorDashboard, OpportunityListItem, OrganizationListItem, OrganizationWorkspaceItem,
-    PersonWorkspaceItem, RecordReferenceItem, SubscriptionListItem, SystemProfile,
-    TimelineEventItem, TruthExecutionProjection, TruthExecutionResult, TruthExecutionSession,
-    TruthListItem, WorkflowCaseFilter, WorkflowCaseListItem,
+    ConvergeTruthResolutionView, CriteriaOutcomeItem, CriterionStatus, EntitlementListItem,
+    ExecutionState, FeatureToggles, OperatorDashboard, OpportunityListItem,
+    OrganismCapabilityRequirementView, OrganismPackRequirementView, OrganismTruthResolutionView,
+    OrganizationListItem, OrganizationWorkspaceItem, PersonWorkspaceItem, RecordReferenceItem,
+    SubscriptionListItem, SystemProfile, TimelineEventItem, TruthDetailItem,
+    TruthExecutionProjection, TruthExecutionResult, TruthExecutionSession, TruthListItem,
+    TruthModuleTouchItem, TruthReadinessConfirmationView, TruthReadinessGapView,
+    TruthReadinessView, WorkbenchAppKind, WorkbenchAppManifest, WorkbenchAppStatus,
+    WorkflowCaseFilter, WorkflowCaseListItem,
 };
 
 const QUALIFY_INBOUND_LEAD: &str = "qualify-inbound-lead";
+const SUBMIT_EXPENSE_REPORT: &str = "submit-expense-report";
 const ACTIVATE_SUBSCRIPTION: &str = "activate-subscription";
 const REFILL_PREPAID_AI_CREDITS: &str = "refill-prepaid-ai-credits";
 
@@ -104,6 +114,15 @@ struct CreditRefillWriteResult {
     entitlement_ids: Vec<Uuid>,
 }
 
+#[derive(Debug)]
+struct ExpenseReportWriteResult {
+    organization: Organization,
+    workflow_case: WorkflowCase,
+    approval_id: Option<Uuid>,
+    fact_ids: Vec<Uuid>,
+    document_ids: Vec<Uuid>,
+}
+
 impl<S> OperatorApp<S>
 where
     S: KernelStore,
@@ -167,15 +186,17 @@ where
                 display_name: truth.display_name.to_string(),
                 kind: truth.kind,
                 summary: truth.summary.to_string(),
-                packs: converge_binding_for_truth(truth.key)
-                    .map(|binding| {
-                        binding
-                            .pack_ids
-                            .into_iter()
-                            .map(ToString::to_string)
-                            .collect()
-                    })
-                    .unwrap_or_default(),
+                packs: display_pack_names_for_truth(truth.key).unwrap_or_else(|| {
+                    converge_binding_for_truth(truth.key)
+                        .map(|binding| {
+                            binding
+                                .pack_ids
+                                .into_iter()
+                                .map(ToString::to_string)
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                }),
                 executable: is_truth_supported(truth.key),
             })
             .collect::<Vec<_>>();
@@ -186,6 +207,156 @@ where
                 .then_with(|| left.display_name.cmp(&right.display_name))
         });
         items
+    }
+
+    #[must_use]
+    pub fn truth_detail(&self, key: &str) -> Option<TruthDetailItem> {
+        let truth = find_truth(key)?;
+        let organism_resolution =
+            prio_truths::organism_binding_for_truth(truth.key).map(|binding| {
+                let prio_truths::TruthOrganismBinding {
+                    truth_key,
+                    blueprint,
+                    binding,
+                    readiness,
+                } = binding;
+                let levels_attempted = binding
+                    .resolution
+                    .levels_attempted
+                    .iter()
+                    .map(|level| format!("{level:?}").to_ascii_lowercase())
+                    .collect();
+                let levels_contributed = binding
+                    .resolution
+                    .levels_contributed
+                    .iter()
+                    .map(|level| format!("{level:?}").to_ascii_lowercase())
+                    .collect();
+                let completeness_confidence_bps =
+                    (binding.resolution.completeness_confidence * 10_000.0).round() as u16;
+
+                OrganismTruthResolutionView {
+                    truth_key: truth_key.to_string(),
+                    blueprint: blueprint.map(str::to_string),
+                    packs: binding
+                        .packs
+                        .into_iter()
+                        .map(|pack| OrganismPackRequirementView {
+                            pack_name: pack.pack_name,
+                            reason: pack.reason,
+                            confidence_bps: (pack.confidence * 10_000.0).round() as u16,
+                            source: format!("{:?}", pack.source).to_ascii_lowercase(),
+                        })
+                        .collect(),
+                    capabilities: binding
+                        .capabilities
+                        .into_iter()
+                        .map(|capability| OrganismCapabilityRequirementView {
+                            capability: capability.capability,
+                            reason: capability.reason,
+                            confidence_bps: (capability.confidence * 10_000.0).round() as u16,
+                            source: format!("{:?}", capability.source).to_ascii_lowercase(),
+                        })
+                        .collect(),
+                    invariants: binding.invariants,
+                    levels_attempted,
+                    levels_contributed,
+                    completeness_confidence_bps,
+                    readiness: TruthReadinessView {
+                        ready: readiness.ready,
+                        confirmed: readiness
+                            .confirmed
+                            .into_iter()
+                            .map(|item| TruthReadinessConfirmationView {
+                                resource: item.resource,
+                                kind: format!("{:?}", item.kind).to_ascii_lowercase(),
+                                detail: item.detail,
+                            })
+                            .collect(),
+                        gaps: readiness
+                            .gaps
+                            .into_iter()
+                            .map(|gap| TruthReadinessGapView {
+                                resource: gap.resource,
+                                kind: format!("{:?}", gap.kind).to_ascii_lowercase(),
+                                severity: format!("{:?}", gap.severity).to_ascii_lowercase(),
+                                reason: gap.reason,
+                                suggestion: gap.suggestion,
+                            })
+                            .collect(),
+                    },
+                }
+            });
+        let converge_resolution =
+            prio_truths::converge_binding_for_truth(truth.key).map(|binding| {
+                let intent_kind = binding.intent_kind_name().to_string();
+                let required_success_criteria = binding.required_success_criteria();
+                let hard_constraints = binding.hard_constraints();
+                ConvergeTruthResolutionView {
+                    truth_key: binding.truth_key.to_string(),
+                    runtime: binding.runtime.to_string(),
+                    pack_ids: binding.pack_ids.into_iter().map(str::to_string).collect(),
+                    approval_points: binding
+                        .approval_points
+                        .into_iter()
+                        .map(str::to_string)
+                        .collect(),
+                    intent_kind,
+                    request: binding.intent.request,
+                    required_success_criteria,
+                    hard_constraints,
+                }
+            });
+
+        Some(TruthDetailItem {
+            key: truth.key.to_string(),
+            display_name: truth.display_name.to_string(),
+            kind: truth.kind,
+            summary: truth.summary.to_string(),
+            feature_path: truth.feature_path.to_string(),
+            actor_roles: truth
+                .actor_roles
+                .iter()
+                .map(|value| value.to_string())
+                .collect(),
+            approval_points: truth
+                .approval_points
+                .iter()
+                .map(|value| value.to_string())
+                .collect(),
+            desired_outcomes: truth
+                .desired_outcomes
+                .iter()
+                .map(|value| value.to_string())
+                .collect(),
+            guardrails: truth
+                .guardrails
+                .iter()
+                .map(|value| value.to_string())
+                .collect(),
+            modules: truth
+                .modules
+                .iter()
+                .map(|touch| TruthModuleTouchItem {
+                    module_key: touch.module_key.to_string(),
+                    responsibility: touch.responsibility.to_string(),
+                })
+                .collect(),
+            gherkin: truth.gherkin.to_string(),
+            packs: display_pack_names_for_truth(truth.key).unwrap_or_else(|| {
+                converge_binding_for_truth(truth.key)
+                    .map(|binding| binding.pack_ids.into_iter().map(str::to_string).collect())
+                    .unwrap_or_default()
+            }),
+            executable: is_truth_supported(truth.key),
+            organism_resolution,
+            converge_resolution,
+        })
+    }
+
+    #[must_use]
+    pub fn workbench_apps(&self) -> Vec<WorkbenchAppManifest> {
+        built_in_workbench_apps()
     }
 
     pub fn execute_truth(
@@ -201,6 +372,7 @@ where
 
         match key {
             QUALIFY_INBOUND_LEAD => self.execute_qualify_inbound_lead(truth, inputs),
+            SUBMIT_EXPENSE_REPORT => self.execute_submit_expense_report(truth, inputs),
             ACTIVATE_SUBSCRIPTION => self.execute_activate_subscription(truth, inputs),
             REFILL_PREPAID_AI_CREDITS => self.execute_refill_prepaid_ai_credits(truth, inputs),
             _ => Ok(unsupported_truth_session(truth)),
@@ -398,7 +570,7 @@ where
                         created_at: entitlement.created_at,
                     })
                     .collect::<Vec<_>>();
-                Ok::<_, crm_kernel::KernelError>((summary, subscriptions, entitlements))
+                Ok::<_, application_kernel::KernelError>((summary, subscriptions, entitlements))
             })?
             .map_err(StorageError::from)?;
         let (summary, subscriptions, entitlements) = summary;
@@ -714,7 +886,7 @@ where
                 )?;
 
                 let workflow_case = kernel.advance_workflow_case(
-                    crm_kernel::WorkflowCaseAdvance {
+                    application_kernel::WorkflowCaseAdvance {
                         workflow_case_id: workflow_case.id,
                         state: WorkflowState::AwaitingApproval,
                     },
@@ -791,7 +963,7 @@ where
                 )?;
 
                 let _ = kernel.append_activity(
-                    crm_kernel::ActivityAppend {
+                    application_kernel::ActivityAppend {
                         subject: "Inbound lead qualified".to_string(),
                         details: inbound_summary.to_string(),
                         related_to: {
@@ -896,8 +1068,13 @@ where
                 "Payment confirmation is required before subscription activation.".to_string();
             let StoreWriteResult { value, events } = self.store.write_with_events(|kernel| {
                 let subscription = kernel.get_subscription(subscription_id)?;
-                validate_subscription_organization(subscription.organization_id, organization_id)
-                    .map_err(|error| crm_kernel::KernelError::Validation(error.to_string()))?;
+                validate_subscription_organization(
+                        subscription.organization_id,
+                        organization_id,
+                    )
+                    .map_err(|error| {
+                        application_kernel::KernelError::Validation(error.to_string())
+                    })?;
                 let related_to = subscription_related_to(
                     subscription.organization_id,
                     subscription.id,
@@ -913,7 +1090,7 @@ where
                     actor.clone(),
                 )?;
                 let workflow_case = kernel.advance_workflow_case(
-                    crm_kernel::WorkflowCaseAdvance {
+                    application_kernel::WorkflowCaseAdvance {
                         workflow_case_id: workflow_case.id,
                         state: WorkflowState::AwaitingApproval,
                     },
@@ -980,7 +1157,7 @@ where
         let StoreWriteResult { value, events } = self.store.write_with_events(|kernel| {
             let subscription = kernel.get_subscription(subscription_id)?;
             validate_subscription_organization(subscription.organization_id, organization_id)
-                .map_err(|error| crm_kernel::KernelError::Validation(error.to_string()))?;
+                .map_err(|error| application_kernel::KernelError::Validation(error.to_string()))?;
             let activation = kernel.activate_subscription(
                 SubscriptionActivate {
                     subscription_id,
@@ -1027,6 +1204,312 @@ where
                     .into_iter()
                     .map(|id| id.to_string())
                     .collect(),
+                projected_event_kinds: events.iter().map(domain_event_kind_name).collect(),
+            }),
+            error: None,
+        })
+    }
+
+    fn execute_submit_expense_report(
+        &self,
+        truth: TruthDefinition,
+        inputs: HashMap<String, String>,
+    ) -> OperatorAppResult<TruthExecutionSession> {
+        let organization_name = required_input(&inputs, "organization_name")?;
+        let organization_id = optional_uuid(&inputs, "organization_id")?;
+        let amount_minor = required_i64(&inputs, "amount_minor")?;
+        let receipt_uri = required_input(&inputs, "receipt_uri")?.to_string();
+        let currency_code = inputs
+            .get("currency_code")
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("EUR")
+            .to_string();
+        let merchant_name = inputs
+            .get("merchant_name")
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("Unknown merchant")
+            .to_string();
+        let category = inputs
+            .get("category")
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("uncategorized")
+            .to_string();
+        let expense_date = inputs
+            .get("expense_date")
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("unspecified date")
+            .to_string();
+        let report_title = inputs
+            .get("report_title")
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToString::to_string)
+            .unwrap_or_else(|| format!("Expense report: {merchant_name} {expense_date}"));
+        let receipt_title = inputs
+            .get("receipt_title")
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToString::to_string)
+            .unwrap_or_else(|| format!("Receipt: {merchant_name}"));
+        let receipt_media_type = inputs
+            .get("receipt_media_type")
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("application/pdf")
+            .to_string();
+        let ocr_confidence_bps = optional_u16(&inputs, "ocr_confidence_bps")?.unwrap_or(8_500);
+        let out_of_policy = optional_bool(&inputs, "out_of_policy");
+        let require_manual_review = optional_bool(&inputs, "require_manual_review");
+        let actor = self.default_actor.clone();
+
+        if amount_minor <= 0 {
+            return Err(OperatorAppError::Validation(
+                "amount_minor must be positive".to_string(),
+            ));
+        }
+
+        let review_reason = inputs
+            .get("manual_review_reason")
+            .map(String::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToString::to_string)
+            .unwrap_or_else(|| {
+                if out_of_policy {
+                    "Expense falls outside policy and needs approval.".to_string()
+                } else if ocr_confidence_bps < 7_000 {
+                    "OCR confidence is below the automatic submission threshold.".to_string()
+                } else {
+                    "Operator requested manual review before submission.".to_string()
+                }
+            });
+        let blocked = require_manual_review || out_of_policy || ocr_confidence_bps < 7_000;
+
+        let StoreWriteResult { value, events } = self.store.write_with_events(|kernel| {
+            let organization = kernel.upsert_organization(
+                OrganizationUpsert {
+                    organization_id,
+                    name: organization_name.to_string(),
+                    external_key: inputs.get("organization_external_key").cloned(),
+                    website: None,
+                    industry: Some("Internal operations".to_string()),
+                    lifecycle: OrganizationLifecycle::Active,
+                    owner_user_id: inputs.get("owner_user_id").cloned(),
+                    tags: vec!["expense-report".to_string()],
+                },
+                actor.clone(),
+            )?;
+
+            let organization_ref = RecordRef {
+                kind: RecordKind::Organization,
+                id: organization.id,
+            };
+            let receipt = kernel.attach_document(
+                DocumentAttach {
+                    title: receipt_title.clone(),
+                    media_type: receipt_media_type.clone(),
+                    uri: receipt_uri.clone(),
+                    status: if blocked {
+                        DocumentStatus::Draft
+                    } else {
+                        DocumentStatus::Verified
+                    },
+                    related_to: vec![organization_ref],
+                },
+                actor.clone(),
+            )?;
+
+            let receipt_ref = RecordRef {
+                kind: RecordKind::Document,
+                id: receipt.id,
+            };
+            let workflow_case = kernel.create_workflow_case(
+                WorkflowCaseCreate {
+                    title: report_title.clone(),
+                    priority: if blocked {
+                        WorkflowPriority::High
+                    } else {
+                        WorkflowPriority::Medium
+                    },
+                    owner_user_id: inputs.get("owner_user_id").cloned(),
+                    related_to: vec![organization_ref, receipt_ref],
+                },
+                actor.clone(),
+            )?;
+
+            let workflow_case = kernel.advance_workflow_case(
+                application_kernel::WorkflowCaseAdvance {
+                    workflow_case_id: workflow_case.id,
+                    state: if blocked {
+                        WorkflowState::AwaitingApproval
+                    } else {
+                        WorkflowState::Done
+                    },
+                },
+                actor.clone(),
+            )?;
+
+            let workflow_ref = RecordRef {
+                kind: RecordKind::WorkflowCase,
+                id: workflow_case.id,
+            };
+            let related_to = vec![organization_ref, receipt_ref, workflow_ref];
+
+            let _ = kernel.append_note(
+                NoteAppend {
+                    subject: if blocked {
+                        "Expense report requires review".to_string()
+                    } else {
+                        "Expense report ready for export".to_string()
+                    },
+                    body: if blocked {
+                        format!(
+                            "{report_title} for {merchant_name} is blocked: {review_reason}"
+                        )
+                    } else {
+                        format!(
+                            "{report_title} for {merchant_name} is staged and ready for bookkeeping export."
+                        )
+                    },
+                    related_to: related_to.clone(),
+                },
+                actor.clone(),
+            )?;
+
+            let evidence_fact = kernel.record_fact(
+                FactRecord {
+                    statement: format!(
+                        "Expense report {report_title} claims {amount_minor} {currency_code} for {merchant_name} on {expense_date} in category {category}."
+                    ),
+                    confidence_bps: ocr_confidence_bps,
+                    related_to: related_to.clone(),
+                    source_note_id: None,
+                },
+                actor.clone(),
+            )?;
+            let approval_route_fact = kernel.record_fact(
+                FactRecord {
+                    statement: if blocked {
+                        format!(
+                            "Approval route for {report_title} requires manual finance review: {review_reason}"
+                        )
+                    } else {
+                        format!(
+                            "Approval route for {report_title} is the standard reimbursement path with no extra approver required."
+                        )
+                    },
+                    confidence_bps: 8_000,
+                    related_to: related_to.clone(),
+                    source_note_id: None,
+                },
+                actor.clone(),
+            )?;
+            let export_status_fact = kernel.record_fact(
+                FactRecord {
+                    statement: if blocked {
+                        format!(
+                            "Export status for {report_title} is blocked pending approval."
+                        )
+                    } else {
+                        format!(
+                            "Export status for {report_title} is ready for bookkeeping handoff."
+                        )
+                    },
+                    confidence_bps: 8_400,
+                    related_to: related_to.clone(),
+                    source_note_id: None,
+                },
+                actor.clone(),
+            )?;
+
+            let approval_id = if blocked {
+                let approval = Approval {
+                    id: Uuid::new_v4(),
+                    record: workflow_ref,
+                    status: ApprovalStatus::Pending,
+                    requested_by: actor.clone(),
+                    approver_user_id: None,
+                    created_at: Utc::now(),
+                    decided_at: None,
+                };
+                kernel.approvals.insert(approval.id, approval.clone());
+                Some(approval.id)
+            } else {
+                None
+            };
+
+            Ok(ExpenseReportWriteResult {
+                organization,
+                workflow_case,
+                approval_id,
+                fact_ids: vec![evidence_fact.id, approval_route_fact.id, export_status_fact.id],
+                document_ids: vec![receipt.id],
+            })
+        })?;
+
+        self.remember_workflow(
+            value.workflow_case.id,
+            if blocked {
+                "expense-report-review"
+            } else {
+                "expense-report-export"
+            },
+        );
+        if let Some(approval_id) = value.approval_id {
+            self.remember_approval(approval_id, SUBMIT_EXPENSE_REPORT, &review_reason);
+        }
+
+        Ok(TruthExecutionSession {
+            truth_key: truth.key.to_string(),
+            state: if blocked {
+                ExecutionState::Blocked
+            } else {
+                ExecutionState::Completed
+            },
+            result: Some(TruthExecutionResult {
+                converged: !blocked,
+                cycles: 1,
+                stop_reason: if blocked {
+                    "manual review required".to_string()
+                } else {
+                    "expense report staged for export".to_string()
+                },
+                experience_event_kinds: events.iter().map(domain_event_kind_name).collect(),
+            }),
+            criteria_outcomes: submit_expense_report_criteria(blocked, value.approval_id),
+            projection: Some(TruthExecutionProjection {
+                organization_id: Some(value.organization.id.to_string()),
+                person_id: None,
+                opportunity_id: None,
+                subscription_id: None,
+                workflow_case_ids: vec![value.workflow_case.id.to_string()],
+                approval_ids: value
+                    .approval_id
+                    .into_iter()
+                    .map(|id| id.to_string())
+                    .collect(),
+                fact_ids: value
+                    .fact_ids
+                    .into_iter()
+                    .map(|id| id.to_string())
+                    .collect(),
+                document_ids: value
+                    .document_ids
+                    .into_iter()
+                    .map(|id| id.to_string())
+                    .collect(),
+                entitlement_ids: Vec::new(),
                 projected_event_kinds: events.iter().map(domain_event_kind_name).collect(),
             }),
             error: None,
@@ -1094,10 +1577,20 @@ where
             );
             let StoreWriteResult { value, events } = self.store.write_with_events(|kernel| {
                 let subscription = kernel.get_subscription(subscription_id)?;
-                validate_subscription_organization(subscription.organization_id, organization_id)
-                    .map_err(|error| crm_kernel::KernelError::Validation(error.to_string()))?;
-                validate_subscription_currency(&subscription.value.currency_code, &currency_code)
-                    .map_err(|error| crm_kernel::KernelError::Validation(error.to_string()))?;
+                validate_subscription_organization(
+                        subscription.organization_id,
+                        organization_id,
+                    )
+                    .map_err(|error| {
+                        application_kernel::KernelError::Validation(error.to_string())
+                    })?;
+                validate_subscription_currency(
+                        &subscription.value.currency_code,
+                        &currency_code,
+                    )
+                    .map_err(|error| {
+                        application_kernel::KernelError::Validation(error.to_string())
+                    })?;
                 let related_to = subscription_related_to(
                     subscription.organization_id,
                     subscription.id,
@@ -1113,7 +1606,7 @@ where
                     actor.clone(),
                 )?;
                 let workflow_case = kernel.advance_workflow_case(
-                    crm_kernel::WorkflowCaseAdvance {
+                    application_kernel::WorkflowCaseAdvance {
                         workflow_case_id: workflow_case.id,
                         state: WorkflowState::AwaitingApproval,
                     },
@@ -1180,9 +1673,9 @@ where
         let StoreWriteResult { value, events } = self.store.write_with_events(|kernel| {
             let subscription = kernel.get_subscription(subscription_id)?;
             validate_subscription_organization(subscription.organization_id, organization_id)
-                .map_err(|error| crm_kernel::KernelError::Validation(error.to_string()))?;
+                .map_err(|error| application_kernel::KernelError::Validation(error.to_string()))?;
             validate_subscription_currency(&subscription.value.currency_code, &currency_code)
-                .map_err(|error| crm_kernel::KernelError::Validation(error.to_string()))?;
+                .map_err(|error| application_kernel::KernelError::Validation(error.to_string()))?;
             let grant = kernel.apply_credit_grant(
                 CreditGrantApply {
                     subscription_id,
@@ -1307,6 +1800,26 @@ fn optional_uuid(
         .transpose()
 }
 
+fn optional_u16(
+    inputs: &HashMap<String, String>,
+    key: &'static str,
+) -> OperatorAppResult<Option<u16>> {
+    inputs
+        .get(key)
+        .map(String::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            value
+                .parse::<u16>()
+                .map_err(|_| OperatorAppError::InvalidInteger {
+                    field: key,
+                    value: value.to_string(),
+                })
+        })
+        .transpose()
+}
+
 fn parse_uuid(field: &'static str, value: &str) -> OperatorAppResult<Uuid> {
     Uuid::parse_str(value).map_err(|_| OperatorAppError::InvalidUuid {
         field,
@@ -1418,13 +1931,14 @@ fn unsupported_truth_session(truth: TruthDefinition) -> TruthExecutionSession {
         result: Some(TruthExecutionResult {
             converged: false,
             cycles: 0,
-            stop_reason: "truth execution not implemented in crm-app yet".to_string(),
+            stop_reason: "truth execution not implemented in the workbench backend yet".to_string(),
             experience_event_kinds: Vec::new(),
         }),
         criteria_outcomes: Vec::new(),
         projection: None,
         error: Some(
-            "This truth is visible in the catalog but not executable in crm-app yet.".to_string(),
+            "This truth is visible in the catalog but not executable in the workbench backend yet."
+                .to_string(),
         ),
     }
 }
@@ -1461,7 +1975,7 @@ fn qualify_inbound_lead_criteria(
                 CriterionStatus::Met
             },
             detail: Some(
-                "crm-app stores ownership and next-step guidance as projected operator facts."
+                "The workbench backend stores ownership and next-step guidance as projected operator facts."
                     .to_string(),
             ),
             approval_ref: approval_id.map(|id| id.to_string()),
@@ -1488,7 +2002,7 @@ fn activate_subscription_criteria(
                 Some("Activation is paused until payment confirmation is reviewed.".to_string())
             } else {
                 Some(
-                    "crm-app activated the subscription against the selected catalog plan."
+                    "The workbench backend activated the subscription against the selected catalog plan."
                         .to_string(),
                 )
             },
@@ -1543,7 +2057,7 @@ fn refill_prepaid_ai_credits_criteria(
                 )
             } else {
                 Some(
-                    "crm-app applied a ledger-backed credit grant for the prepaid refill."
+                    "The workbench backend applied a ledger-backed credit grant for the prepaid refill."
                         .to_string(),
                 )
             },
@@ -1577,7 +2091,69 @@ fn refill_prepaid_ai_credits_criteria(
     ]
 }
 
-fn entitlement_template_summary(template: &crm_kernel::EntitlementTemplate) -> Vec<String> {
+fn submit_expense_report_criteria(
+    blocked: bool,
+    approval_id: Option<Uuid>,
+) -> Vec<CriteriaOutcomeItem> {
+    vec![
+        CriteriaOutcomeItem {
+            criterion_id: "outcome.expense-report-is-submitted-with-attributable-receipt-evidence"
+                .to_string(),
+            description: "Expense report is submitted with attributable receipt evidence."
+                .to_string(),
+            required: true,
+            status: if blocked {
+                CriterionStatus::Blocked
+            } else {
+                CriterionStatus::Met
+            },
+            detail: Some(
+                "The workbench backend attached a receipt document and promoted evidence facts tied to the report workflow."
+                    .to_string(),
+            ),
+            approval_ref: approval_id.map(|id| id.to_string()),
+            evidence_fact_ids: Vec::new(),
+        },
+        CriteriaOutcomeItem {
+            criterion_id: "outcome.approval-route-and-policy-state-are-explicit".to_string(),
+            description: "Approval route and policy state are explicit.".to_string(),
+            required: true,
+            status: if blocked {
+                CriterionStatus::Blocked
+            } else {
+                CriterionStatus::Met
+            },
+            detail: if blocked {
+                Some("A pending approval now governs the manual review path.".to_string())
+            } else {
+                Some("The standard reimbursement path was recorded without extra approvals."
+                    .to_string())
+            },
+            approval_ref: approval_id.map(|id| id.to_string()),
+            evidence_fact_ids: Vec::new(),
+        },
+        CriteriaOutcomeItem {
+            criterion_id: "outcome.export-status-is-queryable".to_string(),
+            description: "Export status is queryable.".to_string(),
+            required: true,
+            status: if blocked {
+                CriterionStatus::Blocked
+            } else {
+                CriterionStatus::Met
+            },
+            detail: if blocked {
+                Some("Export remains blocked until manual approval clears.".to_string())
+            } else {
+                Some("The report workflow was closed as ready for bookkeeping export."
+                    .to_string())
+            },
+            approval_ref: approval_id.map(|id| id.to_string()),
+            evidence_fact_ids: Vec::new(),
+        },
+    ]
+}
+
+fn entitlement_template_summary(template: &application_kernel::EntitlementTemplate) -> Vec<String> {
     let mut items = template
         .feature_flags
         .iter()
@@ -1595,24 +2171,25 @@ fn entitlement_template_summary(template: &crm_kernel::EntitlementTemplate) -> V
     items
 }
 
-fn entitlement_value_summary(value: &crm_kernel::EntitlementValue) -> String {
+fn entitlement_value_summary(value: &application_kernel::EntitlementValue) -> String {
     match value {
-        crm_kernel::EntitlementValue::FeatureFlag(flag) => {
+        application_kernel::EntitlementValue::FeatureFlag(flag) => {
             if *flag {
                 "enabled".to_string()
             } else {
                 "disabled".to_string()
             }
         }
-        crm_kernel::EntitlementValue::Quota(value) => format!("quota {value}"),
-        crm_kernel::EntitlementValue::Credits(value) => format!("credits {value}"),
-        crm_kernel::EntitlementValue::Text(value) => value.clone(),
+        application_kernel::EntitlementValue::Quota(value) => format!("quota {value}"),
+        application_kernel::EntitlementValue::Credits(value) => format!("credits {value}"),
+        application_kernel::EntitlementValue::Text(value) => value.clone(),
     }
 }
 
 fn supported_truth_keys() -> Vec<String> {
     vec![
         QUALIFY_INBOUND_LEAD.to_string(),
+        SUBMIT_EXPENSE_REPORT.to_string(),
         ACTIVATE_SUBSCRIPTION.to_string(),
         REFILL_PREPAID_AI_CREDITS.to_string(),
     ]
@@ -1621,7 +2198,10 @@ fn supported_truth_keys() -> Vec<String> {
 fn is_truth_supported(key: &str) -> bool {
     matches!(
         key,
-        QUALIFY_INBOUND_LEAD | ACTIVATE_SUBSCRIPTION | REFILL_PREPAID_AI_CREDITS
+        QUALIFY_INBOUND_LEAD
+            | SUBMIT_EXPENSE_REPORT
+            | ACTIVATE_SUBSCRIPTION
+            | REFILL_PREPAID_AI_CREDITS
     )
 }
 
@@ -1682,49 +2262,134 @@ fn slugify(input: &str) -> String {
         .join("-")
 }
 
-fn domain_event_kind_name(event: &crm_kernel::DomainEvent) -> String {
+fn domain_event_kind_name(event: &application_kernel::DomainEvent) -> String {
     match event {
-        crm_kernel::DomainEvent::OrganizationUpserted { .. } => "organization-upserted",
-        crm_kernel::DomainEvent::PersonUpserted { .. } => "person-upserted",
-        crm_kernel::DomainEvent::RelationshipLinked { .. } => "relationship-linked",
-        crm_kernel::DomainEvent::OpportunityCreated { .. } => "opportunity-created",
-        crm_kernel::DomainEvent::OpportunityStageChanged { .. } => "opportunity-stage-changed",
-        crm_kernel::DomainEvent::ActivityAppended { .. } => "activity-appended",
-        crm_kernel::DomainEvent::NoteAppended { .. } => "note-appended",
-        crm_kernel::DomainEvent::DocumentAttached { .. } => "document-attached",
-        crm_kernel::DomainEvent::CommunicationRecorded { .. } => "communication-recorded",
-        crm_kernel::DomainEvent::WorkflowCaseCreated { .. } => "workflow-case-created",
-        crm_kernel::DomainEvent::WorkflowCaseStateChanged { .. } => "workflow-case-state-changed",
-        crm_kernel::DomainEvent::PermissionGranted { .. } => "permission-granted",
-        crm_kernel::DomainEvent::CatalogItemUpserted { .. } => "catalog-item-upserted",
-        crm_kernel::DomainEvent::OrderSubscriptionCreated { .. } => "subscription-created",
-        crm_kernel::DomainEvent::OrderSubscriptionStateChanged { .. } => {
+        application_kernel::DomainEvent::OrganizationUpserted { .. } => "organization-upserted",
+        application_kernel::DomainEvent::PersonUpserted { .. } => "person-upserted",
+        application_kernel::DomainEvent::RelationshipLinked { .. } => "relationship-linked",
+        application_kernel::DomainEvent::OpportunityCreated { .. } => "opportunity-created",
+        application_kernel::DomainEvent::OpportunityStageChanged { .. } => {
+            "opportunity-stage-changed"
+        }
+        application_kernel::DomainEvent::ActivityAppended { .. } => "activity-appended",
+        application_kernel::DomainEvent::NoteAppended { .. } => "note-appended",
+        application_kernel::DomainEvent::DocumentAttached { .. } => "document-attached",
+        application_kernel::DomainEvent::CommunicationRecorded { .. } => "communication-recorded",
+        application_kernel::DomainEvent::WorkflowCaseCreated { .. } => "workflow-case-created",
+        application_kernel::DomainEvent::WorkflowCaseStateChanged { .. } => {
+            "workflow-case-state-changed"
+        }
+        application_kernel::DomainEvent::PermissionGranted { .. } => "permission-granted",
+        application_kernel::DomainEvent::CatalogItemUpserted { .. } => "catalog-item-upserted",
+        application_kernel::DomainEvent::OrderSubscriptionCreated { .. } => "subscription-created",
+        application_kernel::DomainEvent::OrderSubscriptionStateChanged { .. } => {
             "subscription-state-changed"
         }
-        crm_kernel::DomainEvent::OrderSubscriptionPlanChanged { .. } => "subscription-plan-changed",
-        crm_kernel::DomainEvent::EntitlementsGranted { .. } => "entitlements-granted",
-        crm_kernel::DomainEvent::EntitlementsReplaced { .. } => "entitlements-replaced",
-        crm_kernel::DomainEvent::EntitlementAdjusted { .. } => "entitlement-adjusted",
-        crm_kernel::DomainEvent::LedgerEntryAppended { .. } => "ledger-entry-appended",
-        crm_kernel::DomainEvent::FactRecorded { .. } => "fact-recorded",
-        crm_kernel::DomainEvent::ObjectDefinitionUpserted { .. } => "object-definition-upserted",
-        crm_kernel::DomainEvent::ViewDefinitionUpserted { .. } => "view-definition-upserted",
-        crm_kernel::DomainEvent::AuditRecorded { .. } => "audit-recorded",
-        crm_kernel::DomainEvent::TimelineEntryRecorded { .. } => "timeline-entry-recorded",
+        application_kernel::DomainEvent::OrderSubscriptionPlanChanged { .. } => {
+            "subscription-plan-changed"
+        }
+        application_kernel::DomainEvent::EntitlementsGranted { .. } => "entitlements-granted",
+        application_kernel::DomainEvent::EntitlementsReplaced { .. } => "entitlements-replaced",
+        application_kernel::DomainEvent::EntitlementAdjusted { .. } => "entitlement-adjusted",
+        application_kernel::DomainEvent::LedgerEntryAppended { .. } => "ledger-entry-appended",
+        application_kernel::DomainEvent::FactRecorded { .. } => "fact-recorded",
+        application_kernel::DomainEvent::ObjectDefinitionUpserted { .. } => {
+            "object-definition-upserted"
+        }
+        application_kernel::DomainEvent::ViewDefinitionUpserted { .. } => {
+            "view-definition-upserted"
+        }
+        application_kernel::DomainEvent::AuditRecorded { .. } => "audit-recorded",
+        application_kernel::DomainEvent::TimelineEntryRecorded { .. } => "timeline-entry-recorded",
     }
     .to_string()
+}
+
+fn built_in_workbench_apps() -> Vec<WorkbenchAppManifest> {
+    vec![
+        WorkbenchAppManifest {
+            id: "home".to_string(),
+            display_name: "Home".to_string(),
+            route: "/".to_string(),
+            summary: "Operator home surface for active jobs, approvals, and exceptions."
+                .to_string(),
+            kind: WorkbenchAppKind::Workspace,
+            status: WorkbenchAppStatus::Ready,
+            capability_keys: vec![
+                "truth-execution".to_string(),
+                "workflow".to_string(),
+                "approvals".to_string(),
+                "timeline".to_string(),
+            ],
+            truth_keys: supported_truth_keys(),
+        },
+        WorkbenchAppManifest {
+            id: "notes".to_string(),
+            display_name: "Notes".to_string(),
+            route: "/notes".to_string(),
+            summary: "Capture notes and keep them close to the Outcome Workbench.".to_string(),
+            kind: WorkbenchAppKind::Workspace,
+            status: WorkbenchAppStatus::Preview,
+            capability_keys: vec!["documents".to_string(), "notes".to_string()],
+            truth_keys: Vec::new(),
+        },
+        WorkbenchAppManifest {
+            id: "receipt-management".to_string(),
+            display_name: "Receipt Management".to_string(),
+            route: "/expenses".to_string(),
+            summary: "Collect receipts, review extracted fields, and stage clean expense reports."
+                .to_string(),
+            kind: WorkbenchAppKind::Workspace,
+            status: WorkbenchAppStatus::Preview,
+            capability_keys: vec![
+                "expenses".to_string(),
+                "documents".to_string(),
+                "ocr".to_string(),
+            ],
+            truth_keys: vec!["submit-expense-report".to_string()],
+        },
+        WorkbenchAppManifest {
+            id: "revenue-review".to_string(),
+            display_name: "Revenue Review".to_string(),
+            route: "/revenue".to_string(),
+            summary: "Review organizations, subscriptions, plans, and prepaid balances."
+                .to_string(),
+            kind: WorkbenchAppKind::Review,
+            status: WorkbenchAppStatus::Ready,
+            capability_keys: vec![
+                "organizations".to_string(),
+                "catalog".to_string(),
+                "subscriptions".to_string(),
+            ],
+            truth_keys: vec![
+                ACTIVATE_SUBSCRIPTION.to_string(),
+                REFILL_PREPAID_AI_CREDITS.to_string(),
+            ],
+        },
+        WorkbenchAppManifest {
+            id: "workflow-review".to_string(),
+            display_name: "Workflow Review".to_string(),
+            route: "/workflow".to_string(),
+            summary: "Review cases, approvals, and exception paths across the workbench."
+                .to_string(),
+            kind: WorkbenchAppKind::Review,
+            status: WorkbenchAppStatus::Ready,
+            capability_keys: vec!["workflow".to_string(), "approvals".to_string()],
+            truth_keys: Vec::new(),
+        },
+    ]
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::{BTreeMap, HashMap};
 
-    use crm_kernel::{
+    use application_kernel::{
         Actor, BillingPeriod, CatalogItemUpsert, CatalogPlanKind, EntitlementTemplate, Money,
         OrganizationLifecycle, OrganizationUpsert, SubscriptionActivate, SubscriptionCreate,
         SubscriptionStatus,
     };
-    use crm_storage::InMemoryKernelStore;
+    use application_storage::InMemoryKernelStore;
     use uuid::Uuid;
 
     use super::{ApprovalFilter, ExecutionState, OperatorApp, WorkflowCaseFilter};
@@ -1770,10 +2435,10 @@ mod tests {
                     CatalogItemUpsert {
                         catalog_item_id: Some(subscription_catalog_id),
                         sku: "prio-platform-annual".to_string(),
-                        name: "Prio Platform Annual".to_string(),
-                        description: Some("Annual governed CRM workspace".to_string()),
+                        name: "Operator Workspace Annual".to_string(),
+                        description: Some("Annual governed operator workspace".to_string()),
                         plan_kind: CatalogPlanKind::Subscription,
-                        pricing: Some(crm_kernel::PricingMetadata {
+                        pricing: Some(application_kernel::PricingMetadata {
                             billing_period: BillingPeriod::Annual,
                             list_price: Money {
                                 currency_code: "USD".to_string(),
@@ -1795,10 +2460,10 @@ mod tests {
                     CatalogItemUpsert {
                         catalog_item_id: Some(credits_catalog_id),
                         sku: "prio-ai-credits-100k".to_string(),
-                        name: "Prio AI Credits 100k".to_string(),
+                        name: "AI Credits 100k".to_string(),
                         description: Some("Prepaid AI credits pack".to_string()),
                         plan_kind: CatalogPlanKind::PrepaidCredits,
-                        pricing: Some(crm_kernel::PricingMetadata {
+                        pricing: Some(application_kernel::PricingMetadata {
                             billing_period: BillingPeriod::OneTime,
                             list_price: Money {
                                 currency_code: "USD".to_string(),
@@ -1887,9 +2552,62 @@ mod tests {
                 .eq([
                     "activate-subscription",
                     "qualify-inbound-lead",
-                    "refill-prepaid-ai-credits"
+                    "refill-prepaid-ai-credits",
+                    "submit-expense-report"
                 ]
                 .into_iter())
+        );
+    }
+
+    #[test]
+    fn workbench_apps_expose_builtin_surfaces() {
+        let apps = app().workbench_apps();
+        assert_eq!(apps.first().map(|app| app.id.as_str()), Some("home"));
+        assert!(
+            apps.iter()
+                .any(|app| app.id == "receipt-management" && app.route == "/expenses")
+        );
+        assert!(
+            apps.iter()
+                .any(|app| app.id == "notes"
+                    && app.capability_keys.contains(&"documents".to_string()))
+        );
+    }
+
+    #[test]
+    fn truth_detail_includes_runtime_resolution_views() {
+        let app = app();
+        let expense_truth = app
+            .truth_detail("submit-expense-report")
+            .expect("expense truth detail");
+        assert!(expense_truth.executable);
+        assert_eq!(
+            expense_truth
+                .organism_resolution
+                .as_ref()
+                .map(|view| view.blueprint.as_deref()),
+            Some(Some("procure_to_pay"))
+        );
+        assert!(
+            expense_truth
+                .organism_resolution
+                .as_ref()
+                .expect("organism resolution")
+                .packs
+                .iter()
+                .any(|pack| pack.pack_name == "procurement")
+        );
+
+        let lead_truth = app
+            .truth_detail("qualify-inbound-lead")
+            .expect("lead truth detail");
+        assert!(
+            lead_truth
+                .converge_resolution
+                .as_ref()
+                .expect("converge resolution")
+                .pack_ids
+                .contains(&"prio-commercial-pack".to_string())
         );
     }
 
@@ -1946,6 +2664,93 @@ mod tests {
                 ]),
             )
             .expect("session should execute");
+
+        assert_eq!(session.state, ExecutionState::Blocked);
+        assert_eq!(
+            app.list_approvals(ApprovalFilter::default())
+                .expect("approvals")
+                .len(),
+            1
+        );
+        assert_eq!(
+            app.list_workflow_cases(WorkflowCaseFilter::default())
+                .expect("workflow cases")
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn execute_submit_expense_report_projects_export_ready_state() {
+        let app = app();
+        let session = app
+            .execute_truth(
+                "submit-expense-report",
+                HashMap::from([
+                    (
+                        "organization_name".to_string(),
+                        "Outcome Workbench".to_string(),
+                    ),
+                    (
+                        "report_title".to_string(),
+                        "April travel reimbursement".to_string(),
+                    ),
+                    ("merchant_name".to_string(), "SJ Rail".to_string()),
+                    ("category".to_string(), "travel".to_string()),
+                    ("amount_minor".to_string(), "12850".to_string()),
+                    ("currency_code".to_string(), "SEK".to_string()),
+                    ("expense_date".to_string(), "2026-04-12".to_string()),
+                    (
+                        "receipt_uri".to_string(),
+                        "file:///receipts/sj-rail-april-12.pdf".to_string(),
+                    ),
+                    ("ocr_confidence_bps".to_string(), "9200".to_string()),
+                ]),
+            )
+            .expect("expense report should execute");
+
+        assert_eq!(session.state, ExecutionState::Completed);
+        let projection = session.projection.expect("projection exists");
+        assert_eq!(projection.document_ids.len(), 1);
+        assert_eq!(projection.workflow_case_ids.len(), 1);
+        assert!(projection.approval_ids.is_empty());
+        assert_eq!(
+            app.list_workflow_cases(WorkflowCaseFilter::default())
+                .expect("workflow cases")
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn execute_submit_expense_report_opens_manual_review_when_policy_is_ambiguous() {
+        let app = app();
+        let session = app
+            .execute_truth(
+                "submit-expense-report",
+                HashMap::from([
+                    (
+                        "organization_name".to_string(),
+                        "Outcome Workbench".to_string(),
+                    ),
+                    (
+                        "report_title".to_string(),
+                        "Client dinner reimbursement".to_string(),
+                    ),
+                    ("merchant_name".to_string(), "Maison du Port".to_string()),
+                    ("category".to_string(), "entertainment".to_string()),
+                    ("amount_minor".to_string(), "98000".to_string()),
+                    ("currency_code".to_string(), "EUR".to_string()),
+                    ("expense_date".to_string(), "2026-04-11".to_string()),
+                    (
+                        "receipt_uri".to_string(),
+                        "file:///receipts/maison-du-port.jpeg".to_string(),
+                    ),
+                    ("ocr_confidence_bps".to_string(), "6200".to_string()),
+                    ("out_of_policy".to_string(), "true".to_string()),
+                ]),
+            )
+            .expect("blocked expense report should execute");
 
         assert_eq!(session.state, ExecutionState::Blocked);
         assert_eq!(

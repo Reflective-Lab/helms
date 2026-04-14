@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use application_kernel::{
+    AccountSummary, Actor as CrmActor, DocumentAttach, DocumentStatus, FactRecord, RecordKind,
+    RecordRef, WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority, WorkflowState,
+};
+use application_storage::{KernelStore, StorageError, StoreWriteResult};
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
     ProposedFact,
 };
 use converge_knowledge::{KnowledgeBase, KnowledgeEntry, SearchOptions};
-use crm_kernel::{
-    AccountSummary, Actor as CrmActor, DocumentAttach, DocumentStatus, FactRecord, RecordKind,
-    RecordRef, WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority, WorkflowState,
-};
-use crm_storage::{KernelStore, StorageError, StoreWriteResult};
 use prio_truths::{MatchRenewalContextEvaluator, converge_binding_for_truth};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
@@ -100,7 +100,7 @@ impl MatchRenewalContextInput {
 
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    runtime_stores: &crm_storage::AppRuntimeStores,
+    runtime_stores: &application_storage::AppRuntimeStores,
     inputs: MatchRenewalContextInput,
     actor: CrmActor,
     persist_projection: bool,
@@ -140,7 +140,9 @@ pub(super) fn execute<S: KernelStore>(
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext { scope_id: inputs.organization_id.to_string() },
+        &super::RuntimeContext {
+            scope_id: inputs.organization_id.to_string(),
+        },
         seed_context(organization_id)?,
         &binding.intent,
         std::sync::Arc::new(MatchRenewalContextEvaluator),
@@ -652,18 +654,20 @@ fn summarize(content: &str, max_len: usize) -> String {
 mod tests {
     use super::*;
 
-    use crm_kernel::{
+    use application_kernel::{
         Actor, FactRecord, OrganizationLifecycle, OrganizationUpsert, RecordKind, RecordRef,
     };
-    use crm_storage::InMemoryKernelStore;
+    use application_storage::InMemoryKernelStore;
 
     #[test]
     fn match_renewal_context_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();

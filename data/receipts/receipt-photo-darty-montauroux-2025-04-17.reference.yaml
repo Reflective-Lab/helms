@@ -1,0 +1,29 @@
+schema_version: 1
+sample_id: receipt-photo-darty-montauroux-2025-04-17
+document_file: receipt-photo-darty-montauroux-2025-04-17.jpeg
+original_file_name: "darty-photo.jpeg"
+document_type: receipt
+capture_type: photo
+expense_candidate: true
+related_document_file: ""
+reference_status: draft
+expected:
+  merchant: "Darty Montauroux"
+  issue_date: "2025-04-17"
+  service_date: ""
+  service_period_start: ""
+  service_period_end: ""
+  due_date: ""
+  currency: "EUR"
+  total: "619.97"
+  subtotal: "516.64"
+  tax: "103.33"
+  tax_rate: "20%"
+  invoice_number: ""
+  receipt_number: ""
+  order_id: ""
+  account_reference: ""
+  country: "France"
+notes:
+  - "Long thermal receipt photographed on the floor."
+  - "Good sample for line-item and total extraction from narrow receipts."

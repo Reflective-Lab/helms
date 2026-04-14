@@ -1,6 +1,4 @@
-use chrono::{DateTime, Utc};
-use converge_core::CriterionResult;
-use crm_kernel::{
+use application_kernel::{
     ActivityAppend, ActivityOutcome, Actor, ActorKind, CommunicationChannel,
     CommunicationDirection, CommunicationRecord, CrmKernel, DocumentAttach, DocumentStatus,
     Entitlement, EntitlementValue, Fact, FactRecord, FieldDefinition, FieldType, LedgerEntry,
@@ -12,7 +10,9 @@ use crm_kernel::{
     TimelineEntry, ViewDefinition, ViewDefinitionUpsert, ViewLayout, WorkflowCase,
     WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority, WorkflowState,
 };
-use crm_storage::{AppRuntimeStores, InMemoryKernelStore, KernelStore, StorageError};
+use application_storage::{AppRuntimeStores, InMemoryKernelStore, KernelStore, StorageError};
+use chrono::{DateTime, Utc};
+use converge_core::CriterionResult;
 use prio_module_core::{CapabilityModule, ModuleSuite};
 use prio_modules::all_modules;
 use prio_truths::{
@@ -843,14 +843,14 @@ fn status_from_storage(error: StorageError) -> Status {
     }
 }
 
-fn status_from_kernel(error: crm_kernel::KernelError) -> Status {
+fn status_from_kernel(error: application_kernel::KernelError) -> Status {
     match error {
-        crm_kernel::KernelError::Validation(message) => Status::invalid_argument(message),
-        crm_kernel::KernelError::NotFound { kind, id } => {
+        application_kernel::KernelError::Validation(message) => Status::invalid_argument(message),
+        application_kernel::KernelError::NotFound { kind, id } => {
             Status::not_found(format!("{kind} not found: {id}"))
         }
-        crm_kernel::KernelError::Invariant(message) => Status::failed_precondition(message),
-        crm_kernel::KernelError::Conflict(message) => Status::already_exists(message),
+        application_kernel::KernelError::Invariant(message) => Status::failed_precondition(message),
+        application_kernel::KernelError::Conflict(message) => Status::already_exists(message),
     }
 }
 
@@ -1065,15 +1065,15 @@ fn workflow_state_from_proto(value: i32) -> WorkflowState {
     }
 }
 
-fn relationship_type_from_proto(value: i32) -> crm_kernel::RelationshipType {
+fn relationship_type_from_proto(value: i32) -> application_kernel::RelationshipType {
     match pb::RelationshipType::try_from(value).unwrap_or(pb::RelationshipType::Other) {
-        pb::RelationshipType::Employment => crm_kernel::RelationshipType::Employment,
-        pb::RelationshipType::Champion => crm_kernel::RelationshipType::Champion,
-        pb::RelationshipType::DecisionMaker => crm_kernel::RelationshipType::DecisionMaker,
-        pb::RelationshipType::Partner => crm_kernel::RelationshipType::Partner,
-        pb::RelationshipType::Competitor => crm_kernel::RelationshipType::Competitor,
+        pb::RelationshipType::Employment => application_kernel::RelationshipType::Employment,
+        pb::RelationshipType::Champion => application_kernel::RelationshipType::Champion,
+        pb::RelationshipType::DecisionMaker => application_kernel::RelationshipType::DecisionMaker,
+        pb::RelationshipType::Partner => application_kernel::RelationshipType::Partner,
+        pb::RelationshipType::Competitor => application_kernel::RelationshipType::Competitor,
         pb::RelationshipType::Other | pb::RelationshipType::Unspecified => {
-            crm_kernel::RelationshipType::Other
+            application_kernel::RelationshipType::Other
         }
     }
 }
@@ -1259,14 +1259,18 @@ fn proto_relationship(value: Relationship) -> pb::Relationship {
         from: Some(proto_record_ref(value.from)),
         to: Some(proto_record_ref(value.to)),
         relationship_type: match value.relationship_type {
-            crm_kernel::RelationshipType::Employment => pb::RelationshipType::Employment as i32,
-            crm_kernel::RelationshipType::Champion => pb::RelationshipType::Champion as i32,
-            crm_kernel::RelationshipType::DecisionMaker => {
+            application_kernel::RelationshipType::Employment => {
+                pb::RelationshipType::Employment as i32
+            }
+            application_kernel::RelationshipType::Champion => pb::RelationshipType::Champion as i32,
+            application_kernel::RelationshipType::DecisionMaker => {
                 pb::RelationshipType::DecisionMaker as i32
             }
-            crm_kernel::RelationshipType::Partner => pb::RelationshipType::Partner as i32,
-            crm_kernel::RelationshipType::Competitor => pb::RelationshipType::Competitor as i32,
-            crm_kernel::RelationshipType::Other => pb::RelationshipType::Other as i32,
+            application_kernel::RelationshipType::Partner => pb::RelationshipType::Partner as i32,
+            application_kernel::RelationshipType::Competitor => {
+                pb::RelationshipType::Competitor as i32
+            }
+            application_kernel::RelationshipType::Other => pb::RelationshipType::Other as i32,
         },
         label: value.label,
         created_at: proto_timestamp(value.created_at),
@@ -1299,7 +1303,7 @@ fn proto_opportunity(value: Opportunity) -> pb::Opportunity {
     }
 }
 
-fn proto_activity(value: crm_kernel::Activity) -> pb::Activity {
+fn proto_activity(value: application_kernel::Activity) -> pb::Activity {
     pb::Activity {
         id: value.id.to_string(),
         subject: value.subject,
@@ -1316,7 +1320,7 @@ fn proto_activity(value: crm_kernel::Activity) -> pb::Activity {
     }
 }
 
-fn proto_note(value: crm_kernel::Note) -> pb::Note {
+fn proto_note(value: application_kernel::Note) -> pb::Note {
     pb::Note {
         id: value.id.to_string(),
         subject: value.subject,
@@ -1328,7 +1332,7 @@ fn proto_note(value: crm_kernel::Note) -> pb::Note {
     }
 }
 
-fn proto_document(value: crm_kernel::Document) -> pb::Document {
+fn proto_document(value: application_kernel::Document) -> pb::Document {
     pb::Document {
         id: value.id.to_string(),
         title: value.title,
@@ -1345,7 +1349,9 @@ fn proto_document(value: crm_kernel::Document) -> pb::Document {
     }
 }
 
-fn proto_communication_event(value: crm_kernel::CommunicationEvent) -> pb::CommunicationEvent {
+fn proto_communication_event(
+    value: application_kernel::CommunicationEvent,
+) -> pb::CommunicationEvent {
     pb::CommunicationEvent {
         id: value.id.to_string(),
         channel: match value.channel {
@@ -1405,7 +1411,7 @@ fn proto_fact(value: Fact) -> pb::Fact {
     }
 }
 
-fn proto_permission_grant(value: crm_kernel::PermissionGrant) -> pb::PermissionGrant {
+fn proto_permission_grant(value: application_kernel::PermissionGrant) -> pb::PermissionGrant {
     pb::PermissionGrant {
         id: value.id.to_string(),
         subject: value.subject,
@@ -1420,14 +1426,18 @@ fn proto_timeline_entry(value: TimelineEntry) -> pb::TimelineEntry {
     pb::TimelineEntry {
         id: value.id.to_string(),
         kind: match value.kind {
-            crm_kernel::TimelineEntryKind::Activity => pb::TimelineEntryKind::Activity as i32,
-            crm_kernel::TimelineEntryKind::Note => pb::TimelineEntryKind::Note as i32,
-            crm_kernel::TimelineEntryKind::Document => pb::TimelineEntryKind::Document as i32,
-            crm_kernel::TimelineEntryKind::Communication => {
+            application_kernel::TimelineEntryKind::Activity => {
+                pb::TimelineEntryKind::Activity as i32
+            }
+            application_kernel::TimelineEntryKind::Note => pb::TimelineEntryKind::Note as i32,
+            application_kernel::TimelineEntryKind::Document => {
+                pb::TimelineEntryKind::Document as i32
+            }
+            application_kernel::TimelineEntryKind::Communication => {
                 pb::TimelineEntryKind::Communication as i32
             }
-            crm_kernel::TimelineEntryKind::Fact => pb::TimelineEntryKind::Fact as i32,
-            crm_kernel::TimelineEntryKind::Audit => pb::TimelineEntryKind::Audit as i32,
+            application_kernel::TimelineEntryKind::Fact => pb::TimelineEntryKind::Fact as i32,
+            application_kernel::TimelineEntryKind::Audit => pb::TimelineEntryKind::Audit as i32,
         },
         anchor: value.anchor.map(proto_record_ref),
         headline: value.headline,
@@ -1438,7 +1448,7 @@ fn proto_timeline_entry(value: TimelineEntry) -> pb::TimelineEntry {
     }
 }
 
-fn proto_account_summary(value: crm_kernel::AccountSummary) -> pb::AccountSummary {
+fn proto_account_summary(value: application_kernel::AccountSummary) -> pb::AccountSummary {
     pb::AccountSummary {
         organization: Some(proto_organization(value.organization)),
         contacts: value.contacts.into_iter().map(proto_person).collect(),

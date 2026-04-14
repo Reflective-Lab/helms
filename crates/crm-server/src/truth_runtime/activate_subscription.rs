@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 
-use converge_core::{
-    Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
-    ProposedFact,
-};
-use crm_kernel::{
+use application_kernel::{
     Actor as CrmActor, BillingPeriod, CatalogItem, CatalogPlanKind, FactRecord, Money,
     OrderSubscription, RecordKind, RecordRef, SubscriptionActivate, WorkflowCaseAdvance,
     WorkflowCaseCreate, WorkflowPriority, WorkflowState,
 };
-use crm_storage::{KernelStore, StoreWriteResult};
+use application_storage::{KernelStore, StoreWriteResult};
+use converge_core::{
+    Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
+    ProposedFact,
+};
 use prio_truths::{ActivateSubscriptionEvaluator, converge_binding_for_truth};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
@@ -127,7 +127,7 @@ impl ActivateSubscriptionInput {
 
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    runtime_stores: &crm_storage::AppRuntimeStores,
+    runtime_stores: &application_storage::AppRuntimeStores,
     inputs: ActivateSubscriptionInput,
     actor: CrmActor,
     persist_projection: bool,
@@ -166,7 +166,9 @@ pub(super) fn execute<S: KernelStore>(
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext { scope_id: inputs.subscription_id.to_string() },
+        &super::RuntimeContext {
+            scope_id: inputs.subscription_id.to_string(),
+        },
         seed_context(seed.subscription.id)?,
         &binding.intent,
         std::sync::Arc::new(ActivateSubscriptionEvaluator),
@@ -604,20 +606,22 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use converge_core::StopReason;
-    use crm_kernel::{
+    use application_kernel::{
         Actor, BillingPeriod, CatalogItemUpsert, CatalogPlanKind, EntitlementTemplate,
         OrganizationLifecycle, OrganizationUpsert, SubscriptionCreate, SubscriptionStatus,
     };
-    use crm_storage::InMemoryKernelStore;
+    use application_storage::InMemoryKernelStore;
+    use converge_core::StopReason;
 
     #[test]
     fn activate_subscription_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -643,7 +647,7 @@ mod tests {
                         name: "Prio Growth".to_string(),
                         description: Some("Growth annual plan".to_string()),
                         plan_kind: CatalogPlanKind::Subscription,
-                        pricing: Some(crm_kernel::PricingMetadata {
+                        pricing: Some(application_kernel::PricingMetadata {
                             billing_period: BillingPeriod::Annual,
                             list_price: Money {
                                 currency_code: "USD".to_string(),
@@ -707,7 +711,7 @@ mod tests {
                 .subscription
                 .as_ref()
                 .map(|subscription| subscription.status),
-            Some(crm_kernel::SubscriptionStatus::Active)
+            Some(application_kernel::SubscriptionStatus::Active)
         );
         assert_eq!(projection.entitlements.len(), 3);
         assert_eq!(projection.ledger_entries.len(), 1);
@@ -717,10 +721,12 @@ mod tests {
     #[test]
     fn activate_subscription_blocks_for_manual_review_plan() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -746,7 +752,7 @@ mod tests {
                         name: "Prio Enterprise".to_string(),
                         description: Some("Enterprise custom plan".to_string()),
                         plan_kind: CatalogPlanKind::EnterpriseCustom,
-                        pricing: Some(crm_kernel::PricingMetadata {
+                        pricing: Some(application_kernel::PricingMetadata {
                             billing_period: BillingPeriod::Annual,
                             list_price: Money {
                                 currency_code: "USD".to_string(),
@@ -829,10 +835,12 @@ mod tests {
     #[test]
     fn activate_subscription_missing_subscription_id_returns_error() {
         let _store = InMemoryKernelStore::default_local();
-        let _runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let _runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let _actor = Actor::system();
@@ -846,10 +854,12 @@ mod tests {
     #[test]
     fn activate_subscription_with_nonexistent_subscription_returns_error() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -880,10 +890,12 @@ mod tests {
     #[test]
     fn activate_without_persist_produces_no_side_effects() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -909,7 +921,7 @@ mod tests {
                         name: "Prio Starter".to_string(),
                         description: Some("Starter plan".to_string()),
                         plan_kind: CatalogPlanKind::Subscription,
-                        pricing: Some(crm_kernel::PricingMetadata {
+                        pricing: Some(application_kernel::PricingMetadata {
                             billing_period: BillingPeriod::Monthly,
                             list_price: Money {
                                 currency_code: "USD".to_string(),

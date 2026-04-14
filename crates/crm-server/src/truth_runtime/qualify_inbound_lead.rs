@@ -1,15 +1,15 @@
 use std::collections::{BTreeMap, HashMap};
 
-use converge_core::{
-    Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
-    ProposedFact, TypesRunHooks,
-};
-use crm_kernel::{
+use application_kernel::{
     Actor as CrmActor, CommunicationChannel, CommunicationDirection, CommunicationRecord,
     FactRecord, Money, OpportunityCreate, OrganizationLifecycle, OrganizationUpsert, PersonUpsert,
     RecordKind, RecordRef,
 };
-use crm_storage::{KernelStore, StoreWriteResult};
+use application_storage::{KernelStore, StoreWriteResult};
+use converge_core::{
+    Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
+    ProposedFact, TypesRunHooks,
+};
 use prio_truths::{QualifyInboundLeadEvaluator, converge_binding_for_truth};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
@@ -134,7 +134,7 @@ impl QualifyInboundLeadInput {
 
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    runtime_stores: &crm_storage::AppRuntimeStores,
+    runtime_stores: &application_storage::AppRuntimeStores,
     inputs: QualifyInboundLeadInput,
     actor: CrmActor,
     persist_projection: bool,
@@ -149,7 +149,12 @@ pub(super) fn execute<S: KernelStore>(
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext { scope_id: inputs.organization_id.map(|id| id.to_string()).unwrap_or_else(|| "inbound".to_string()) },
+        &super::RuntimeContext {
+            scope_id: inputs
+                .organization_id
+                .map(|id| id.to_string())
+                .unwrap_or_else(|| "inbound".to_string()),
+        },
         seed_context(&inputs)?,
         &binding.intent,
         std::sync::Arc::new(QualifyInboundLeadEvaluator),
@@ -781,9 +786,9 @@ fn confidence_bps_for_projection(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use application_kernel::ActorKind;
+    use application_storage::InMemoryKernelStore;
     use converge_core::{ExperienceEvent, StopReason};
-    use crm_kernel::ActorKind;
-    use crm_storage::InMemoryKernelStore;
 
     fn human() -> CrmActor {
         CrmActor {
@@ -808,12 +813,12 @@ mod tests {
 
         let execution = execute(
             &store,
-            &crm_storage::AppRuntimeStores {
-                context: crm_storage::AppContextStore::Memory(
-                    crm_storage::InMemoryContextStore::new(),
+            &application_storage::AppRuntimeStores {
+                context: application_storage::AppContextStore::Memory(
+                    application_storage::InMemoryContextStore::new(),
                 ),
-                experience: crm_storage::AppExperienceStore::Memory(
-                    crm_storage::InMemoryExperienceStoreAdapter::new(),
+                experience: application_storage::AppExperienceStore::Memory(
+                    application_storage::InMemoryExperienceStoreAdapter::new(),
                 ),
             },
             QualifyInboundLeadInput::from_map(&inputs).unwrap(),
@@ -868,12 +873,12 @@ mod tests {
 
             let execution = execute(
                 &store,
-                &crm_storage::AppRuntimeStores {
-                    context: crm_storage::AppContextStore::Memory(
-                        crm_storage::InMemoryContextStore::new(),
+                &application_storage::AppRuntimeStores {
+                    context: application_storage::AppContextStore::Memory(
+                        application_storage::InMemoryContextStore::new(),
                     ),
-                    experience: crm_storage::AppExperienceStore::Memory(
-                        crm_storage::InMemoryExperienceStoreAdapter::new(),
+                    experience: application_storage::AppExperienceStore::Memory(
+                        application_storage::InMemoryExperienceStoreAdapter::new(),
                     ),
                 },
                 QualifyInboundLeadInput::from_map(&inputs).unwrap(),
@@ -921,12 +926,12 @@ mod tests {
 
         let execution = execute(
             &store,
-            &crm_storage::AppRuntimeStores {
-                context: crm_storage::AppContextStore::Memory(
-                    crm_storage::InMemoryContextStore::new(),
+            &application_storage::AppRuntimeStores {
+                context: application_storage::AppContextStore::Memory(
+                    application_storage::InMemoryContextStore::new(),
                 ),
-                experience: crm_storage::AppExperienceStore::Memory(
-                    crm_storage::InMemoryExperienceStoreAdapter::new(),
+                experience: application_storage::AppExperienceStore::Memory(
+                    application_storage::InMemoryExperienceStoreAdapter::new(),
                 ),
             },
             QualifyInboundLeadInput::from_map(&inputs).unwrap(),
@@ -975,12 +980,12 @@ mod tests {
 
         let execution = execute(
             &store,
-            &crm_storage::AppRuntimeStores {
-                context: crm_storage::AppContextStore::Memory(
-                    crm_storage::InMemoryContextStore::new(),
+            &application_storage::AppRuntimeStores {
+                context: application_storage::AppContextStore::Memory(
+                    application_storage::InMemoryContextStore::new(),
                 ),
-                experience: crm_storage::AppExperienceStore::Memory(
-                    crm_storage::InMemoryExperienceStoreAdapter::new(),
+                experience: application_storage::AppExperienceStore::Memory(
+                    application_storage::InMemoryExperienceStoreAdapter::new(),
                 ),
             },
             QualifyInboundLeadInput::from_map(&inputs).unwrap(),
@@ -1065,12 +1070,12 @@ mod tests {
 
         let first = execute(
             &store,
-            &crm_storage::AppRuntimeStores {
-                context: crm_storage::AppContextStore::Memory(
-                    crm_storage::InMemoryContextStore::new(),
+            &application_storage::AppRuntimeStores {
+                context: application_storage::AppContextStore::Memory(
+                    application_storage::InMemoryContextStore::new(),
                 ),
-                experience: crm_storage::AppExperienceStore::Memory(
-                    crm_storage::InMemoryExperienceStoreAdapter::new(),
+                experience: application_storage::AppExperienceStore::Memory(
+                    application_storage::InMemoryExperienceStoreAdapter::new(),
                 ),
             },
             QualifyInboundLeadInput::from_map(&make_inputs()).unwrap(),
@@ -1080,12 +1085,12 @@ mod tests {
         .expect("first execution should succeed");
         let second = execute(
             &store,
-            &crm_storage::AppRuntimeStores {
-                context: crm_storage::AppContextStore::Memory(
-                    crm_storage::InMemoryContextStore::new(),
+            &application_storage::AppRuntimeStores {
+                context: application_storage::AppContextStore::Memory(
+                    application_storage::InMemoryContextStore::new(),
                 ),
-                experience: crm_storage::AppExperienceStore::Memory(
-                    crm_storage::InMemoryExperienceStoreAdapter::new(),
+                experience: application_storage::AppExperienceStore::Memory(
+                    application_storage::InMemoryExperienceStoreAdapter::new(),
                 ),
             },
             QualifyInboundLeadInput::from_map(&make_inputs()).unwrap(),
@@ -1122,12 +1127,12 @@ mod tests {
         ]);
         let execution_a = execute(
             &store,
-            &crm_storage::AppRuntimeStores {
-                context: crm_storage::AppContextStore::Memory(
-                    crm_storage::InMemoryContextStore::new(),
+            &application_storage::AppRuntimeStores {
+                context: application_storage::AppContextStore::Memory(
+                    application_storage::InMemoryContextStore::new(),
                 ),
-                experience: crm_storage::AppExperienceStore::Memory(
-                    crm_storage::InMemoryExperienceStoreAdapter::new(),
+                experience: application_storage::AppExperienceStore::Memory(
+                    application_storage::InMemoryExperienceStoreAdapter::new(),
                 ),
             },
             QualifyInboundLeadInput::from_map(&inputs_a).unwrap(),
@@ -1148,12 +1153,12 @@ mod tests {
         ]);
         let execution_b = execute(
             &store,
-            &crm_storage::AppRuntimeStores {
-                context: crm_storage::AppContextStore::Memory(
-                    crm_storage::InMemoryContextStore::new(),
+            &application_storage::AppRuntimeStores {
+                context: application_storage::AppContextStore::Memory(
+                    application_storage::InMemoryContextStore::new(),
                 ),
-                experience: crm_storage::AppExperienceStore::Memory(
-                    crm_storage::InMemoryExperienceStoreAdapter::new(),
+                experience: application_storage::AppExperienceStore::Memory(
+                    application_storage::InMemoryExperienceStoreAdapter::new(),
                 ),
             },
             QualifyInboundLeadInput::from_map(&inputs_b).unwrap(),
@@ -1496,8 +1501,8 @@ mod tests {
     // HITL / retry tests
     // -----------------------------------------------------------------------
 
-    fn test_runtime_stores() -> crm_storage::AppRuntimeStores {
-        crm_storage::AppRuntimeStores::default()
+    fn test_runtime_stores() -> application_storage::AppRuntimeStores {
+        application_storage::AppRuntimeStores::default()
     }
 
     fn run_qualify(
@@ -1534,8 +1539,8 @@ mod tests {
             .expect("read")
             .len();
 
-        let second = run_qualify(&store, ambiguous_inputs, true)
-            .expect("second execution should succeed");
+        let second =
+            run_qualify(&store, ambiguous_inputs, true).expect("second execution should succeed");
         let second_org_count = store
             .read(|kernel| kernel.list_organizations())
             .expect("read")

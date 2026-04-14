@@ -7,6 +7,7 @@ use prio_catalog::MODULE as CATALOG;
 use prio_conversations::MODULE as CONVERSATIONS;
 use prio_documents::MODULE as DOCUMENTS;
 use prio_entitlements::MODULE as ENTITLEMENTS;
+use prio_expenses::MODULE as EXPENSES;
 use prio_facts::MODULE as FACTS;
 use prio_identity::MODULE as IDENTITY;
 use prio_intents::MODULE as INTENTS;
@@ -30,6 +31,7 @@ pub const MODULES: &[CapabilityModule] = &[
     OPPORTUNITIES,
     TASKS,
     DOCUMENTS,
+    EXPENSES,
     SUBSCRIPTIONS,
     METERING,
     LEDGER,

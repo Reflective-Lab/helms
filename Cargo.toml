@@ -1,11 +1,15 @@
 [workspace]
 resolver = "2"
 members = [
+    # Current application-layer crate names. These remain temporary legacy names until the
+    # staged rename in docs/naming-migration-map.md is executed.
     "crates/crm-contracts",
     "crates/crm-app",
     "crates/crm-kernel",
     "crates/crm-storage",
     "crates/crm-server",
+
+    # Current capability and truth crate names.
     "crates/prio-module-core",
     "crates/prio-modules",
     "crates/prio-catalog",
@@ -15,6 +19,8 @@ members = [
     "crates/prio-opportunities",
     "crates/prio-tasks",
     "crates/prio-documents",
+    "crates/prio-expenses",
+    "crates/prio-apple-notes-cli",
     "crates/prio-subscriptions",
     "crates/prio-metering",
     "crates/prio-ledger",
@@ -29,6 +35,8 @@ members = [
     "crates/prio-memory",
     "crates/prio-agent-ops",
     "crates/prio-truths",
+
+    # Utility and support crates.
     "crates/seed-gen",
 ]
 
@@ -44,6 +52,8 @@ anyhow = "1"
 async-stream = "0.3"
 axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
+organism-intelligence = { path = "../organism/crates/intelligence", features = ["ocr", "pdf"] }
+organism-notes = { path = "../organism/crates/notes", features = ["cleanup", "enrichment", "sources-apple-notes", "sources-web"] }
 prost = "0.13"
 prost-types = "0.13"
 serde = { version = "1", features = ["derive"] }

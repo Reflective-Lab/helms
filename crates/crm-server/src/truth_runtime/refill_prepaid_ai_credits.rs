@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 
-use converge_core::{
-    Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
-    ProposedFact,
-};
-use crm_kernel::{
+use application_kernel::{
     Actor as CrmActor, CreditGrantApply, EntitlementValue, FactRecord, Money, OrderSubscription,
     RecordKind, RecordRef, WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority,
     WorkflowState,
 };
-use crm_storage::{KernelStore, StoreWriteResult};
+use application_storage::{KernelStore, StoreWriteResult};
+use converge_core::{
+    Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
+    ProposedFact,
+};
 use prio_truths::{RefillPrepaidAiCreditsEvaluator, converge_binding_for_truth};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
@@ -126,7 +126,7 @@ impl RefillPrepaidAiCreditsInput {
 
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    runtime_stores: &crm_storage::AppRuntimeStores,
+    runtime_stores: &application_storage::AppRuntimeStores,
     inputs: RefillPrepaidAiCreditsInput,
     actor: CrmActor,
     persist_projection: bool,
@@ -150,7 +150,9 @@ pub(super) fn execute<S: KernelStore>(
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext { scope_id: inputs.subscription_id.to_string() },
+        &super::RuntimeContext {
+            scope_id: inputs.subscription_id.to_string(),
+        },
         seed_context(seed.subscription.id)?,
         &binding.intent,
         std::sync::Arc::new(RefillPrepaidAiCreditsEvaluator),
@@ -191,7 +193,7 @@ fn load_refill_seed<S: KernelStore>(
                         inputs.subscription_id
                     ))
                 })?;
-            if subscription.status != crm_kernel::SubscriptionStatus::Active {
+            if subscription.status != application_kernel::SubscriptionStatus::Active {
                 return Err(Status::failed_precondition(
                     "refill requires an active subscription".to_string(),
                 ));
@@ -270,7 +272,7 @@ fn project<S: KernelStore>(
                         .orders
                         .get(&subscription_id)
                         .cloned()
-                        .ok_or_else(|| crm_kernel::KernelError::NotFound {
+                        .ok_or_else(|| application_kernel::KernelError::NotFound {
                             kind: "subscription",
                             id: subscription_id.to_string(),
                         })?;
@@ -593,13 +595,13 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use converge_core::StopReason;
-    use crm_kernel::{
+    use application_kernel::{
         Actor, BillingPeriod, CatalogItemUpsert, CatalogPlanKind, EntitlementTemplate,
         OrganizationLifecycle, OrganizationUpsert, SubscriptionActivate, SubscriptionCreate,
         SubscriptionStatus,
     };
-    use crm_storage::InMemoryKernelStore;
+    use application_storage::InMemoryKernelStore;
+    use converge_core::StopReason;
 
     fn seeded_active_credit_subscription(
         store: &InMemoryKernelStore,
@@ -627,7 +629,7 @@ mod tests {
                         name: "Prio Prepaid".to_string(),
                         description: Some("Prepaid credits".to_string()),
                         plan_kind: CatalogPlanKind::PrepaidCredits,
-                        pricing: Some(crm_kernel::PricingMetadata {
+                        pricing: Some(application_kernel::PricingMetadata {
                             billing_period: BillingPeriod::OneTime,
                             list_price: Money {
                                 currency_code: "USD".to_string(),
@@ -675,10 +677,12 @@ mod tests {
     #[test]
     fn refill_prepaid_ai_credits_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -719,10 +723,12 @@ mod tests {
     #[test]
     fn refill_prepaid_ai_credits_blocks_when_payment_is_unconfirmed() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -774,10 +780,12 @@ mod tests {
     #[test]
     fn refill_without_active_subscription_returns_error() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -808,10 +816,12 @@ mod tests {
     #[test]
     fn refill_with_zero_amount_returns_error() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -842,10 +852,12 @@ mod tests {
     #[test]
     fn refill_without_persist_produces_no_side_effects() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -920,10 +932,12 @@ mod tests {
     #[test]
     fn sequential_refills_accumulate_balance() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();

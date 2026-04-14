@@ -1,5 +1,5 @@
 [package]
-name = "crm-kernel"
+name = "application-kernel"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,4 +13,3 @@ uuid.workspace = true
 
 [dev-dependencies]
 proptest = { workspace = true }
-

@@ -1,0 +1,29 @@
+schema_version: 1
+sample_id: email-apple-developer-program-invoice-2026-04-10
+document_file: email-apple-developer-program-invoice-2026-04-10.rtf
+original_file_name: "Your invoice from Apple..rtf"
+document_type: email
+capture_type: rich-text-email
+expense_candidate: false
+related_document_file: invoice-apple-developer-program-2026-04-10.pdf
+reference_status: draft
+expected:
+  merchant: "Apple"
+  issue_date: "2026-04-10"
+  service_date: ""
+  service_period_start: ""
+  service_period_end: ""
+  due_date: ""
+  currency: "SEK"
+  total: "995.00"
+  subtotal: "796.00"
+  tax: "199.00"
+  tax_rate: "25%"
+  invoice_number: "778117965503"
+  receipt_number: ""
+  order_id: "MN412W594H"
+  account_reference: "kenneth_pernyer@mac.com"
+  country: "Sweden"
+notes:
+  - "Supporting email body for the Apple invoice PDF."
+  - "Useful for testing mail-ingest parsing separately from PDF extraction."

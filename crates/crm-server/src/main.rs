@@ -4,7 +4,7 @@ mod service;
 mod truth_runtime;
 
 use anyhow::Result;
-use crm_storage::{AppConfig, open_kernel_store, open_runtime_stores};
+use application_storage::{AppConfig, open_kernel_store, open_runtime_stores};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tonic::transport::Server;

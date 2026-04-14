@@ -1,0 +1,29 @@
+schema_version: 1
+sample_id: invoice-temporal-technologies-u4hcrshe-0006-2026-04-02
+document_file: invoice-temporal-technologies-u4hcrshe-0006-2026-04-02.pdf
+original_file_name: "Invoice-U4HCRSHE-0006.pdf"
+document_type: invoice
+capture_type: digital-pdf
+expense_candidate: true
+related_document_file: ""
+reference_status: draft
+expected:
+  merchant: "Temporal Technologies Inc."
+  issue_date: "2026-04-02"
+  service_date: ""
+  service_period_start: "2026-03-01"
+  service_period_end: "2026-03-31"
+  due_date: "2026-05-02"
+  currency: "USD"
+  total: "0.00"
+  subtotal: "0.00"
+  tax: ""
+  tax_rate: ""
+  invoice_number: "U4HCRSHE-0006"
+  receipt_number: ""
+  order_id: ""
+  account_reference: "Aprio One"
+  country: "United States"
+notes:
+  - "Zero-due invoice with startup credit applied."
+  - "Ship-to and bill-to are both Aprio One, Sweden."

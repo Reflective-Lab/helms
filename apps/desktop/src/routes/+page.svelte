@@ -7,9 +7,10 @@
 	import SystemSection from '$lib/components/SystemSection.svelte'
 	import WorkflowSection from '$lib/components/WorkflowSection.svelte'
 	import { executeTruth, getAccountSummary, loadOperatorShell } from '$lib/api'
-	import { navSections, type AccountWorkspaceSummary, type ApprovalListItem, type OperatorDashboard, type OpportunityListItem, type OrganizationListItem, type Section, type SystemProfile, type TruthExecutionInputs, type TruthExecutionSession, type TruthListItem, type WorkflowCaseListItem } from '$lib/types'
+	import { navSections, type AccountWorkspaceSummary, type ApprovalListItem, type OperatorDashboard, type OpportunityListItem, type OrganizationListItem, type Section, type SystemProfile, type TruthExecutionInputs, type TruthExecutionSession, type TruthListItem, type WorkbenchAppManifest, type WorkflowCaseListItem } from '$lib/types'
 
 	let activeSection = $state<Section>('jobs')
+	let apps = $state<WorkbenchAppManifest[]>([])
 	let dashboard = $state<OperatorDashboard | null>(null)
 	let truths = $state<TruthListItem[]>([])
 	let organizations = $state<OrganizationListItem[]>([])
@@ -30,6 +31,7 @@
 		try {
 			const shell = await loadOperatorShell()
 
+			apps = shell.apps
 			dashboard = shell.dashboard
 			truths = shell.truths
 			organizations = shell.organizations
@@ -97,11 +99,13 @@
 <div class="page">
 	<header class="hero">
 		<div>
-			<p class="eyebrow">Prio CRM Operator Cockpit</p>
-			<h1>Jobs first. Exceptions visible. Records close at hand.</h1>
+			<p class="eyebrow">Outcome Workbench</p>
+			<h1>Jobs, records, and daily work surfaces in one governed desktop.</h1>
 		</div>
 		<div class="button-row">
-			<a class="button secondary button-link" href="/revenue">Revenue View</a>
+			{#each apps.filter((app) => app.route !== '/') as app}
+				<a class="button secondary button-link" href={app.route}>{app.display_name}</a>
+			{/each}
 			<button class="button" onclick={() => runSampleTruth(false)} disabled={running}>
 				Run Happy Path
 			</button>
@@ -120,14 +124,40 @@
 
 	{#if loading}
 		<section class="panel">
-			<p>Loading operator shell...</p>
+			<p>Loading workbench...</p>
 		</section>
 	{:else}
+		<section class="panel app-gallery">
+			<div class="section-head">
+				<div>
+					<p class="eyebrow">Apps</p>
+					<h2>Built-in work surfaces</h2>
+				</div>
+				<p>Each app is a UX surface composed from one or more business capabilities.</p>
+			</div>
+			<div class="app-grid">
+				{#each apps as app}
+					<a class="app-card" href={app.route}>
+						<div class="app-card-top">
+							<strong>{app.display_name}</strong>
+							<span class:preview={app.status === 'preview'} class="app-status">{app.status}</span>
+						</div>
+						<p>{app.summary}</p>
+						<div class="app-meta">
+							<span>{app.kind}</span>
+							<span>{app.capability_keys.length} capabilities</span>
+							<span>{app.truth_keys.length} linked truths</span>
+						</div>
+					</a>
+				{/each}
+			</div>
+		</section>
+
 		<div class="cockpit">
 			<nav class="panel sidebar">
 				<div class="sidebar-header">
-					<h2>Workspace</h2>
-					<p>Week 2 cleanup in progress on top of `crm-app`.</p>
+					<h2>Workbench</h2>
+					<p>The home surface stays focused on jobs, approvals, exceptions, and account context.</p>
 				</div>
 
 				<div class="nav-list">

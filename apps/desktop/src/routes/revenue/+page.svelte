@@ -51,7 +51,7 @@
 			<a class="button secondary button-link" href="/truths/refill-prepaid-ai-credits">
 				Refill Credits
 			</a>
-			<a class="button secondary button-link" href="/">Back To Cockpit</a>
+			<a class="button secondary button-link" href="/">Back To Workbench</a>
 		</div>
 	</header>
 

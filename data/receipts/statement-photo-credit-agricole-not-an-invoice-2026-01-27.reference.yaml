@@ -1,0 +1,29 @@
+schema_version: 1
+sample_id: statement-photo-credit-agricole-not-an-invoice-2026-01-27
+document_file: statement-photo-credit-agricole-not-an-invoice-2026-01-27.jpeg
+original_file_name: "creditacgricule-not-an-invoice.jpeg"
+document_type: statement
+capture_type: photo
+expense_candidate: false
+related_document_file: ""
+reference_status: draft
+expected:
+  merchant: "Credit Agricole Provence Cote d'Azur"
+  issue_date: "2026-01-27"
+  service_date: ""
+  service_period_start: ""
+  service_period_end: ""
+  due_date: ""
+  currency: "EUR"
+  total: ""
+  subtotal: ""
+  tax: ""
+  tax_rate: ""
+  invoice_number: ""
+  receipt_number: ""
+  order_id: ""
+  account_reference: "La Matade"
+  country: "France"
+notes:
+  - "Bank statement sample."
+  - "This should be filtered out before expense ingestion."

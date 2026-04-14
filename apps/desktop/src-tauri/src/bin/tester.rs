@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crm_app::{OperatorApp, TruthExecutionSession, TruthListItem, OperatorDashboard};
-use crm_storage::{AppConfig, RecordStoreConfig, SurrealDbKernelStore, SurrealStoreConfig};
+use application_storage::{AppConfig, RecordStoreConfig, SurrealDbKernelStore, SurrealStoreConfig};
 use uuid::Uuid;
+use workbench_backend::{OperatorApp, OperatorDashboard, TruthExecutionSession, TruthListItem};
 
 fn default_desktop_store_endpoint() -> String {
     let path = std::env::current_dir()
@@ -20,7 +20,7 @@ fn desktop_storage_config() -> AppConfig {
     let mut config = AppConfig::from_env();
     config.record_store = RecordStoreConfig::Surreal(SurrealStoreConfig {
         endpoint,
-        namespace: "crm_prio_ai".to_string(),
+        namespace: "outcome_workbench".to_string(),
         database: "desktop_test".to_string(),
         username: None,
         password: None,
@@ -28,13 +28,13 @@ fn desktop_storage_config() -> AppConfig {
     config
 }
 
-use crm_kernel::{
+use application_kernel::{
     Actor, BillingPeriod, CatalogItemUpsert, CatalogPlanKind, EntitlementTemplate, Money,
     OrganizationLifecycle, OrganizationUpsert, SubscriptionActivate, SubscriptionCreate,
     SubscriptionStatus,
 };
+use application_storage::KernelStore;
 use std::collections::BTreeMap;
-use crm_storage::KernelStore;
 
 fn seed_uuid(value: &str) -> Uuid {
     Uuid::parse_str(value).expect("valid seed uuid")
@@ -49,110 +49,125 @@ fn seed_revenue_data(store: &SurrealDbKernelStore) {
     let refill_subscription_id = seed_uuid("55555555-5555-4555-8555-555555555555");
 
     let _ = store.write(|kernel| {
-        kernel.upsert_organization(
-            OrganizationUpsert {
-                organization_id: Some(organization_id),
-                name: "Northwind Revenue".to_string(),
-                external_key: Some("northwind-revenue".to_string()),
-                website: Some("https://northwind.example".to_string()),
-                industry: Some("Software".to_string()),
-                lifecycle: OrganizationLifecycle::Active,
-                owner_user_id: Some("revops".to_string()),
-                tags: vec!["demo".to_string(), "revenue".to_string()],
-            },
-            actor.clone(),
-        ).unwrap();
+        kernel
+            .upsert_organization(
+                OrganizationUpsert {
+                    organization_id: Some(organization_id),
+                    name: "Northwind Revenue".to_string(),
+                    external_key: Some("northwind-revenue".to_string()),
+                    website: Some("https://northwind.example".to_string()),
+                    industry: Some("Software".to_string()),
+                    lifecycle: OrganizationLifecycle::Active,
+                    owner_user_id: Some("revops".to_string()),
+                    tags: vec!["demo".to_string(), "revenue".to_string()],
+                },
+                actor.clone(),
+            )
+            .unwrap();
 
-        kernel.upsert_catalog_item(
-            CatalogItemUpsert {
-                catalog_item_id: Some(subscription_catalog_id),
-                sku: "prio-platform-annual".to_string(),
-                name: "Prio Platform Annual".to_string(),
-                description: Some("Annual governed CRM workspace".to_string()),
-                plan_kind: CatalogPlanKind::Subscription,
-                pricing: Some(crm_kernel::PricingMetadata {
-                    billing_period: BillingPeriod::Annual,
-                    list_price: Money {
+        kernel
+            .upsert_catalog_item(
+                CatalogItemUpsert {
+                    catalog_item_id: Some(subscription_catalog_id),
+                    sku: "prio-platform-annual".to_string(),
+                    name: "Operator Workspace Annual".to_string(),
+                    description: Some("Annual governed operator workspace".to_string()),
+                    plan_kind: CatalogPlanKind::Subscription,
+                    pricing: Some(application_kernel::PricingMetadata {
+                        billing_period: BillingPeriod::Annual,
+                        list_price: Money {
+                            currency_code: "USD".to_string(),
+                            amount_minor: 12_000_00,
+                        },
+                        meter_name: Some("workspace-annual".to_string()),
+                    }),
+                    entitlement_template: EntitlementTemplate {
+                        feature_flags: vec![
+                            "workspace_access".to_string(),
+                            "audit_trail".to_string(),
+                        ],
+                        quotas: BTreeMap::from([("seats".to_string(), 25)]),
+                        credit_balance_minor: None,
+                    },
+                    active: true,
+                },
+                actor.clone(),
+            )
+            .unwrap();
+
+        kernel
+            .upsert_catalog_item(
+                CatalogItemUpsert {
+                    catalog_item_id: Some(credits_catalog_id),
+                    sku: "prio-ai-credits-500".to_string(),
+                    name: "Prepaid AI Credits ($500)".to_string(),
+                    description: Some("Add $500 to prepaid credit balance".to_string()),
+                    plan_kind: CatalogPlanKind::PrepaidCredits,
+                    pricing: Some(application_kernel::PricingMetadata {
+                        billing_period: BillingPeriod::OneTime,
+                        list_price: Money {
+                            currency_code: "USD".to_string(),
+                            amount_minor: 500_00,
+                        },
+                        meter_name: None,
+                    }),
+                    entitlement_template: EntitlementTemplate {
+                        feature_flags: vec![],
+                        quotas: BTreeMap::new(),
+                        credit_balance_minor: Some(0),
+                    },
+                    active: true,
+                },
+                actor.clone(),
+            )
+            .unwrap();
+
+        kernel
+            .create_order_subscription(
+                SubscriptionCreate {
+                    subscription_id: Some(activation_subscription_id),
+                    organization_id,
+                    quote_id: None,
+                    catalog_item_id: Some(subscription_catalog_id),
+                    status: SubscriptionStatus::PendingActivation,
+                    value: Money {
                         currency_code: "USD".to_string(),
                         amount_minor: 12_000_00,
                     },
-                    meter_name: Some("workspace-annual".to_string()),
-                }),
-                entitlement_template: EntitlementTemplate {
-                    feature_flags: vec!["workspace_access".to_string(), "audit_trail".to_string()],
-                    quotas: BTreeMap::from([("seats".to_string(), 25)]),
-                    credit_balance_minor: None,
+                    started_at: None,
                 },
-                active: true,
-            },
-            actor.clone(),
-        ).unwrap();
+                actor.clone(),
+            )
+            .unwrap();
 
-        kernel.upsert_catalog_item(
-            CatalogItemUpsert {
-                catalog_item_id: Some(credits_catalog_id),
-                sku: "prio-ai-credits-500".to_string(),
-                name: "Prepaid AI Credits ($500)".to_string(),
-                description: Some("Add $500 to prepaid credit balance".to_string()),
-                plan_kind: CatalogPlanKind::PrepaidCredits,
-                pricing: Some(crm_kernel::PricingMetadata {
-                    billing_period: BillingPeriod::OneTime,
-                    list_price: Money {
+        let refill_subscription = kernel
+            .create_order_subscription(
+                SubscriptionCreate {
+                    subscription_id: Some(refill_subscription_id),
+                    organization_id,
+                    quote_id: None,
+                    catalog_item_id: Some(credits_catalog_id),
+                    status: SubscriptionStatus::PendingActivation,
+                    value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 500_00,
+                        amount_minor: 5_000_00,
                     },
-                    meter_name: None,
-                }),
-                entitlement_template: EntitlementTemplate {
-                    feature_flags: vec![],
-                    quotas: BTreeMap::new(),
-                    credit_balance_minor: Some(0),
+                    started_at: None,
                 },
-                active: true,
-            },
-            actor.clone(),
-        ).unwrap();
+                actor.clone(),
+            )
+            .unwrap();
 
-        kernel.create_order_subscription(
-            SubscriptionCreate {
-                subscription_id: Some(activation_subscription_id),
-                organization_id,
-                quote_id: None,
-                catalog_item_id: Some(subscription_catalog_id),
-                status: SubscriptionStatus::PendingActivation,
-                value: Money {
-                    currency_code: "USD".to_string(),
-                    amount_minor: 12_000_00,
+        kernel
+            .activate_subscription(
+                SubscriptionActivate {
+                    subscription_id: refill_subscription.id,
+                    catalog_item_id: None,
+                    opening_balance: None,
                 },
-                started_at: None,
-            },
-            actor.clone(),
-        ).unwrap();
-
-        let refill_subscription = kernel.create_order_subscription(
-            SubscriptionCreate {
-                subscription_id: Some(refill_subscription_id),
-                organization_id,
-                quote_id: None,
-                catalog_item_id: Some(credits_catalog_id),
-                status: SubscriptionStatus::PendingActivation,
-                value: Money {
-                    currency_code: "USD".to_string(),
-                    amount_minor: 5_000_00,
-                },
-                started_at: None,
-            },
-            actor.clone(),
-        ).unwrap();
-
-        kernel.activate_subscription(
-            SubscriptionActivate {
-                subscription_id: refill_subscription.id,
-                catalog_item_id: None,
-                opening_balance: None,
-            },
-            actor.clone(),
-        ).unwrap();
+                actor.clone(),
+            )
+            .unwrap();
 
         Ok(())
     });
@@ -163,12 +178,16 @@ fn main() {
     if args.len() > 1 && args[1] == "persistence" {
         println!("\nFlow 4: Persistence");
         let config = desktop_storage_config();
-        let store = SurrealDbKernelStore::connect_blocking(config).expect("failed to connect persistence");
+        let store =
+            SurrealDbKernelStore::connect_blocking(config).expect("failed to connect persistence");
         let operator = OperatorApp::new(store.config.clone(), store);
         let orgs = operator.list_organizations().unwrap();
         println!("Reopened Orgs count: {}", orgs.len());
         let found = orgs.iter().any(|o| o.name == "TestOrg");
-        println!("Previously projected Org 'TestOrg' still present: {}", found);
+        println!(
+            "Previously projected Org 'TestOrg' still present: {}",
+            found
+        );
         return;
     }
 
@@ -182,7 +201,7 @@ fn main() {
 
     let config = desktop_storage_config();
     let store = SurrealDbKernelStore::connect_blocking(config.clone()).expect("failed to connect");
-    
+
     // Seed DB
     seed_revenue_data(&store);
 
@@ -203,7 +222,10 @@ fn main() {
     match f1_res {
         Ok(session) => {
             println!("Execution state: {:?}", session.state);
-            let org_id = session.projection.as_ref().and_then(|p| p.organization_id.clone());
+            let org_id = session
+                .projection
+                .as_ref()
+                .and_then(|p| p.organization_id.clone());
             println!("Projected Org ID: {:?}", org_id);
             f1_org_id = org_id.clone();
 
@@ -211,7 +233,7 @@ fn main() {
             println!("Orgs count: {}", orgs.len());
             let found = orgs.iter().any(|o| Some(o.id.clone()) == org_id);
             println!("Org in accounts view: {}", found);
-            
+
             if let Some(id) = org_id {
                 let summary = operator.account_summary(&id).unwrap();
                 println!("Account summary people: {:?}", summary.people.len());
@@ -237,7 +259,9 @@ fn main() {
     match f2_res {
         Ok(session) => {
             println!("Execution state: {:?}", session.state);
-            let subs = operator.list_subscriptions(Some(rev_org_id)).unwrap_or_default();
+            let subs = operator
+                .list_subscriptions(Some(rev_org_id))
+                .unwrap_or_default();
             if let Some(sub) = subs.iter().find(|s| s.id == rev_sub_id) {
                 println!("Subscription status in revenue view: {:?}", sub.status);
             } else {
@@ -265,8 +289,15 @@ fn main() {
         Ok(session) => {
             println!("Execution state: {:?}", session.state);
             let summary = operator.account_summary(rev_org_id).unwrap();
-            if let Some(entitlement) = summary.entitlements.iter().find(|e| e.key == "credit_balance_minor") {
-                println!("Ledger entry found in account summary: {} = {:?}", entitlement.key, entitlement.value_summary);
+            if let Some(entitlement) = summary
+                .entitlements
+                .iter()
+                .find(|e| e.key == "credit_balance_minor")
+            {
+                println!(
+                    "Ledger entry found in account summary: {} = {:?}",
+                    entitlement.key, entitlement.value_summary
+                );
             } else {
                 println!("Ledger entry NOT found in account summary");
             }
@@ -279,8 +310,11 @@ fn main() {
     let truths = operator.list_truths();
     let exec_count = truths.iter().filter(|t| t.executable).count();
     let non_exec_count = truths.iter().filter(|t| !t.executable).count();
-    println!("Truths: {} executable, {} catalog-only", exec_count, non_exec_count);
-    
+    println!(
+        "Truths: {} executable, {} catalog-only",
+        exec_count, non_exec_count
+    );
+
     // Test execute from detail route for criteria outcomes
     if let Ok(session) = operator.execute_truth(
         "qualify-inbound-lead",
@@ -289,10 +323,13 @@ fn main() {
             ("inbound_summary".to_string(), "Summary 2".to_string()),
             ("contact_name".to_string(), "Another Contact".to_string()),
             ("contact_email".to_string(), "another@test.com".to_string()),
-        ])
+        ]),
     ) {
         println!("Criteria outcomes: {}", session.criteria_outcomes.len());
-        println!("Projection summary present: {}", session.projection.is_some());
+        println!(
+            "Projection summary present: {}",
+            session.projection.is_some()
+        );
     }
 
     println!("--- Flow Tests Complete ---");

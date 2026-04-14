@@ -1,0 +1,29 @@
+schema_version: 1
+sample_id: invoice-photo-aspia-2026-01-13
+document_file: invoice-photo-aspia-2026-01-13.jpeg
+original_file_name: "aspia-invoice-photo.jpeg"
+document_type: invoice
+capture_type: photo
+expense_candidate: true
+related_document_file: ""
+reference_status: draft
+expected:
+  merchant: "Aspia AB"
+  issue_date: "2026-01-13"
+  service_date: ""
+  service_period_start: ""
+  service_period_end: ""
+  due_date: "2026-01-28"
+  currency: "SEK"
+  total: "6730.94"
+  subtotal: "5384.75"
+  tax: "1346.19"
+  tax_rate: "25%"
+  invoice_number: "1200852802"
+  receipt_number: ""
+  order_id: ""
+  account_reference: "9005890"
+  country: "Sweden"
+notes:
+  - "Phone photo of a paper invoice."
+  - "Shadowing and perspective make this a useful OCR stress sample."

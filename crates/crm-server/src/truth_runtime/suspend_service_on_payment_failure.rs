@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
+use application_kernel::{
+    Actor as CrmActor, CreditGrantApply, EntitlementValue, FactRecord, OrderSubscription,
+    Organization, RecordKind, RecordRef, SubscriptionStatus, SubscriptionSuspend,
+    WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority, WorkflowState,
+};
+use application_storage::{KernelStore, StoreWriteResult};
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
     ProposedFact,
 };
 use converge_domain::packs::OverdueDetectorAgent;
-use crm_kernel::{
-    Actor as CrmActor, CreditGrantApply, EntitlementValue, FactRecord, OrderSubscription,
-    Organization, RecordKind, RecordRef, SubscriptionStatus, SubscriptionSuspend,
-    WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority, WorkflowState,
-};
-use crm_storage::{KernelStore, StoreWriteResult};
 use prio_truths::{SuspendServiceOnPaymentFailureEvaluator, converge_binding_for_truth};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
@@ -133,7 +133,7 @@ impl SuspendServiceOnPaymentFailureInput {
 
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    runtime_stores: &crm_storage::AppRuntimeStores,
+    runtime_stores: &application_storage::AppRuntimeStores,
     inputs: SuspendServiceOnPaymentFailureInput,
     actor: CrmActor,
     persist_projection: bool,
@@ -155,7 +155,9 @@ pub(super) fn execute<S: KernelStore>(
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext { scope_id: inputs.subscription_id.to_string() },
+        &super::RuntimeContext {
+            scope_id: inputs.subscription_id.to_string(),
+        },
         seed_context(&seed)?,
         &binding.intent,
         std::sync::Arc::new(SuspendServiceOnPaymentFailureEvaluator),
@@ -194,7 +196,7 @@ fn load_suspension_seed<S: KernelStore>(
                         inputs.subscription_id
                     ))
                 })?;
-            if subscription.status != crm_kernel::SubscriptionStatus::Active {
+            if subscription.status != application_kernel::SubscriptionStatus::Active {
                 return Err(Status::failed_precondition(
                     "service suspension requires an active subscription".to_string(),
                 ));
@@ -262,7 +264,7 @@ fn project<S: KernelStore>(
                         .orders
                         .get(&subscription_id)
                         .cloned()
-                        .ok_or_else(|| crm_kernel::KernelError::NotFound {
+                        .ok_or_else(|| application_kernel::KernelError::NotFound {
                             kind: "subscription",
                             id: subscription_id.to_string(),
                         })?;
@@ -410,7 +412,7 @@ fn project<S: KernelStore>(
                 .orders
                 .get(&subscription_id)
                 .cloned()
-                .ok_or_else(|| crm_kernel::KernelError::NotFound {
+                .ok_or_else(|| application_kernel::KernelError::NotFound {
                     kind: "subscription",
                     id: subscription_id.to_string(),
                 })?;
@@ -766,12 +768,12 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use converge_core::{CriterionResult, StopReason};
-    use crm_kernel::{
+    use application_kernel::{
         Actor, CatalogItemUpsert, EntitlementTemplate, OrganizationLifecycle, OrganizationUpsert,
         SubscriptionActivate, SubscriptionCreate,
     };
-    use crm_storage::InMemoryKernelStore;
+    use application_storage::InMemoryKernelStore;
+    use converge_core::{CriterionResult, StopReason};
 
     fn seeded_active_subscription_for_suspension(
         store: &InMemoryKernelStore,
@@ -799,10 +801,10 @@ mod tests {
                         sku: "prio-revenue".to_string(),
                         name: "Prio Revenue".to_string(),
                         description: Some("Revenue plan".to_string()),
-                        plan_kind: crm_kernel::CatalogPlanKind::Subscription,
-                        pricing: Some(crm_kernel::PricingMetadata {
-                            billing_period: crm_kernel::BillingPeriod::Monthly,
-                            list_price: crm_kernel::Money {
+                        plan_kind: application_kernel::CatalogPlanKind::Subscription,
+                        pricing: Some(application_kernel::PricingMetadata {
+                            billing_period: application_kernel::BillingPeriod::Monthly,
+                            list_price: application_kernel::Money {
                                 currency_code: "USD".to_string(),
                                 amount_minor: 2_000_00,
                             },
@@ -827,7 +829,7 @@ mod tests {
                         quote_id: None,
                         catalog_item_id: Some(catalog_item.id),
                         status: SubscriptionStatus::PendingActivation,
-                        value: crm_kernel::Money {
+                        value: application_kernel::Money {
                             currency_code: "USD".to_string(),
                             amount_minor: 2_000_00,
                         },
@@ -851,10 +853,12 @@ mod tests {
     #[test]
     fn suspend_service_on_payment_failure_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -910,7 +914,7 @@ mod tests {
                 kernel.apply_credit_grant(
                     CreditGrantApply {
                         subscription_id,
-                        amount: crm_kernel::Money {
+                        amount: application_kernel::Money {
                             currency_code: "USD".to_string(),
                             amount_minor: 10_000,
                         },
@@ -931,10 +935,12 @@ mod tests {
     #[test]
     fn suspend_service_on_payment_failure_respects_grace_period() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();
@@ -981,10 +987,12 @@ mod tests {
     #[test]
     fn suspend_service_on_payment_failure_blocks_for_strategic_accounts() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();

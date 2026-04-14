@@ -1,4 +1,5 @@
 mod converge;
+mod organism;
 
 use serde::Serialize;
 
@@ -11,6 +12,9 @@ pub use converge::{
     converge_truth_definition,
 };
 pub use converge::{TruthConvergeBinding, converge_binding_for_truth};
+pub use organism::{
+    TruthOrganismBinding, display_pack_names_for_truth, organism_binding_for_truth,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -200,6 +204,52 @@ pub const TRUTHS: &[TruthDefinition] = &[
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../truths/jobs/match_renewal_context.feature"
+        )),
+    },
+    TruthDefinition {
+        key: "submit-expense-report",
+        display_name: "Submit expense report",
+        kind: TruthKind::Job,
+        summary: "Submit a reimbursable expense report with receipt evidence, policy review, and export-ready approval state.",
+        feature_path: "truths/jobs/submit_expense_report.feature",
+        actor_roles: &["employee", "finance-approver", "runtime-agent"],
+        approval_points: &[
+            "manual review when OCR confidence or policy fit is ambiguous",
+            "manual approval when spend falls outside the allowed envelope",
+        ],
+        desired_outcomes: &[
+            "expense report is submitted with attributable receipt evidence",
+            "approval route and export status are explicit and queryable",
+        ],
+        guardrails: &[
+            "every claimed amount must remain attached to receipt evidence",
+            "out-of-policy or low-confidence extraction must open an explicit human gate",
+        ],
+        modules: &[
+            TruthModuleTouch {
+                module_key: "expenses",
+                responsibility: "own the expense report, expense items, and export readiness state",
+            },
+            TruthModuleTouch {
+                module_key: "documents",
+                responsibility: "persist receipt evidence and OCR output artifacts",
+            },
+            TruthModuleTouch {
+                module_key: "workflow",
+                responsibility: "track review, exception, and export status",
+            },
+            TruthModuleTouch {
+                module_key: "approvals",
+                responsibility: "govern non-standard or elevated-risk spend decisions",
+            },
+            TruthModuleTouch {
+                module_key: "policies",
+                responsibility: "apply reimbursement rules and policy thresholds",
+            },
+        ],
+        gherkin: include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../truths/jobs/submit_expense_report.feature"
         )),
     },
     TruthDefinition {
@@ -998,11 +1048,13 @@ mod tests {
 
     use prio_modules::MODULES;
 
-    use super::{TRUTHS, TruthKind, converge_binding_for_truth, truths_by_kind};
+    use super::{
+        TRUTHS, TruthKind, converge_binding_for_truth, organism_binding_for_truth, truths_by_kind,
+    };
 
     #[test]
-    fn starter_catalog_has_sixteen_job_truths() {
-        assert_eq!(truths_by_kind(TruthKind::Job).len(), 16);
+    fn starter_catalog_has_seventeen_job_truths() {
+        assert_eq!(truths_by_kind(TruthKind::Job).len(), 17);
     }
 
     #[test]
@@ -1062,5 +1114,33 @@ mod tests {
         );
         assert_eq!(binding.intent.success_criteria.len(), 2);
         assert_eq!(binding.intent.constraints.len(), 3);
+    }
+
+    #[test]
+    fn submit_expense_report_maps_to_organism_binding() {
+        let binding = organism_binding_for_truth("submit-expense-report")
+            .expect("organism binding should exist for submit-expense-report");
+        assert_eq!(binding.blueprint, Some("procure_to_pay"));
+        assert!(
+            binding
+                .binding
+                .packs
+                .iter()
+                .any(|pack| pack.pack_name == "procurement")
+        );
+        assert!(
+            binding
+                .binding
+                .packs
+                .iter()
+                .any(|pack| pack.pack_name == "autonomous_org")
+        );
+        assert!(
+            binding
+                .binding
+                .capabilities
+                .iter()
+                .any(|capability| capability.capability == "ocr")
+        );
     }
 }

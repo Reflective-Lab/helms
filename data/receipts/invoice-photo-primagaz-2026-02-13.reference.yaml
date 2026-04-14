@@ -1,0 +1,29 @@
+schema_version: 1
+sample_id: invoice-photo-primagaz-2026-02-13
+document_file: invoice-photo-primagaz-2026-02-13.jpeg
+original_file_name: "primagaz-invoice-photo.jpeg"
+document_type: invoice
+capture_type: photo
+expense_candidate: true
+related_document_file: ""
+reference_status: draft
+expected:
+  merchant: "Primagaz"
+  issue_date: "2026-02-13"
+  service_date: ""
+  service_period_start: ""
+  service_period_end: ""
+  due_date: ""
+  currency: "EUR"
+  total: "2556.32"
+  subtotal: "2130.27"
+  tax: "426.05"
+  tax_rate: "20%"
+  invoice_number: "009192967"
+  receipt_number: ""
+  order_id: ""
+  account_reference: "1249653"
+  country: "France"
+notes:
+  - "Phone photo of a Primagaz invoice."
+  - "Useful for VAT extraction and invoice-vs-recipient field separation."

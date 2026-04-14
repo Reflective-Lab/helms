@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use std::io::Write;
 
+use application_kernel::{
+    Actor as CrmActor, FactRecord, OrganizationLifecycle, OrganizationUpsert, RecordKind, RecordRef,
+};
+use application_storage::{KernelStore, StoreWriteResult};
 use converge_analytics::batch::{
     TemporalFeatureConfig, TemporalFeatures, extract_temporal_features, temporal_to_feature_vector,
 };
@@ -10,15 +14,11 @@ use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
     ProposedFact,
 };
-use crm_kernel::{
-    Actor as CrmActor, FactRecord, OrganizationLifecycle, OrganizationUpsert, RecordKind, RecordRef,
-};
-use uuid::Uuid;
-use crm_storage::{KernelStore, StoreWriteResult};
 use prio_truths::{ScoreInboundFitEvaluator, converge_binding_for_truth};
 use serde::{Deserialize, Serialize};
 use tempfile::Builder;
 use tonic::Status;
+use uuid::Uuid;
 
 use super::{
     TruthExecutionArtifacts, TruthProjection,
@@ -94,7 +94,7 @@ impl ScoreInboundFitInput {
 
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    runtime_stores: &crm_storage::AppRuntimeStores,
+    runtime_stores: &application_storage::AppRuntimeStores,
     inputs: ScoreInboundFitInput,
     actor: CrmActor,
     persist_projection: bool,
@@ -119,7 +119,12 @@ pub(super) fn execute<S: KernelStore>(
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext { scope_id: inputs.organization_id.map(|id| id.to_string()).unwrap_or_else(|| "inbound".to_string()) },
+        &super::RuntimeContext {
+            scope_id: inputs
+                .organization_id
+                .map(|id| id.to_string())
+                .unwrap_or_else(|| "inbound".to_string()),
+        },
         seed_context(&organization_name)?,
         &binding.intent,
         std::sync::Arc::new(ScoreInboundFitEvaluator),
@@ -488,16 +493,18 @@ fn fit_label(score_bps: u16) -> &'static str {
 mod tests {
     use super::*;
 
-    use crm_kernel::Actor;
-    use crm_storage::InMemoryKernelStore;
+    use application_kernel::Actor;
+    use application_storage::InMemoryKernelStore;
 
     #[test]
     fn score_inbound_fit_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();

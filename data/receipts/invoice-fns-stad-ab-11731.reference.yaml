@@ -1,0 +1,29 @@
+schema_version: 1
+sample_id: invoice-fns-stad-ab-11731
+document_file: invoice-fns-stad-ab-11731.pdf
+original_file_name: "Faktura_11731.pdf"
+document_type: invoice
+capture_type: digital-pdf
+expense_candidate: true
+related_document_file: ""
+reference_status: draft
+expected:
+  merchant: "FNS Stad AB"
+  issue_date: ""
+  service_date: ""
+  service_period_start: ""
+  service_period_end: ""
+  due_date: ""
+  currency: "SEK"
+  total: ""
+  subtotal: ""
+  tax: ""
+  tax_rate: ""
+  invoice_number: "11731"
+  receipt_number: ""
+  order_id: ""
+  account_reference: ""
+  country: "Sweden"
+notes:
+  - "Preview clearly shows the FNS Stad AB logo."
+  - "Fill remaining invoice fields after manual review."

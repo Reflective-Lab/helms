@@ -1,5 +1,11 @@
 use std::collections::HashMap;
 
+use application_kernel::{
+    ActivityAppend, ActivityOutcome, Actor as CrmActor, DocumentAttach, DocumentStatus, FactRecord,
+    RecordKind, RecordRef, WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority,
+    WorkflowState,
+};
+use application_storage::{KernelStore, StoreWriteResult};
 use converge_core::{
     Agent, AgentEffect, Context, ContextKey, ConvergeResult, Engine, Fact as ConvergeFact,
     ProposedFact,
@@ -11,12 +17,6 @@ use converge_optimization::packs::lead_routing::{
     SalesRep,
 };
 use converge_optimization::prelude::ProblemSpec;
-use crm_kernel::{
-    ActivityAppend, ActivityOutcome, Actor as CrmActor, DocumentAttach, DocumentStatus, FactRecord,
-    RecordKind, RecordRef, WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority,
-    WorkflowState,
-};
-use crm_storage::{KernelStore, StoreWriteResult};
 use prio_truths::{PlanOutboundCampaignEvaluator, converge_binding_for_truth};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
@@ -24,7 +24,9 @@ use uuid::Uuid;
 
 use super::{
     TruthExecutionArtifacts, TruthProjection,
-    common::{converge_confidence_to_bps, has_fact_id, optional_i64, payload_from_result, required_input},
+    common::{
+        converge_confidence_to_bps, has_fact_id, optional_i64, payload_from_result, required_input,
+    },
     domain_event_kind_name, status_from_storage,
 };
 
@@ -150,7 +152,7 @@ impl PlanOutboundCampaignInput {
 
 pub(super) fn execute<S: KernelStore>(
     store: &S,
-    runtime_stores: &crm_storage::AppRuntimeStores,
+    runtime_stores: &application_storage::AppRuntimeStores,
     inputs: PlanOutboundCampaignInput,
     actor: CrmActor,
     persist_projection: bool,
@@ -191,7 +193,9 @@ pub(super) fn execute<S: KernelStore>(
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext { scope_id: slug(&inputs.campaign_name) },
+        &super::RuntimeContext {
+            scope_id: slug(&inputs.campaign_name),
+        },
         seed_context()?,
         &binding.intent,
         std::sync::Arc::new(PlanOutboundCampaignEvaluator),
@@ -689,17 +693,19 @@ fn default_performance_score() -> f64 {
 mod tests {
     use super::*;
 
-    use crm_kernel::Actor;
-    use crm_kernel::{OrganizationLifecycle, OrganizationUpsert};
-    use crm_storage::InMemoryKernelStore;
+    use application_kernel::Actor;
+    use application_kernel::{OrganizationLifecycle, OrganizationUpsert};
+    use application_storage::InMemoryKernelStore;
 
     #[test]
     fn plan_outbound_campaign_executes_end_to_end() {
         let store = InMemoryKernelStore::default_local();
-        let runtime_stores = crm_storage::AppRuntimeStores {
-            context: crm_storage::AppContextStore::Memory(crm_storage::InMemoryContextStore::new()),
-            experience: crm_storage::AppExperienceStore::Memory(
-                crm_storage::InMemoryExperienceStoreAdapter::new(),
+        let runtime_stores = application_storage::AppRuntimeStores {
+            context: application_storage::AppContextStore::Memory(
+                application_storage::InMemoryContextStore::new(),
+            ),
+            experience: application_storage::AppExperienceStore::Memory(
+                application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         };
         let actor = Actor::system();

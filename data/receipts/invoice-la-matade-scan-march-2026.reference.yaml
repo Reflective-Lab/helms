@@ -1,0 +1,29 @@
+schema_version: 1
+sample_id: invoice-la-matade-scan-march-2026
+document_file: invoice-la-matade-scan-march-2026.pdf
+original_file_name: "FACTURE LA MATADE MARS 2026.pdf"
+document_type: invoice
+capture_type: scanned-pdf
+expense_candidate: true
+related_document_file: ""
+reference_status: draft
+expected:
+  merchant: "La Matade"
+  issue_date: ""
+  service_date: "2026-03-31"
+  service_period_start: ""
+  service_period_end: ""
+  due_date: ""
+  currency: "EUR"
+  total: "275.88"
+  subtotal: ""
+  tax: ""
+  tax_rate: ""
+  invoice_number: ""
+  receipt_number: ""
+  order_id: ""
+  account_reference: ""
+  country: ""
+notes:
+  - "Scan-like PDF with low-confidence extraction."
+  - "Verify merchant, invoice number, VAT, and line items manually."
