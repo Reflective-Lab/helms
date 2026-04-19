@@ -1,8 +1,10 @@
 use chrono::{Duration, Utc};
 use organism_domain::packs;
 use organism_pack::{DeclarativeBinding, IntentBinding, IntentPacket, IntentResolver};
-use organism_runtime::readiness::{self, BudgetProbe, CredentialProbe, PackProbe, ReadinessReport};
-use organism_runtime::registry::{Registry, StructuralResolver};
+use organism_runtime::{
+    BudgetProbe, CredentialProbe, PackProbe, ReadinessProbe, ReadinessReport, Registry,
+    StructuralResolver, check_readiness,
+};
 use serde::Serialize;
 
 use crate::{TruthDefinition, find_truth};
@@ -43,9 +45,8 @@ fn build_binding(truth: TruthDefinition) -> Option<TruthOrganismBinding> {
     let binding = resolver.resolve(&intent, &baseline);
     let pack_probe = PackProbe::new(&registry);
     let credential_probe = CredentialProbe::new().with_standard_checks();
-    let probes: Vec<&dyn readiness::ReadinessProbe> =
-        vec![&pack_probe, &credential_probe, &readiness];
-    let readiness = readiness::check(&binding, &probes);
+    let probes: Vec<&dyn ReadinessProbe> = vec![&pack_probe, &credential_probe, &readiness];
+    let readiness = check_readiness(&binding, &probes);
 
     Some(TruthOrganismBinding {
         truth_key: truth.key,

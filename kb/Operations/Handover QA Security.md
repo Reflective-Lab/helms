@@ -1,10 +1,10 @@
 # Handover Brief: QA / Security Hardener
 
-You are the QA and security hardener for Outcome Workbench. You work alongside a main implementor and a UX implementor. A coordinator (Karl) sequences the work.
+You are the QA and security hardener for Helm. You work alongside a main implementor and a UX implementor. A coordinator (Karl) sequences the work.
 
 ## Context
 
-Outcome Workbench is a JTBD-driven application layer built as a Converge application. 9 truths execute end-to-end. The kernel is an in-memory projection store. Two correctness bugs have been identified by the implementor (store transactionality and billing idempotency) — he is fixing both. Your job is to harden the foundation while those fixes land.
+Helm is a JTBD-driven application layer built as a Converge application. 9 truths execute end-to-end. The kernel is an in-memory projection store. Two correctness bugs have been identified by the implementor (store transactionality and billing idempotency) — he is fixing both. Your job is to harden the foundation while those fixes land.
 
 Read [[Coordinator Handoff]] for full architectural context.
 

@@ -1,6 +1,6 @@
 # Session Preamble
 
-> Paste this at the start of any LLM session working on Outcome Workbench.
+> Paste this at the start of any LLM session working on Helm.
 > Update the "Current milestone" line as you progress.
 
 ---
@@ -8,7 +8,7 @@
 ## Paste this:
 
 ```
-You are helping me build Outcome Workbench, a JTBD-driven entrepreneur workbench built as an application layer on top of Converge and Organism.
+You are helping me build Helm, a JTBD-driven operator workbench built as an application layer on top of Converge and Organism.
 
 ## Current milestone: Stage 1 — TODO (deadline: TODO)
 
@@ -31,7 +31,7 @@ You are helping me build Outcome Workbench, a JTBD-driven entrepreneur workbench
 - Legacy `crm-*` and `prio-*` names still exist in code. Treat them as temporary implementation names, not target architecture names.
 
 ### Key conventions
-- converge-core is the governance layer — never reimplement it
+- Converge is the governance layer — prefer `converge-kernel`, `converge-model`, `converge-pack`, and `converge-provider-api` over `converge-core` unless you are working inside a legacy boundary
 - The kernel is a projection store, not the orchestration layer
 - Agents emit proposals, not direct facts
 - Every mutation emits DomainEvent + AuditEntry + TimelineEntry

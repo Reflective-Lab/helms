@@ -1,4 +1,4 @@
-# Outcome Workbench — Claude Workspace Notes
+# Helm — Claude Workspace Notes
 
 Read `AGENTS.md` first. It is the canonical project entrypoint.
 
@@ -13,9 +13,9 @@ Read `AGENTS.md` first. It is the canonical project entrypoint.
 - Long-form documentation lives in `kb/`.
 - Scope current work using `kb/Planning/Milestones.md`.
 - For repo navigation, start at `kb/Home.md` and lazy-load from there.
-- Claude skills already live in `.claude/skills/`.
+- **Available skills:** `/experiment` — hypothesis-driven development with evidence logging.
 - Before adding any core or foundational function here, check `../converge/CAPABILITIES.md` and `../organism/CAPABILITIES.md`.
-- Prefer reusing upstream capabilities over rebuilding them in Outcome Workbench.
+- Prefer reusing upstream capabilities over rebuilding them in Helm.
 
 ## Useful Commands
 

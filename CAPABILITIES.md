@@ -1,6 +1,6 @@
-# Outcome Workbench — Capabilities
+# Helm — Capabilities
 
-What the Outcome Workbench provides as an application and what it demonstrates as a platform consumer.
+What Helm provides as an operator-facing application and what it demonstrates as a platform consumer.
 
 ## Notes Application
 
@@ -88,12 +88,12 @@ SSE-backed real-time view of truth execution:
 - Blocked-step rendering (which agent is waiting, why)
 - HITL approval UI with evidence presentation
 
-## What Outcome Workbench depends on
+## What Helm depends on
 
 - **Converge** — engine, policy (Cedar), experience store, optimization, analytics, LLM providers, object storage
 - **Organism** — planning loop, notes vault, intelligence (OCR, vision, web, social), domain packs
 
-## What Outcome Workbench does NOT own
+## What Helm does NOT own
 
 - The convergence engine or axioms (Converge)
 - The planning loop or adversarial review (Organism)

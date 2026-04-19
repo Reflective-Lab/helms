@@ -1,6 +1,6 @@
 # Home
 
-This vault is the documentation surface for Outcome Workbench.
+This vault is the documentation surface for Helm.
 
 ## Start Here
 
@@ -14,6 +14,7 @@ This vault is the documentation surface for Outcome Workbench.
 
 - [[Architecture/Current Architecture]]
 - [[Architecture/Converge Application]]
+- [[Architecture/Foundation Contracts]]
 - [[Architecture/Agent Architecture Brief]]
 - [[Architecture/Module Map]]
 - [[Architecture/Truths Layer]]
@@ -50,6 +51,11 @@ This vault is the documentation surface for Outcome Workbench.
 - [[Integrations/Integration Plan]]
 - [[Blueprints/Match Visual To Tagline]]
 - [[Blueprints/Monitor Brand Signal]]
+
+## Experiments
+
+- [[Experiments/INDEX]] — hypothesis-driven development with evidence logging
+- [[Experiments/LOG]] — mutation log of all experiments
 
 ## Vault Rule
 

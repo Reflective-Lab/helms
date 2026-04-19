@@ -4,7 +4,7 @@ This document is the current implementor view of the project. It is a working as
 
 ## Project Thesis
 
-Outcome Workbench is not a classic CRM product.
+Helm is not a classic CRM product.
 
 It is a headless business substrate for Converge:
 
@@ -23,7 +23,7 @@ The intended user experience is job-centric, not record-centric.
 - authority, budgets, and blocked/HITL semantics
 - reusable domain packs such as Money, Trust, and Delivery
 
-### Outcome Workbench owns
+### Helm owns
 
 - business entities and durable projections
 - truth catalog content for this application

@@ -1,6 +1,8 @@
-# Outcome Workbench
+# Helm
 
-Outcome Workbench is the application layer and desktop workbench built on top of `../converge` and `../organism`.
+Helm is the operator-facing application layer and desktop workbench built on top of `../converge` and `../organism`.
+
+The repo and some code names still reflect the earlier `Outcome Workbench` naming while the migration is in flight.
 
 Long-form documentation now lives in the Obsidian knowledgebase under `kb/`.
 

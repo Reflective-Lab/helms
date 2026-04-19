@@ -1,8 +1,9 @@
-use converge_core::{
-    Context, ContextKey, Criterion, CriterionEvaluator, CriterionResult, FactId, RiskPosture,
-    TruthCatalog as ConvergeTruthCatalog, TruthDefinition as ConvergeTruth,
-    TruthKind as ConvergeTruthKind, TypesBudgets, TypesIntentConstraint, TypesIntentId,
-    TypesIntentKind, TypesObjective, TypesRootIntent,
+use converge_kernel::{Context, ContextKey, CriterionEvaluator, CriterionResult};
+use converge_model::{
+    Criterion, FactId, RiskPosture, TruthCatalog as ConvergeTruthCatalog,
+    TruthDefinition as ConvergeTruth, TruthKind as ConvergeTruthKind, TypesBudgets,
+    TypesConstraintSeverity, TypesIntentConstraint, TypesIntentId, TypesIntentKind, TypesObjective,
+    TypesRootIntent,
 };
 use prio_module_core::ModuleSuite;
 use prio_modules::find_module;
@@ -63,9 +64,7 @@ impl TruthConvergeBinding {
         self.intent
             .constraints
             .iter()
-            .filter(|constraint| {
-                constraint.severity == converge_core::TypesConstraintSeverity::Hard
-            })
+            .filter(|constraint| constraint.severity == TypesConstraintSeverity::Hard)
             .map(|constraint| constraint.value.clone())
             .collect()
     }

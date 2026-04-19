@@ -1,6 +1,6 @@
 # Naming Migration Map
 
-This repository is now named **Outcome Workbench** at the application surface.
+This repository is moving toward **Helm** at the operator-facing application surface.
 
 The codebase still contains many legacy `crm-*` and `prio-*` names. Those should be
 removed in staged batches, not by ad hoc edits.
@@ -9,7 +9,7 @@ removed in staged batches, not by ad hoc edits.
 
 Use names based on architectural role:
 
-- `outcome-workbench` for the product and desktop surface
+- `helm` for the product and desktop surface
 - `application-*` for application-layer runtime and projection crates
 - `workbench-*` for desktop-facing backend or UI-host concepts
 - `capability-*` for reusable capability modules and registries
@@ -22,12 +22,13 @@ Avoid:
 - `prio-*` for new names
 - product branding as the backbone of architecture
 
-## Current Chosen Product Name
+## Current Product Direction
 
-- Product: `Outcome Workbench`
-- Desktop package/binary: `outcome-workbench-desktop`
-- Desktop env family: `OUTCOME_WORKBENCH_*`
-- Desktop local namespace default: `outcome_workbench`
+- Public-facing product name: `Helm`
+- Transitional alias still present in repo/docs: `Outcome Workbench`
+- Desktop package/binary currently remains: `outcome-workbench-desktop`
+- Desktop env family currently remains: `OUTCOME_WORKBENCH_*`
+- Desktop local namespace default currently remains: `outcome_workbench`
 
 ## Staged Rename Direction
 
@@ -94,7 +95,7 @@ Note:
 
 ### Preferred Product-Surface Prefix
 
-Use `OUTCOME_WORKBENCH_*` for desktop-app-specific environment variables.
+Keep `OUTCOME_WORKBENCH_*` for desktop-app-specific environment variables until the product rename is fully settled in packaging.
 
 Examples already in use:
 

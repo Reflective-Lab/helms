@@ -1,4 +1,4 @@
-# Outcome Workbench Milestones
+# Helm Milestones
 
 > This file is the single source of truth for what ships and when.
 > Every session starts by reading this file and scoping work to the **current milestone**.
@@ -101,7 +101,7 @@ Before adding new foundational truth plumbing, evaluate the current upstream Org
 
 The target direction is:
 
-- Outcome Workbench keeps app-specific truths, projections, Tauri commands, and UX
+- Helm keeps app-specific truths, projections, Tauri commands, and UX
 - Organism increasingly owns generic planning-loop and resolution behavior
 - Converge remains the execution and governance foundation
 
@@ -131,7 +131,7 @@ their day, then agent flows fire with well-defined truths behind each action.
 ## Stage 1.5 — Notes & Intelligence Daily Driver
 
 **Deadline: TBD**
-**Epic: E5 (Outcome Workbench is a daily tool)**
+**Epic: E5 (Helm is a daily tool)**
 
 **Goal:** The Notes app and Expense tracker work well enough for everyday use. Import from real sources, enrich with intelligence, iterate based on daily friction.
 

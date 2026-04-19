@@ -4,7 +4,7 @@
 
 This repository is no longer framed as a CRM-first product.
 
-It is the application layer for **Outcome Workbench**, starting with an SMB entrepreneur
+It is the application layer for **Helm**, starting with an SMB entrepreneur
 workbench and later expanding into adjacent bounded contexts.
 
 The long-term shape is a family of workbench and operations products, not a single CRM surface.

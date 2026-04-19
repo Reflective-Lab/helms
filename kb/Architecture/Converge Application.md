@@ -2,10 +2,10 @@
 
 ## Position
 
-Outcome Workbench is a Converge application, not a parallel runtime.
+Helm is a Converge application, not a parallel runtime.
 
-- `converge-core` owns proposals, facts, authority, promotion, budgets, and convergence
-- Outcome Workbench owns business-domain state, module boundaries, and the public application API
+- Converge owns proposals, facts, authority, promotion, budgets, and convergence
+- Helm owns business-domain state, module boundaries, and the public application API
 - truths are the translation layer between business jobs and Converge execution
 
 ## What Lives Here
@@ -25,8 +25,8 @@ This repository keeps:
 This repository does not recreate:
 
 - a separate promotion gate (agents emit proposals, converge promotes)
-- a separate fact constitution (converge-core types are authoritative)
-- a separate authority model (AuthorityGrant, Actor from converge-core)
+- a separate fact constitution (Converge types are authoritative)
+- a separate authority model (AuthorityGrant, Actor from Converge)
 - a separate convergence evaluator (engine loop with fixed-point detection)
 - a separate experience ledger (ExperienceEventObserver captures events during runs)
 
@@ -88,7 +88,7 @@ Organism has moved forward and now provides a stronger upstream direction:
 - simulation and budget-envelope checks before commit
 - resolution support that can infer packs and capability needs from the truth rather than relying only on local static bindings
 
-For Outcome Workbench, that means future truth work should prefer:
+For Helm, that means future truth work should prefer:
 
 - truths that declare what should become true
 - Organism resolution that determines what packs and capabilities are needed
@@ -131,7 +131,7 @@ Trust Core and Intelligence Core reuse converge-native pack names where the runt
 
 ## Upstream Primitives
 
-These were pushed into converge-core to support application-level use:
+These currently arrive through `converge-core` in live code, but the target teaching surface for new work is `converge-kernel` + `converge-model` + `converge-pack`, and `converge-provider-api`/`converge-provider` where capability access is needed:
 
 - `TypesRootIntent.active_packs` + `engine.run_with_types_intent_and_hooks()` for intent-driven pack activation
 - `TruthCatalog` trait + `TruthDefinition` for platform-native truth shape

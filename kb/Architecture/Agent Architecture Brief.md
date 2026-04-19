@@ -9,7 +9,7 @@ without drifting the repo into the wrong shape.
 
 ## One Sentence
 
-This repository is the application layer and desktop workbench for **Outcome Workbench**,
+This repository is the application layer and desktop workbench for **Helm**,
 built for an SMB entrepreneur,
 built on top of `../converge` and `../organism`, with the long-term goal of becoming an
 intent-adaptive operator environment.

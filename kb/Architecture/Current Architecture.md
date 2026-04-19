@@ -7,7 +7,7 @@ This backend is a Converge application with a CRM-shaped business substrate.
 - system of record: this repository
 - system of interaction and constitutional runtime: Converge
 - system of work: job-to-be-done flows
-- system of trust: converge-core governance plus application-level approvals and audit
+- system of trust: Converge governance plus application-level approvals and audit
 
 ## Layers
 

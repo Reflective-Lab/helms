@@ -778,10 +778,7 @@ fn map_ocr_error(
     }
 }
 
-fn extend_metadata_with_ocr_result(
-    metadata: &mut BTreeMap<String, String>,
-    result: &OcrResult,
-) {
+fn extend_metadata_with_ocr_result(metadata: &mut BTreeMap<String, String>, result: &OcrResult) {
     metadata.insert(
         "ocr_provider".to_string(),
         result.provenance.provider.clone(),

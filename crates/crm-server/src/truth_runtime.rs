@@ -18,8 +18,10 @@ use application_kernel::{
     OrderSubscription, Organization, Person, WorkflowCase,
 };
 use application_storage::{AppRuntimeStores, KernelStore, StorageError};
-use converge_core::{Context, Engine, ExperienceEventObserver, TypesRootIntent, TypesRunHooks};
-use converge_core::{ConvergeResult, CriterionEvaluator, ExperienceEvent, ExperienceEventEnvelope};
+use converge_kernel::{
+    Context, ConvergeError, ConvergeResult, CriterionEvaluator, Engine, ExperienceEvent,
+    ExperienceEventEnvelope, ExperienceEventObserver, TypesRootIntent, TypesRunHooks,
+};
 use tonic::Status;
 use uuid::Uuid;
 
@@ -163,18 +165,18 @@ pub fn execute_truth<S: KernelStore>(
     }
 }
 
-pub(super) fn status_from_converge(error: converge_core::ConvergeError) -> Status {
+pub(super) fn status_from_converge(error: ConvergeError) -> Status {
     match error {
-        converge_core::ConvergeError::BudgetExhausted { kind } => {
+        ConvergeError::BudgetExhausted { kind } => {
             Status::resource_exhausted(format!("converge budget exhausted: {kind}"))
         }
-        converge_core::ConvergeError::InvariantViolation { name, reason, .. } => {
+        ConvergeError::InvariantViolation { name, reason, .. } => {
             Status::failed_precondition(format!("converge invariant violated: {name}: {reason}"))
         }
-        converge_core::ConvergeError::AgentFailed { agent_id } => {
+        ConvergeError::AgentFailed { agent_id } => {
             Status::internal(format!("converge agent failed: {agent_id}"))
         }
-        converge_core::ConvergeError::Conflict { id, .. } => {
+        ConvergeError::Conflict { id, .. } => {
             Status::aborted(format!("converge fact conflict: {id}"))
         }
     }

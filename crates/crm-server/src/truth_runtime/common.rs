@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::future::Future;
 
 use chrono::{DateTime, Utc};
-use converge_core::{ContextKey, ContextView, ConvergeResult};
+use converge_kernel::{ContextKey, ContextView, ConvergeResult};
 use serde::de::DeserializeOwned;
 use tonic::Status;
 use uuid::Uuid;

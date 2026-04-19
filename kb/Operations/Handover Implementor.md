@@ -1,6 +1,6 @@
 # Handover Brief: Implementor
 
-You are the main implementor for Outcome Workbench. You work alongside a QA/Security hardener and a UX implementor. A coordinator (Karl) sequences the work.
+You are the main implementor for Helm. You work alongside a QA/Security hardener and a UX implementor. A coordinator (Karl) sequences the work.
 
 ## Your current deliverables (Phase 0 + Phase 0.5)
 

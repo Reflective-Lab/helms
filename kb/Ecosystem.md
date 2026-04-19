@@ -1,6 +1,6 @@
-# Outcome Workbench
+# Helm
 
-A JTBD-driven entrepreneur workbench built as an application layer on top of Converge and Organism.
+Helm is the operator-facing application layer built on top of Converge and Organism.
 
 - **Converge** is the runtime: convergence, governance, promotion, authority, budgets
 - **Organism** is the reusable intelligence foundation: OCR, note intelligence, document understanding, semantic helpers
@@ -16,10 +16,10 @@ Before implementing any core, basic, or foundational function in this repo:
 3. Reuse an upstream capability if it already exists
 4. If the need is generic and missing, treat it as an upstream capability gap rather than defaulting to a local implementation
 
-Outcome Workbench should keep application-specific composition, truths, projections, Tauri commands, and UX. Reusable foundations belong upstream.
+Helm should keep application-specific composition, truths, projections, Tauri commands, and UX. Reusable foundations belong upstream.
 
-Current code names are still mid-migration. The product name is `Outcome Workbench`, while many
-crates and proto packages still use legacy `crm-*` and `prio-*` names. See
+Current code names are still mid-migration. The product surface is moving to `Helm`, while many
+crates, proto packages, and some docs still use legacy `Outcome Workbench`, `crm-*`, and `prio-*` names. See
 [[Architecture/Naming Migration Map]] for the staged rename direction.
 
 ## Architecture
@@ -172,7 +172,16 @@ Current HTTP integration packages:
 
 ## Converge Dependency
 
-`converge-core` is a local path dependency from `../../../converge/crates/core`. This repo uses:
+Current live code still depends directly on `converge-core` in places because the truth-execution boundary predates the curated Converge surfaces.
+
+Target for new work:
+
+- `converge-kernel` for execution
+- `converge-model` for governed semantic types
+- `converge-pack` for authoring contracts
+- `converge-provider-api` + `converge-provider` for capability access
+
+Legacy `converge-core` usage remains until the truth runtime is migrated. Today it is used for:
 
 - `TypesRootIntent`, `TypesRunHooks` for intent construction and execution hooks
 - `Agent`, `AgentEffect`, `ProposedFact` for pack-scoped agent implementations
