@@ -6,5 +6,5 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-organism-notes = { workspace = true }
+organism-notes = { workspace = true, features = ["sources-apple-notes"] }
 serde_json = { workspace = true }

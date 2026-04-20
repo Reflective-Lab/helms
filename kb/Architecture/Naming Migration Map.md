@@ -9,9 +9,10 @@ removed in staged batches, not by ad hoc edits.
 
 Use names based on architectural role:
 
-- `helm` for the product and desktop surface
+- `helm` for the product family and operator environment
 - `application-*` for application-layer runtime and projection crates
-- `workbench-*` for desktop-facing backend or UI-host concepts
+- `workbench-*` for interactive operator surfaces and UI-host concepts
+- `*-cli` for command-surface crates and binaries
 - `capability-*` for reusable capability modules and registries
 - `truth-*` for truths, truth bindings, and truth catalogs
 - `intent-*` for intent-session concepts
@@ -20,15 +21,25 @@ Avoid:
 
 - `crm-*` for new names
 - `prio-*` for new names
+- using `desktop` as the whole-product architecture noun
 - product branding as the backbone of architecture
 
 ## Current Product Direction
 
 - Public-facing product name: `Helm`
+- Product category framing: operator environment for governed business truths
 - Transitional alias still present in repo/docs: `Outcome Workbench`
+- Workbench surface name: `Workbench`
 - Desktop package/binary currently remains: `outcome-workbench-desktop`
 - Desktop env family currently remains: `OUTCOME_WORKBENCH_*`
 - Desktop local namespace default currently remains: `outcome_workbench`
+
+Important distinction:
+
+- Helm = product family
+- Workbench = interactive surface family
+- Desktop = current packaged workbench client
+- CLI/API = peer surfaces, not secondary implementation details
 
 ## Staged Rename Direction
 

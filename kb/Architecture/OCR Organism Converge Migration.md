@@ -34,7 +34,7 @@ Result:
   still need to be finished
 - `TesseractOcrProvider` in `../organism` is still placeholder-only
 
-So the safe move for `saas-killer` is:
+So the safe move for `helms` is:
 
 1. take the OCR contract from Organism now
 2. import Organism OCR/PDF directly from call sites

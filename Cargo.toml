@@ -1,17 +1,16 @@
 [workspace]
 resolver = "2"
 members = [
-    # Current application-layer crate names. These remain temporary legacy names until the
-    # staged rename in docs/naming-migration-map.md is executed.
+    # Application layer.
     "crates/crm-contracts",
-    "crates/crm-app",
-    "crates/crm-kernel",
-    "crates/crm-storage",
-    "crates/crm-server",
+    "crates/workbench-backend",
+    "crates/application-kernel",
+    "crates/application-storage",
+    "crates/application-server",
 
-    # Current capability and truth crate names.
-    "crates/prio-module-core",
-    "crates/prio-modules",
+    # Capability and truth crates.
+    "crates/capability-core",
+    "crates/capability-registry",
     "crates/prio-catalog",
     "crates/prio-identity",
     "crates/prio-parties",
@@ -34,7 +33,7 @@ members = [
     "crates/prio-intents",
     "crates/prio-memory",
     "crates/prio-agent-ops",
-    "crates/prio-truths",
+    "crates/truth-catalog",
 
     # Utility and support crates.
     "crates/seed-gen",
@@ -50,10 +49,23 @@ publish = false
 [workspace.dependencies]
 anyhow = "1"
 async-stream = "0.3"
+axiom-truth = { git = "https://github.com/Reflective-Lab/axiom", tag = "v0.6.0" }
 axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
-organism-intelligence = { path = "../organism/crates/intelligence", features = ["ocr", "pdf"] }
-organism-notes = { path = "../organism/crates/notes", features = ["cleanup", "enrichment", "sources-apple-notes", "sources-web"] }
+converge-analytics = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
+converge-core = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
+converge-domain = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
+converge-experience = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
+converge-kernel = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
+converge-knowledge = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
+converge-model = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
+converge-optimization = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
+converge-pack = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
+organism-domain = { git = "https://github.com/Reflective-Lab/organism", rev = "18200b5e7a709e38630c4c7d02ed8bb231511041" }
+organism-intelligence = { git = "https://github.com/Reflective-Lab/organism", rev = "18200b5e7a709e38630c4c7d02ed8bb231511041" }
+organism-notes = { git = "https://github.com/Reflective-Lab/organism", rev = "18200b5e7a709e38630c4c7d02ed8bb231511041" }
+organism-pack = { git = "https://github.com/Reflective-Lab/organism", rev = "18200b5e7a709e38630c4c7d02ed8bb231511041" }
+organism-runtime = { git = "https://github.com/Reflective-Lab/organism", rev = "18200b5e7a709e38630c4c7d02ed8bb231511041" }
 prost = "0.13"
 prost-types = "0.13"
 serde = { version = "1", features = ["derive"] }

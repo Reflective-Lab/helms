@@ -1,11 +1,13 @@
 # Helm
 
-Helm is the operator-facing application layer built on top of Converge and Organism.
+Helm is the operator environment for governed business truths, built on top of Converge and Organism.
 
 - **Converge** is the runtime: convergence, governance, promotion, authority, budgets
 - **Organism** is the reusable intelligence foundation: OCR, note intelligence, document understanding, semantic helpers
-- **This repo** is the application boundary: business-domain state, capability composition, truth catalog, workbench surfaces
+- **This repo** is the application boundary: business-domain state, capability composition, truth catalog, CLI/API surfaces, and workbench clients
 - **Truths** are the bridge: declarative jobs that compile into Converge intent packets and execute through the engine
+
+The current desktop workbench is one important Helm surface, not the whole product. See [[Architecture/Helm Surface Model]].
 
 ## Foundation-First Rule
 
@@ -25,10 +27,11 @@ crates, proto packages, and some docs still use legacy `Outcome Workbench`, `crm
 ## Architecture
 
 ```
-Layer 4: Converge runtime          (orchestration, promotion gate, convergence loop)
+Layer 5: Workbench / CLI / API     (operator surfaces)
+Layer 4: Application projections   (kernel, storage, operator-facing summaries)
 Layer 3: Truths / JTBD             (outcome contracts and execution bindings)
 Layer 2: Capability modules        (reusable backend business capabilities)
-Layer 1: Application projections   (kernel, storage, workbench-facing summaries)
+Layer 1: Foundations               (Converge, Organism, Axiom)
 ```
 
 Truths compose capabilities into cross-functional jobs. Each truth maps to a `TypesRootIntent`
@@ -38,6 +41,7 @@ result into durable application state.
 
 See [[Architecture/Converge Application]] for the full integration model.
 See [[Architecture/Application Layer Restructure]] for the core concept split.
+See [[Architecture/Helm Surface Model]] for the terminology and surface model.
 See [[Architecture/Agent Architecture Brief]] for the shareable agent brief.
 See [[Operations/Coordinator Handoff]] for the current implementor assumptions and project framing.
 
@@ -198,5 +202,7 @@ just test      # cargo test --workspace
 just fmt       # cargo fmt --all
 just desktop   # cd apps/desktop && bun run dev
 ```
+
+Directionally, every important truth and operator action should also be invokable from a CLI surface, not only through the desktop workbench.
 
 Rust 2024, toolchain floor `rustc 1.94.0`.

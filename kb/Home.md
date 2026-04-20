@@ -12,6 +12,7 @@ This vault is the documentation surface for Helm.
 
 ## Architecture
 
+- [[Architecture/Helm Surface Model]]
 - [[Architecture/Current Architecture]]
 - [[Architecture/Converge Application]]
 - [[Architecture/Foundation Contracts]]

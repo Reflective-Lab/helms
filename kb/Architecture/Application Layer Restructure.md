@@ -9,11 +9,15 @@ The foundation is:
 - `../converge`: runtime, governance, convergence, truth execution, promotion, HITL
 - `../organism`: reusable intelligent capabilities, content understanding, OCR, note and document intelligence, semantic helpers
 
-This repository should be the application layer for one operator archetype:
+This repository should be the application layer for decision-bearing operators:
 
-- the SMB entrepreneur
-- the person trying to get jobs done during the day
-- the person who wants the system to adapt to intent, not force a fixed back-office workflow
+- founders and general managers
+- revenue, finance, strategy, and operations leads
+- people trying to get governed work done during the day
+- people who want the system to adapt to intent, not force a fixed back-office workflow
+
+The current milestone uses a revenue and inbound-pipeline showcase.
+The architecture should stay broader than that slice.
 
 That means this repo should own:
 
@@ -66,9 +70,12 @@ Current home:
 - `crates/prio-truths`
 - `crates/crm-server/src/truth_runtime`
 
-### 3. Desktop App
+### 3. Workbench Surface
 
-A desktop app is a user-facing work surface inside the Tauri shell.
+A workbench surface is a user-facing work surface inside Helm.
+
+The desktop app is the current packaged client.
+It is not the only valid surface.
 
 Examples:
 
@@ -77,7 +84,7 @@ Examples:
 - Receipt Management
 - Revenue Review
 
-A desktop app is not the same thing as a capability module.
+A workbench surface is not the same thing as a capability module.
 
 Examples:
 
@@ -89,20 +96,36 @@ This distinction is the most important structural clarification for the repo.
 
 ### 4. Workbench
 
-The desktop application is the workbench.
+The workbench is the interactive operator surface family.
 
 Its job is to:
 
-- host desktop apps
+- host work surfaces
 - show work in progress
 - expose system state and exceptions
 - let the user move between concrete surfaces quickly
 - later adapt those surfaces based on intent
 
 Today the desktop app is mostly a routed shell in `apps/desktop/src/routes`.
-Later it should become an adaptive workbench with an app registry.
+Later Helm should support a broader workbench model with:
 
-### 5. Intent Session
+- desktop client
+- browser clients when useful
+- mobile or lightweight supervision surfaces when useful
+
+The key point is that the workbench is broader than the current desktop package.
+
+### 5. Surface Model
+
+Helm should expose three first-class operator surfaces:
+
+- CLI for direct execution, debugging, automation, and local operations
+- API for remote clients, automation, and integrations
+- workbench clients for high-context human supervision
+
+Every important truth should be runnable through CLI and API, not only from the desktop surface.
+
+### 6. Intent Session
 
 An intent session is the top-level object for the operator's day.
 
@@ -129,9 +152,9 @@ It should:
 - fill obvious gaps
 - keep the operator in control
 
-### 6. Projection
+### 7. Projection
 
-This repo should remain the projection store for the entrepreneur-facing application state.
+This repo should remain the projection store for the operator-facing application state.
 
 That means:
 
@@ -160,16 +183,16 @@ No application-specific UX assumptions should leak down here.
 This repo's core should be:
 
 - capability composition
-- truth catalog for the SMB entrepreneur
+- truth catalog for decision-bearing operators
 - application projections
 - application policies and defaults
 - foundation bindings
 
-This is where the app decides how reusable capabilities become one opinionated entrepreneur product.
+This is where the app decides how reusable capabilities become one opinionated operator product.
 
-### Layer 2: Desktop Workbench
+### Layer 2: Operator Surfaces
 
-The Tauri desktop shell should become an app host.
+The Tauri desktop shell should become one workbench client and app host.
 
 It needs:
 
@@ -178,6 +201,15 @@ It needs:
 - navigation model
 - workbench layout
 - shared services like search, notifications, file access, sync state
+
+For local development and testing, the preferred boundary is:
+
+- desktop shell as a client
+- CLI as a peer client
+- `application-server` as the application and truth boundary
+- storage and runtime hidden behind the server
+
+An embedded backend inside the desktop app is a temporary bootstrap path, not the long-term layering target.
 
 ### Layer 3: Intent Decoder
 
@@ -229,7 +261,7 @@ These parts are directionally right:
 
 These parts are currently overloaded:
 
-- the repo still describes itself too much as a CRM substrate rather than an entrepreneur application layer
+- the repo still describes itself too much as a CRM substrate rather than an operator environment for governed business truths
 - `workbench-backend` mixes "operator shell" and application services, but is close to becoming the workbench backend
 - the desktop app is route-based and static, not yet an app host
 - capability modules and UX apps are not yet clearly separated in naming or structure
@@ -264,14 +296,14 @@ that seam is an internal integration boundary, not an "outside world" port.
 
 The recent OCR bridge is the right direction.
 
-### 2. Introduce A Desktop App Registry
+### 2. Introduce A Workbench App Registry
 
 Add a concept separate from `prio-modules`:
 
-- `DesktopAppManifest`
-- `DesktopAppId`
-- `DesktopAppSurface`
-- `DesktopAppCapabilityBinding`
+- `WorkbenchAppManifest`
+- `WorkbenchAppId`
+- `WorkbenchAppSurface`
+- `WorkbenchAppCapabilityBinding`
 
 This registry should answer:
 
@@ -450,7 +482,7 @@ The right identity for this repo is:
 
 It is:
 
-- the entrepreneur application layer
+- the operator application layer
 - the projection layer for daily work
 - the desktop workbench host
 - the place where truths become concrete work surfaces

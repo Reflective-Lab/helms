@@ -1,4 +1,4 @@
-use prio_module_core::{ApiSurface, CapabilityModule, ModuleManifest, ModuleSuite};
+use capability_core::{ApiSurface, CapabilityModule, ModuleManifest, ModuleSuite};
 
 pub struct FactsModule;
 

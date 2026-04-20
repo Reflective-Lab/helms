@@ -30,11 +30,14 @@ import type {
 	WorkflowCaseListItem
 } from '$lib/types'
 
-const apiBaseUrl = import.meta.env.PUBLIC_CRM_API_BASE_URL || 'http://127.0.0.1:8080'
+const apiBaseUrl = import.meta.env.PUBLIC_CRM_API_BASE_URL || 'http://127.0.0.1:8081'
 
 function isTauriRuntime() {
 	return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
+
+const workbenchBackendMode =
+	import.meta.env.PUBLIC_DESKTOP_BACKEND_MODE || (isTauriRuntime() ? 'embedded' : 'remote')
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 	const response = await fetch(`${apiBaseUrl}${path}`, init)
@@ -45,20 +48,63 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 	return response.json() as Promise<T>
 }
 
+function useRemoteWorkbench() {
+	return workbenchBackendMode === 'remote'
+}
+
+function workbenchPath(path: string, query?: Record<string, string | boolean | undefined>) {
+	const search = new URLSearchParams()
+	for (const [key, value] of Object.entries(query ?? {})) {
+		if (value !== undefined) {
+			search.set(key, String(value))
+		}
+	}
+
+	const encodedPath = `/v1/workbench${path}`
+	const queryString = search.toString()
+	return queryString ? `${encodedPath}?${queryString}` : encodedPath
+}
+
+function requestWorkbenchJson<T>(
+	path: string,
+	query?: Record<string, string | boolean | undefined>,
+	init?: RequestInit
+) {
+	return requestJson<T>(workbenchPath(path, query), init)
+}
+
+function postWorkbenchJson<T>(path: string, body: unknown) {
+	return requestWorkbenchJson<T>(path, undefined, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(body)
+	})
+}
+
 export function getOperatorDashboard() {
-	return invoke<OperatorDashboard>('operator_dashboard')
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<OperatorDashboard>('/dashboard')
+		: invoke<OperatorDashboard>('operator_dashboard')
 }
 
 export function getTruthCatalog() {
-	return invoke<TruthListItem[]>('list_truths')
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<TruthListItem[]>('/truths')
+		: invoke<TruthListItem[]>('list_truths')
 }
 
 export function getTruthDetail(key: string) {
-	return invoke<TruthDetailItem>('get_truth_detail', { key })
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<TruthDetailItem>(`/truths/${encodeURIComponent(key)}`)
+		: invoke<TruthDetailItem>('get_truth_detail', { key })
 }
 
 export function getWorkbenchApps() {
-	return invoke<WorkbenchAppManifest[]>('list_workbench_apps')
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<WorkbenchAppManifest[]>('/apps')
+		: invoke<WorkbenchAppManifest[]>('list_workbench_apps')
 }
 
 export async function getTruthCatalogItem(key: string) {
@@ -67,39 +113,63 @@ export async function getTruthCatalogItem(key: string) {
 }
 
 export function getOrganizations() {
-	return invoke<OrganizationListItem[]>('list_organizations')
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<OrganizationListItem[]>('/organizations')
+		: invoke<OrganizationListItem[]>('list_organizations')
 }
 
 export function getOpportunities() {
-	return invoke<OpportunityListItem[]>('list_opportunities')
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<OpportunityListItem[]>('/opportunities')
+		: invoke<OpportunityListItem[]>('list_opportunities')
 }
 
 export function getSubscriptions(organizationId?: string) {
-	return invoke<SubscriptionListItem[]>('list_subscriptions', { organizationId })
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<SubscriptionListItem[]>('/subscriptions', {
+				organization_id: organizationId
+			})
+		: invoke<SubscriptionListItem[]>('list_subscriptions', { organizationId })
 }
 
 export function getCatalogItems(activeOnly = false) {
-	return invoke<CatalogItemListItem[]>('list_catalog_items', { activeOnly })
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<CatalogItemListItem[]>('/catalog', { active_only: activeOnly })
+		: invoke<CatalogItemListItem[]>('list_catalog_items', { activeOnly })
 }
 
 export function getWorkflowCases() {
-	return invoke<WorkflowCaseListItem[]>('list_workflow_cases')
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<WorkflowCaseListItem[]>('/workflow/cases')
+		: invoke<WorkflowCaseListItem[]>('list_workflow_cases')
 }
 
 export function getApprovals() {
-	return invoke<ApprovalListItem[]>('list_approvals')
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<ApprovalListItem[]>('/approvals')
+		: invoke<ApprovalListItem[]>('list_approvals')
 }
 
 export function getSystemProfile() {
-	return invoke<SystemProfile>('system_profile')
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<SystemProfile>('/system/profile')
+		: invoke<SystemProfile>('system_profile')
 }
 
 export function getAccountSummary(orgId: string) {
-	return invoke<AccountWorkspaceSummary>('account_summary', { orgId })
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<AccountWorkspaceSummary>(
+				`/organizations/${encodeURIComponent(orgId)}/summary`
+			)
+		: invoke<AccountWorkspaceSummary>('account_summary', { orgId })
 }
 
 export function executeTruth(key: string, inputs: TruthExecutionInputs) {
-	return invoke<TruthExecutionSession>('execute_truth', { key, inputs })
+	return useRemoteWorkbench()
+		? postWorkbenchJson<TruthExecutionSession>(`/truths/${encodeURIComponent(key)}/execute`, {
+				inputs
+			})
+		: invoke<TruthExecutionSession>('execute_truth', { key, inputs })
 }
 
 export function getExpenseReports() {

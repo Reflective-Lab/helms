@@ -6,5 +6,5 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-prio-module-core = { path = "../prio-module-core" }
+capability-core = { path = "../capability-core" }
 

@@ -33,11 +33,20 @@ desktop-build-web:
 desktop-dev:
     cd apps/desktop && bun run dev
 
+desktop-dev-remote:
+    cd apps/desktop && bun run dev:remote
+
 desktop-build:
     cd apps/desktop && bun run build
 
+desktop-build-remote:
+    cd apps/desktop && bun run build:remote
+
 desktop-rust-check:
     cd apps/desktop/src-tauri && cargo check --offline
+
+desktop-rust-check-remote:
+    cd apps/desktop/src-tauri && cargo check --no-default-features --offline
 
 desktop-rust-fmt:
     cd apps/desktop/src-tauri && cargo fmt

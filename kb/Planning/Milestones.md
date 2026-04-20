@@ -46,18 +46,18 @@ data analysis, routing, scheduling, and HITL — all visible in real time.
 ### Deliverables
 
 #### Synthetic data generation
-- [ ] `just gen-seed-data` recipe writes Parquet to `data/seed/`
-- [ ] Website behavior events: ~50-100k rows per prospect, 30-60 day window (pageviews, feature clicks, docs reads, pricing visits, time-on-page)
-- [ ] Account context signals: firmographic data, past interactions, email engagement
-- [ ] Calendar/availability blocks for scheduling step
-- [ ] Uses `converge-analytics` Parquet write path (`write_parquet_to_store` / local)
-- [ ] Deterministic seed (reproducible across runs)
+- [x] `just gen-seed-data` recipe writes Parquet to `data/seed/` (2026-04-10)
+- [x] Website behavior events: ~129k rows across 8 prospects, session clustering, working hours bias, duration tracking (2026-04-10)
+- [x] Account context signals: firmographic data, tech stacks, email opens, meeting requests, support tickets, LinkedIn connections (2026-04-10)
+- [x] Calendar/availability blocks for scheduling step — 3 reps, 5 days, 30-min slots, 70% availability (2026-04-10)
+- [x] Uses polars Parquet writer (converge-analytics provides feature extraction downstream, not write path) (2026-04-10)
+- [x] Deterministic seed SEED=42 (reproducible across runs) (2026-04-10)
 
 #### Pipeline orchestration
-- [ ] Pipeline coordinator: score → qualify → schedule as a chained truth sequence
+- [x] Pipeline coordinator: score → qualify → schedule as a chained truth sequence (2026-04-19, pipeline.rs)
 - [ ] Each step visible as a distinct convergence run in the UI
-- [ ] Pipeline state persists across steps (output of step N seeds step N+1)
-- [ ] `score-inbound-fit` consumes Parquet via `extract_temporal_features()` + batch inference
+- [x] Pipeline state persists across steps — output→input mapping with org_id and fit_score threading (2026-04-19)
+- [x] `score-inbound-fit` consumes Parquet via seed loader → usage_events_json → `extract_temporal_features()` + batch inference (2026-04-19)
 
 #### Live convergence visibility
 - [ ] SSE endpoint for truth execution progress (fact proposals, promotions, blocks)
@@ -180,6 +180,44 @@ their day, then agent flows fire with well-defined truths behind each action.
 
 ---
 
+## Stage 1.75 — Surface Alignment
+
+**Deadline: TBD (immediately after Stage 1 demo)**
+
+Align code, API, and CLI to the Helm Surface Model documented in `kb/Architecture/Helm Surface Model.md`. The framing shift: Business Truth is the core noun, Helm is the operator environment, surfaces (CLI, API, workbench) are peer entry points.
+
+### Deliverables
+
+#### CLI command taxonomy
+- [ ] Define CLI command tree from the truth catalog (`helm truth execute <key>`, `helm truth inspect <key>`, `helm truth list`)
+- [ ] Pipeline commands (`helm pipeline run showcase`, `helm pipeline status`)
+- [ ] Projection queries (`helm projection list`, `helm projection get <id>`)
+- [ ] Approval commands (`helm approve <ref>`, `helm reject <ref> --reason "..."`)
+- [ ] Seed and import commands (`helm seed generate`, `helm import parquet <path>`)
+- [ ] Audit and replay (`helm audit <truth-key> --last 10`, `helm replay <run-id>`)
+
+#### API namespace reshape
+- [ ] Surface-neutral API namespaces: `/v1/truths/`, `/v1/projections/`, `/v1/approvals/`, `/v1/pipelines/`
+- [ ] Move workbench-specific routes under `/v1/workbench/` (session state, UI preferences)
+- [ ] CLI and automation consume the same `/v1/truths/` endpoints as the desktop
+- [ ] SSE endpoint for pipeline/truth progress is surface-neutral (not desktop-specific)
+- [ ] OpenAPI spec generated from route definitions
+
+#### Naming migration (code + UI)
+- [ ] Rename `crm-server` → `helm-server` (binary + crate)
+- [ ] Rename `crm-kernel` → `application-kernel` (already partial — complete it)
+- [ ] Rename `crm-storage` → `application-storage` (already partial — complete it)
+- [ ] Rename `crm-app` → `workbench-backend` (already done — verify consistency)
+- [ ] Update all UI strings from "CRM" / "Outcome Workbench" → "Helm" / "Workbench"
+- [ ] Update proto package names to match new taxonomy
+- [ ] Follow `kb/Architecture/Naming Migration Map.md` for the full rename schedule
+
+### Not in scope
+- New surfaces (browser workbench, mobile) — those come in Stage 2+
+- Actual CLI binary implementation — Stage 1.75 defines the taxonomy, Stage 2 ships it
+
+---
+
 ## Stage 2 — Live Revenue
 
 **Deadline: TBD**
@@ -193,6 +231,7 @@ Billing integration hardened for real money. First paying customer on the platfo
 - [ ] Status enum migration (Lead, Task, Quote, Job, AgentRun, WorkflowRun)
 - [ ] Error taxonomy expansion (Conflict, Unauthorized, StateTransition, QuotaExceeded)
 - [ ] Production deployment target (fly.io or similar)
+- [ ] CLI binary ships (`helm` command, truth execution from terminal)
 
 ---
 
@@ -209,3 +248,20 @@ Multi-domain proof point. Analytics-backed truths. Second vertical beyond CRM.
 - [ ] converge-optimization integration (lead routing, queue balancing)
 - [ ] detect-abnormal-token-burn truth (analytics-backed)
 - [ ] Second domain vertical scoped and prototyped
+
+---
+
+## Stage 4 — Creative Convergence (Code Generation)
+
+**Deadline: TBD**
+
+Convergence loops that generate, verify, and deploy executable code when they discover missing capabilities. Proven in EXP-002; this stage wires it to production infrastructure.
+
+### Deliverables
+
+- [ ] Wire Axiom's `WasmCompiler::compile()` into CodeVerifierSuggestor (replaces structural checks with actual Wasm compilation)
+- [ ] Build `WasmSuggestor` adapter in converge-runtime (lets verified Wasm modules execute as suggestors in subsequent loops)
+- [ ] Connect generated modules back to organism-runtime Registry so future intents can resolve and use them
+- [ ] LLM-backed CodeGenSuggestor (replaces stub with real generation from transformation specs)
+- [ ] Acceptance test framework: Axiom Gherkin specs as runtime test cases for generated modules
+- [ ] Module signing + provenance chain (generated → verified → signed → registered → invoked)

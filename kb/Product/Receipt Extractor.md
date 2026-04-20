@@ -4,7 +4,7 @@ This extractor is meant to compare multiple local OCR approaches against the edi
 sidecars in `data/receipts/*.reference.yaml`.
 
 The OCR execution path now imports directly from `../organism/crates/intelligence/src/ocr.rs`.
-That keeps the receipt heuristics local to `saas-killer`, while pushing the OCR implementation and
+That keeps the receipt heuristics local to `helms`, while pushing the OCR implementation and
 PDF extraction ownership into `organism`.
 
 ## Current Engines
@@ -90,7 +90,7 @@ export EXPENSES_OCR_TESSERACT_LANG=eng+fra+swe
 
 ## Migration Note
 
-- `saas-killer` now takes the shared OCR contract, receipt OCR backends, and PDF
+- `helms` now takes the shared OCR contract, receipt OCR backends, and PDF
   text extraction directly from `../organism`.
 - Migrating this repo to the latest `../converge` remains a separate larger job; see
   [[../Architecture/OCR Organism Converge Migration]].

@@ -10,7 +10,7 @@ without drifting the repo into the wrong shape.
 ## One Sentence
 
 This repository is the application layer and desktop workbench for **Helm**,
-built for an SMB entrepreneur,
+for decision-bearing operators,
 built on top of `../converge` and `../organism`, with the long-term goal of becoming an
 intent-adaptive operator environment.
 
@@ -26,7 +26,7 @@ This repository is not:
 
 This repository is:
 
-- the entrepreneur application layer
+- the operator application layer
 - the projection store for business and work state
 - the desktop workbench host
 - the place where truths become concrete work surfaces
@@ -150,10 +150,10 @@ If these concepts collapse into one, the architecture will drift.
 
 ## Identity Of This Repo
 
-This repo should be the opinionated application layer for one user archetype:
+This repo should be the opinionated application layer for decision-bearing operators:
 
-- the SMB entrepreneur
-- the operator trying to get important things done today
+- founders, operators, and functional leads
+- people trying to get important governed work done today
 
 The user experience should evolve from:
 
@@ -319,7 +319,7 @@ When adding functionality, ask:
 
 1. Is this a reusable foundation concern?
    If yes, it probably belongs in `converge` or `organism`, not here.
-2. Is this application composition for the SMB entrepreneur?
+2. Is this application composition for decision-bearing operators?
    If yes, it belongs here.
 3. Is this a backend capability, a truth, or a desktop app?
    Do not mix them.
@@ -390,7 +390,7 @@ The target shape is:
 
 - reusable foundations below
 - one application layer here
-- one permanent desktop workbench
+- one permanent workbench surface family, desktop first
 - one later intent-decoder layer on top
 
-This repo should become the entrepreneur's adaptive workbench, not another foundation and not just a CRM.
+This repo should become the operator's adaptive workbench, not another foundation and not just a CRM.

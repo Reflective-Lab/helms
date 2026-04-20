@@ -6,8 +6,10 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
+    "dev:remote": "PUBLIC_DESKTOP_BACKEND_MODE=remote tauri dev -- --no-default-features",
     "dev:web": "vite dev",
     "build": "tauri build",
+    "build:remote": "PUBLIC_DESKTOP_BACKEND_MODE=remote tauri build -- --no-default-features",
     "build:web": "vite build",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },

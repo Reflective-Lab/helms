@@ -872,13 +872,16 @@ checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
 
 [[package]]
 name = "converge-core"
-version = "3.1.0"
+version = "3.4.0"
+source = "git+https://github.com/Reflective-Lab/converge?tag=v3.4.0#4d321e2e8964ceee8f3e79ff48638eea268d6ce6"
 dependencies = [
  "async-trait",
  "converge-pack",
+ "converge-provider-api",
  "hex",
  "serde",
  "serde_json",
+ "sha2",
  "strum",
  "thiserror 2.0.18",
  "tracing",
@@ -887,7 +890,8 @@ dependencies = [
 
 [[package]]
 name = "converge-experience"
-version = "3.1.0"
+version = "3.4.0"
+source = "git+https://github.com/Reflective-Lab/converge?tag=v3.4.0#4d321e2e8964ceee8f3e79ff48638eea268d6ce6"
 dependencies = [
  "converge-core",
  "serde",
@@ -895,12 +899,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "converge-kernel"
+version = "3.4.0"
+source = "git+https://github.com/Reflective-Lab/converge?tag=v3.4.0#4d321e2e8964ceee8f3e79ff48638eea268d6ce6"
+dependencies = [
+ "converge-core",
+ "converge-pack",
+]
+
+[[package]]
+name = "converge-model"
+version = "3.4.0"
+source = "git+https://github.com/Reflective-Lab/converge?tag=v3.4.0#4d321e2e8964ceee8f3e79ff48638eea268d6ce6"
+dependencies = [
+ "converge-core",
+ "converge-pack",
+]
+
+[[package]]
 name = "converge-pack"
-version = "3.1.0"
+version = "3.4.0"
+source = "git+https://github.com/Reflective-Lab/converge?tag=v3.4.0#4d321e2e8964ceee8f3e79ff48638eea268d6ce6"
 dependencies = [
  "async-trait",
  "serde",
  "strum",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "converge-provider-api"
+version = "3.4.0"
+source = "git+https://github.com/Reflective-Lab/converge?tag=v3.4.0#4d321e2e8964ceee8f3e79ff48638eea268d6ce6"
+dependencies = [
+ "serde",
+ "serde_json",
  "thiserror 2.0.18",
 ]
 
@@ -3962,7 +3995,8 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "organism-adversarial"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/Reflective-Lab/organism?rev=18200b5e7a709e38630c4c7d02ed8bb231511041#18200b5e7a709e38630c4c7d02ed8bb231511041"
 dependencies = [
  "organism-planning",
  "serde",
@@ -3973,7 +4007,8 @@ dependencies = [
 
 [[package]]
 name = "organism-domain"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/Reflective-Lab/organism?rev=18200b5e7a709e38630c4c7d02ed8bb231511041#18200b5e7a709e38630c4c7d02ed8bb231511041"
 dependencies = [
  "serde",
  "serde_json",
@@ -3981,7 +4016,8 @@ dependencies = [
 
 [[package]]
 name = "organism-intelligence"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/Reflective-Lab/organism?rev=18200b5e7a709e38630c4c7d02ed8bb231511041#18200b5e7a709e38630c4c7d02ed8bb231511041"
 dependencies = [
  "base64 0.22.1",
  "pdf-extract",
@@ -3995,7 +4031,8 @@ dependencies = [
 
 [[package]]
 name = "organism-intent"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/Reflective-Lab/organism?rev=18200b5e7a709e38630c4c7d02ed8bb231511041#18200b5e7a709e38630c4c7d02ed8bb231511041"
 dependencies = [
  "chrono",
  "serde",
@@ -4006,9 +4043,11 @@ dependencies = [
 
 [[package]]
 name = "organism-learning"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/Reflective-Lab/organism?rev=18200b5e7a709e38630c4c7d02ed8bb231511041#18200b5e7a709e38630c4c7d02ed8bb231511041"
 dependencies = [
  "chrono",
+ "converge-kernel",
  "converge-pack",
  "serde",
  "serde_json",
@@ -4018,7 +4057,8 @@ dependencies = [
 
 [[package]]
 name = "organism-notes"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/Reflective-Lab/organism?rev=18200b5e7a709e38630c4c7d02ed8bb231511041#18200b5e7a709e38630c4c7d02ed8bb231511041"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -4031,7 +4071,8 @@ dependencies = [
 
 [[package]]
 name = "organism-pack"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/Reflective-Lab/organism?rev=18200b5e7a709e38630c4c7d02ed8bb231511041#18200b5e7a709e38630c4c7d02ed8bb231511041"
 dependencies = [
  "converge-pack",
  "organism-adversarial",
@@ -4043,10 +4084,13 @@ dependencies = [
 
 [[package]]
 name = "organism-planning"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/Reflective-Lab/organism?rev=18200b5e7a709e38630c4c7d02ed8bb231511041#18200b5e7a709e38630c4c7d02ed8bb231511041"
 dependencies = [
  "anyhow",
  "async-trait",
+ "chrono",
+ "converge-kernel",
  "converge-pack",
  "organism-intent",
  "serde",
@@ -4057,16 +4101,13 @@ dependencies = [
 
 [[package]]
 name = "organism-runtime"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/Reflective-Lab/organism?rev=18200b5e7a709e38630c4c7d02ed8bb231511041#18200b5e7a709e38630c4c7d02ed8bb231511041"
 dependencies = [
  "anyhow",
  "async-trait",
- "organism-adversarial",
  "organism-domain",
- "organism-intent",
- "organism-learning",
- "organism-planning",
- "organism-simulation",
+ "organism-pack",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -4076,7 +4117,8 @@ dependencies = [
 
 [[package]]
 name = "organism-simulation"
-version = "0.1.0"
+version = "1.0.0"
+source = "git+https://github.com/Reflective-Lab/organism?rev=18200b5e7a709e38630c4c7d02ed8bb231511041#18200b5e7a709e38630c4c7d02ed8bb231511041"
 dependencies = [
  "organism-planning",
  "serde",
@@ -4803,7 +4845,8 @@ name = "prio-truths"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "converge-core",
+ "converge-kernel",
+ "converge-model",
  "organism-domain",
  "organism-pack",
  "organism-runtime",

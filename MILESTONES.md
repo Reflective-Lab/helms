@@ -16,10 +16,18 @@ Governed multi-truth pipeline (score → qualify → schedule) with live converg
 **Deadline:** TBD | **Epic:** E5
 Notes app fully implemented: Google import, social capture (LinkedIn/X/Instagram/Facebook), OCR, PDF extraction, object detection. Expenses integrated with OCR pipeline.
 
+## Next: Stage 1.75 — Surface Alignment
+**Deadline:** TBD | **Epic:** E5
+Align code, API, and CLI to the Helm Surface Model. CLI command taxonomy from truth catalog, surface-neutral API namespaces, crm-* → helm-* renames.
+
 ## Future: Stage 2 — Live Revenue
 **Deadline:** TBD | **Epic:** E5
-Billing hardened, first paying customer.
+Billing hardened, CLI ships, first paying customer.
 
 ## Future: Stage 3 — Platform Signal
 **Deadline:** TBD | **Epic:** E5
 Analytics-backed truths, second vertical.
+
+## Future: Stage 4 — Creative Convergence
+**Deadline:** TBD | **Epic:** E5
+Convergence loops that generate, verify, and deploy executable code (Wasm via Axiom).

@@ -2,7 +2,7 @@
 
 ## Positioning
 
-This backend is a Converge application with a CRM-shaped business substrate.
+This backend is a Converge application with a business-decision substrate that currently includes CRM and revenue projections.
 
 - system of record: this repository
 - system of interaction and constitutional runtime: Converge
@@ -14,7 +14,7 @@ This backend is a Converge application with a CRM-shaped business substrate.
 1. Storage layer
    SurrealDB, LanceDB, files, and event history.
 2. Business capability modules
-   Reusable CRM/ERP-style capabilities with owned objects, commands, queries, events, and local invariants.
+   Reusable business capabilities, many currently CRM/ERP-shaped, with owned objects, commands, queries, events, and local invariants.
 3. Truths / JTBD layer
    Declarative job, policy, and module-local truth definitions that compose modules without replacing them, and now compile into Converge intent packets plus pack activation sets.
 4. Converge runtime
@@ -99,7 +99,7 @@ The code keeps persistence behind a storage boundary so the business model can e
 
 The intended split is:
 
-- SurrealDB for transactional CRM and revenue projections
+- SurrealDB for transactional business and revenue projections
 - LanceDB for vector search and semantic recall
 - Parquet for analytical ingestion batches, audit and timeline export, and Arrow-native interchange into retrieval paths
 

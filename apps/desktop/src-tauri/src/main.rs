@@ -3,14 +3,20 @@
     windows_subsystem = "windows"
 )]
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
+
+#[cfg(feature = "embedded-backend")]
+use std::collections::HashMap;
+#[cfg(feature = "embedded-backend")]
 use std::path::PathBuf;
 
+#[cfg(feature = "embedded-backend")]
 use application_kernel::{
     Actor, BillingPeriod, CatalogItemUpsert, CatalogPlanKind, EntitlementTemplate, Money,
     OrganizationLifecycle, OrganizationUpsert, SubscriptionActivate, SubscriptionCreate,
     SubscriptionStatus,
 };
+#[cfg(feature = "embedded-backend")]
 use application_storage::{
     AppConfig, KernelStore, RecordStoreConfig, SurrealDbKernelStore, SurrealStoreConfig,
 };
@@ -25,8 +31,11 @@ use prio_expenses::receipt_extractor::{
     discover_receipt_fixture_root, find_sample, load_receipt_samples,
 };
 use serde::Serialize;
+#[cfg(feature = "embedded-backend")]
 use tauri::State;
+#[cfg(feature = "embedded-backend")]
 use uuid::Uuid;
+#[cfg(feature = "embedded-backend")]
 use workbench_backend::{
     AccountWorkspaceSummary, ApprovalFilter, ApprovalListItem, CatalogItemListItem, OperatorApp,
     OperatorDashboard, OpportunityListItem, OrganizationListItem, RecordReferenceItem,
@@ -34,8 +43,10 @@ use workbench_backend::{
     WorkbenchAppManifest, WorkflowCaseFilter, WorkflowCaseListItem,
 };
 
+#[cfg(feature = "embedded-backend")]
 type DesktopStore = SurrealDbKernelStore;
 
+#[cfg(feature = "embedded-backend")]
 #[derive(Clone)]
 struct AppState {
     operator: OperatorApp<DesktopStore>,
@@ -424,6 +435,7 @@ fn extraction_run_view(
     }
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn operator_dashboard(state: State<'_, AppState>) -> Result<OperatorDashboard, String> {
     state
@@ -432,16 +444,19 @@ fn operator_dashboard(state: State<'_, AppState>) -> Result<OperatorDashboard, S
         .map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn system_profile(state: State<'_, AppState>) -> SystemProfile {
     state.operator.system_profile()
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn list_truths(state: State<'_, AppState>) -> Vec<TruthListItem> {
     state.operator.list_truths()
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn get_truth_detail(state: State<'_, AppState>, key: String) -> Result<TruthDetailItem, String> {
     state
@@ -450,11 +465,13 @@ fn get_truth_detail(state: State<'_, AppState>, key: String) -> Result<TruthDeta
         .ok_or_else(|| format!("truth not found: {key}"))
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn list_workbench_apps(state: State<'_, AppState>) -> Vec<WorkbenchAppManifest> {
     state.operator.workbench_apps()
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn execute_truth(
     state: State<'_, AppState>,
@@ -467,6 +484,7 @@ fn execute_truth(
         .map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn list_organizations(state: State<'_, AppState>) -> Result<Vec<OrganizationListItem>, String> {
     state
@@ -475,6 +493,7 @@ fn list_organizations(state: State<'_, AppState>) -> Result<Vec<OrganizationList
         .map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn list_opportunities(state: State<'_, AppState>) -> Result<Vec<OpportunityListItem>, String> {
     state
@@ -483,6 +502,7 @@ fn list_opportunities(state: State<'_, AppState>) -> Result<Vec<OpportunityListI
         .map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn list_subscriptions(
     state: State<'_, AppState>,
@@ -494,6 +514,7 @@ fn list_subscriptions(
         .map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn list_catalog_items(
     state: State<'_, AppState>,
@@ -505,6 +526,7 @@ fn list_catalog_items(
         .map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn account_summary(
     state: State<'_, AppState>,
@@ -516,6 +538,7 @@ fn account_summary(
         .map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn list_timeline(
     state: State<'_, AppState>,
@@ -528,6 +551,7 @@ fn list_timeline(
         .map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn list_workflow_cases(
     state: State<'_, AppState>,
@@ -539,6 +563,7 @@ fn list_workflow_cases(
         .map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "embedded-backend")]
 #[tauri::command]
 fn list_approvals(
     state: State<'_, AppState>,
@@ -685,6 +710,7 @@ fn analyze_note_value() -> Result<NoteValueReport, String> {
     organism_notes::enrichment::analyze_note_value(&vault).map_err(|error| error.to_string())
 }
 
+#[cfg(feature = "embedded-backend")]
 fn seed_demo_data<S>(operator: &OperatorApp<S>)
 where
     S: KernelStore,
@@ -741,6 +767,7 @@ where
     );
 }
 
+#[cfg(feature = "embedded-backend")]
 fn seed_revenue_data(store: &DesktopStore) {
     let actor = Actor::system();
     let organization_id = seed_uuid("11111111-1111-4111-8111-111111111111");
@@ -859,10 +886,12 @@ fn seed_revenue_data(store: &DesktopStore) {
     });
 }
 
+#[cfg(feature = "embedded-backend")]
 fn seed_uuid(value: &str) -> Uuid {
     Uuid::parse_str(value).expect("valid seed uuid")
 }
 
+#[cfg(feature = "embedded-backend")]
 fn default_desktop_store_endpoint() -> String {
     let path = std::env::current_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
@@ -870,12 +899,14 @@ fn default_desktop_store_endpoint() -> String {
     format!("rocksdb://{}", path.display())
 }
 
+#[cfg(feature = "embedded-backend")]
 fn ensure_store_path(endpoint: &str) {
     if let Some(path) = endpoint.strip_prefix("rocksdb://") {
         let _ = std::fs::create_dir_all(path);
     }
 }
 
+#[cfg(feature = "embedded-backend")]
 fn desktop_storage_config() -> AppConfig {
     let endpoint =
         std::env::var("CRM_SURREAL_ENDPOINT").unwrap_or_else(|_| default_desktop_store_endpoint());
@@ -883,6 +914,7 @@ fn desktop_storage_config() -> AppConfig {
     desktop_storage_config_for_endpoint(endpoint)
 }
 
+#[cfg(feature = "embedded-backend")]
 fn desktop_storage_config_for_endpoint(endpoint: String) -> AppConfig {
     let mut config = AppConfig::from_env();
     config.record_store = RecordStoreConfig::Surreal(SurrealStoreConfig {
@@ -896,6 +928,7 @@ fn desktop_storage_config_for_endpoint(endpoint: String) -> AppConfig {
     config
 }
 
+#[cfg(feature = "embedded-backend")]
 fn maybe_run_headless_mode(operator: &OperatorApp<DesktopStore>) -> Result<bool, String> {
     let mode = std::env::var("OUTCOME_WORKBENCH_DESKTOP_MODE")
         .or_else(|_| std::env::var("WORKBENCH_DESKTOP_MODE"))
@@ -963,6 +996,7 @@ fn maybe_run_headless_mode(operator: &OperatorApp<DesktopStore>) -> Result<bool,
     }
 }
 
+#[cfg(feature = "embedded-backend")]
 fn main() {
     let config = desktop_storage_config();
     let store = DesktopStore::connect_blocking(config).expect("failed to connect desktop store");
@@ -1031,7 +1065,32 @@ fn main() {
         .expect("failed to run outcome workbench");
 }
 
-#[cfg(test)]
+#[cfg(not(feature = "embedded-backend"))]
+fn main() {
+    tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            list_expense_reports,
+            list_expense_items,
+            list_receipt_samples,
+            compare_receipt_ocr,
+            get_note_vault_root,
+            list_notes,
+            read_note,
+            save_note,
+            create_note,
+            move_note,
+            import_markdown_tree,
+            import_apple_notes,
+            publish_apple_notes,
+            capture_note_url,
+            analyze_note_cleanup,
+            analyze_note_value
+        ])
+        .run(tauri::generate_context!())
+        .expect("failed to run outcome workbench");
+}
+
+#[cfg(all(test, feature = "embedded-backend"))]
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 

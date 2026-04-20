@@ -5,22 +5,21 @@
 Helm is a Converge application, not a parallel runtime.
 
 - Converge owns proposals, facts, authority, promotion, budgets, and convergence
-- Helm owns business-domain state, module boundaries, and the public application API
+- Helm owns business-domain state, module boundaries, and the public application surfaces
 - truths are the translation layer between business jobs and Converge execution
 
 ## What Lives Here
 
 This repository keeps:
 
-- CRM and ERP-shaped business objects (Organization, Person, Opportunity, etc.)
-- durable state and projections via the CRM kernel
+- current business projections (Organization, Person, Opportunity, etc.)
+- durable state and projections via the application kernel
 - module-specific commands and queries
 - truth catalog definitions and per-truth executors
 - current manual converge agent implementations for each truth
 - criterion evaluators that check success against converged context
-- gRPC application boundaries
-- HTTP integration boundaries for runtime adapters
-- thin desktop and operator-facing surfaces
+- gRPC and HTTP application boundaries
+- CLI and workbench-facing operator surfaces
 
 This repository does not recreate:
 
@@ -52,12 +51,12 @@ Current executable truths:
 4. Engine runs with pack-scoped agents and `TypesRunHooks` (evaluator + observer)
 5. Both agents emit proposals through converge's promotion gate
 6. `QualifyInboundLeadEvaluator` checks criteria against converged context
-7. Server projects facts into CRM kernel in a single `write_with_events` transaction
+7. Server projects facts into the application kernel in a single `write_with_events` transaction
 8. Response includes convergence result, experience events, and projected entities
 
 Fact content uses typed JSON codecs. Confidence mapping is explicit via `converge_confidence_to_bps()`.
 
-Phase 1 billing integration now has a concrete application boundary on the CRM side:
+Phase 1 billing integration now has a concrete application boundary on the Helm application side:
 
 - `POST /v1/integrations/billing/events`
 - bearer auth via `CRM_BILLING_INGRESS_TOKEN`

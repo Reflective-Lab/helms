@@ -1,6 +1,6 @@
 pub mod receipt_extractor;
 
-use prio_module_core::{ApiSurface, CapabilityModule, ModuleManifest, ModuleSuite};
+use capability_core::{ApiSurface, CapabilityModule, ModuleManifest, ModuleSuite};
 
 pub struct ExpensesModule;
 
