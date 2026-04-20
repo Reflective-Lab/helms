@@ -37,6 +37,13 @@ members = [
 
     # Utility and support crates.
     "crates/seed-gen",
+
+    # CLI examples — demonstrate organism-intelligence capabilities.
+    "examples/capture-social",
+    "examples/capture-web",
+    "examples/extract-ocr",
+    "examples/extract-pdf",
+    "examples/describe-image",
 ]
 
 [workspace.package]

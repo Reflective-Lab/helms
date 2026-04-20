@@ -3506,6 +3506,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-capture-social"
+version = "0.1.0"
+dependencies = [
+ "organism-intelligence",
+ "serde_json",
+]
+
+[[package]]
+name = "example-capture-web"
+version = "0.1.0"
+dependencies = [
+ "organism-intelligence",
+ "serde_json",
+]
+
+[[package]]
+name = "example-describe-image"
+version = "0.1.0"
+dependencies = [
+ "organism-intelligence",
+ "serde_json",
+]
+
+[[package]]
+name = "example-extract-ocr"
+version = "0.1.0"
+dependencies = [
+ "organism-intelligence",
+ "serde_json",
+]
+
+[[package]]
+name = "example-extract-pdf"
+version = "0.1.0"
+dependencies = [
+ "organism-intelligence",
+ "serde_json",
+]
+
+[[package]]
 name = "exr"
 version = "1.74.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6306,6 +6346,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror 2.0.18",
+ "url",
 ]
 
 [[package]]
