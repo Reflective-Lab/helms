@@ -1,0 +1,11 @@
+[package]
+name = "helm-capture"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+helm-notes = { path = "../../crates/helm-notes", features = ["web", "social", "ocr", "pdf"] }
+organism-notes = { workspace = true }
+serde_json = { workspace = true }
+dirs-next = "2"

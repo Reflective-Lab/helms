@@ -1,0 +1,21 @@
+[package]
+name = "helm-notes"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = ["web", "social"]
+web = ["organism-intelligence/web"]
+social = ["organism-intelligence/social"]
+ocr = ["organism-intelligence/ocr"]
+pdf = ["organism-intelligence/pdf"]
+vision = ["organism-intelligence/vision"]
+
+[dependencies]
+organism-intelligence.workspace = true
+organism-notes = { workspace = true, features = ["sources-web"] }
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true

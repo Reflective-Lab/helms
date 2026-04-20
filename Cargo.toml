@@ -35,6 +35,9 @@ members = [
     "crates/prio-agent-ops",
     "crates/truth-catalog",
 
+    # Application crates.
+    "crates/helm-notes",
+
     # Utility and support crates.
     "crates/seed-gen",
 
@@ -44,6 +47,7 @@ members = [
     "examples/extract-ocr",
     "examples/extract-pdf",
     "examples/describe-image",
+    "examples/helm-capture",
 ]
 
 [workspace.package]
