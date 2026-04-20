@@ -1,6 +1,7 @@
-export type Section = 'jobs' | 'accounts' | 'workflows' | 'approvals' | 'system'
+export type Section = 'jobs' | 'accounts' | 'workflows' | 'approvals' | 'pipeline' | 'system'
 
-export const navSections: Array<{ id: Section; label: string }> = [
+export const navSections: Array<{ id: Section; label: string; href?: string }> = [
+	{ id: 'pipeline', label: 'Pipeline', href: '/pipeline' },
 	{ id: 'jobs', label: 'Jobs' },
 	{ id: 'accounts', label: 'Accounts' },
 	{ id: 'workflows', label: 'Workflows' },

@@ -60,24 +60,24 @@ data analysis, routing, scheduling, and HITL — all visible in real time.
 - [x] `score-inbound-fit` consumes Parquet via seed loader → usage_events_json → `extract_temporal_features()` + batch inference (2026-04-19)
 
 #### Live convergence visibility
-- [ ] SSE endpoint for truth execution progress (fact proposals, promotions, blocks)
-- [ ] Desktop UI subscribes to SSE and renders convergence in real time
-- [ ] Fact timeline updates live as agents propose and converge promotes
+- [x] SSE endpoint for truth execution progress — `/v1/pipeline/showcase/stream` (2026-04-19)
+- [x] Desktop UI subscribes to SSE and renders convergence in real time — pipeline route + EventSource (2026-04-19)
+- [x] Fact timeline updates live as agents propose and converge promotes (2026-04-19)
 
 #### HITL approval flow
-- [ ] Qualification gate: ambiguous fit pauses pipeline, surfaces for human review
-- [ ] Meeting booking gate: proposed slate requires human confirmation
-- [ ] Desktop approval UI: review evidence, approve/reject, pipeline resumes
+- [x] Qualification gate: ambiguous fit pauses pipeline, surfaces for human review (2026-04-19)
+- [x] Meeting booking gate: proposed slate requires human confirmation (2026-04-19)
+- [x] Desktop approval UI: review evidence, approve/reject, pipeline resumes (2026-04-19)
 
 #### Desktop connectivity
-- [ ] Desktop app talks to application-server HTTP API (not just Tauri IPC)
-- [ ] Operator cockpit shows pipeline progress across all three truths
-- [ ] Blocked-step rendering shows which agent is waiting and why
+- [x] Desktop app talks to application-server HTTP API — apiBase + fetch (2026-04-19)
+- [x] Operator cockpit shows pipeline progress across all three truths — step indicators (2026-04-19)
+- [x] Blocked-step rendering shows which agent is waiting and why — yellow state + reason (2026-04-19)
 
 #### Demo scenario
-- [ ] Seed script: realistic inbound lead with behavioral Parquet data
-- [ ] Full pipeline run: score → qualify → schedule, with 2 HITL stops
-- [ ] Repeatable reset (re-gen seed data + clear kernel state)
+- [x] Seed script: realistic inbound lead with behavioral Parquet data (2026-04-10)
+- [x] Full pipeline run: score → qualify → schedule, with HITL stops — POST /v1/pipeline/showcase/run (2026-04-19)
+- [x] Repeatable reset (re-gen seed data + clear kernel state) — POST /v1/pipeline/showcase/reset (2026-04-19)
 
 ### Not in scope
 

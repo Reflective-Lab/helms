@@ -438,6 +438,7 @@ where
             "/v1/integrations/billing/events",
             post(handle_billing_event::<S>),
         )
+        .merge(crate::sse::pipeline_routes::<S>())
         .with_state(state)
 }
 

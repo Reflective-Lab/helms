@@ -2,6 +2,7 @@ mod http_api;
 pub mod pipeline;
 mod proto;
 mod service;
+pub mod sse;
 mod truth_runtime;
 
 use anyhow::Result;
@@ -57,7 +58,9 @@ async fn main() -> Result<()> {
         std::env::var("CRM_BILLING_INGRESS_TOKEN").ok(),
     );
 
+    let pipeline_state = crate::sse::PipelineState::new();
     let http_app = app_router(http_state)
+        .layer(axum::Extension(pipeline_state))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 
