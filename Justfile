@@ -3,44 +3,41 @@ set shell := ["zsh", "-lc"]
 default:
     @just --list
 
-server:
-    cargo run -p application-server
+# ── Build ──────────────────────────────────────────────────────────────
+
+build-desktop-web:
+    cd apps/desktop && bun run build:web
+
+build-desktop:
+    cd apps/desktop && bun run build
+
+build-desktop-remote:
+    cd apps/desktop && bun run build:remote
+
+build-extension:
+    cd apps/extension && bun run build
+
+# ── Test ───────────────────────────────────────────────────────────────
 
 test:
     cargo test --workspace
 
-workbench-backend-test:
+test-workbench-backend:
     cargo test -p workbench-backend
 
-crm-app-test:
+test-crm-app:
     cargo test -p workbench-backend
+
+# ── Lint & Format ──────────────────────────────────────────────────────
 
 fmt:
     cargo fmt --all
 
-desktop-install:
-    cd apps/desktop && bun install
+desktop-rust-fmt:
+    cd apps/desktop/src-tauri && cargo fmt
 
 desktop-check:
     cd apps/desktop && bun run check
-
-desktop-web:
-    cd apps/desktop && bun run dev:web
-
-desktop-build-web:
-    cd apps/desktop && bun run build:web
-
-desktop-dev:
-    cd apps/desktop && bun run dev
-
-desktop-dev-remote:
-    cd apps/desktop && bun run dev:remote
-
-desktop-build:
-    cd apps/desktop && bun run build
-
-desktop-build-remote:
-    cd apps/desktop && bun run build:remote
 
 desktop-rust-check:
     cd apps/desktop/src-tauri && cargo check --offline
@@ -48,29 +45,39 @@ desktop-rust-check:
 desktop-rust-check-remote:
     cd apps/desktop/src-tauri && cargo check --no-default-features --offline
 
-desktop-rust-fmt:
-    cd apps/desktop/src-tauri && cargo fmt
+# ── Dev ────────────────────────────────────────────────────────────────
 
-desktop:
-    just desktop-dev
+dev-server:
+    cargo run -p application-server
 
-import-apple-notes:
-    CARGO_TARGET_DIR=/tmp/prio-apple-notes-cli cargo run -p prio-apple-notes-cli
+dev-desktop-install:
+    cd apps/desktop && bun install
 
-truth-resolution:
-    cargo run -p prio-truths --example real-truth-resolution --
+dev-desktop:
+    cd apps/desktop && bun run dev
 
-extension-install:
+dev-desktop-web:
+    cd apps/desktop && bun run dev:web
+
+dev-desktop-remote:
+    cd apps/desktop && bun run dev:remote
+
+dev-extension-install:
     cd apps/extension && bun install
 
-extension-build:
-    cd apps/extension && bun run build
-
-extension-dev:
+dev-extension:
     cd apps/extension && bun run dev
 
-gen-seed-data:
+dev-import-apple-notes:
+    CARGO_TARGET_DIR=/tmp/prio-apple-notes-cli cargo run -p prio-apple-notes-cli
+
+dev-truth-resolution:
+    cargo run -p prio-truths --example real-truth-resolution --
+
+dev-seed-data:
     cargo run -p seed-gen
+
+# ── Info ───────────────────────────────────────────────────────────────
 
 info:
     @echo "bun:   $(bun --version)"

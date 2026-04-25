@@ -1,5 +1,6 @@
 ---
 name: deploy
+model: sonnet
 description: Deploy to production. Confirms before every destructive step.
 user-invocable: true
 argument-hint: [backend|web|all]
