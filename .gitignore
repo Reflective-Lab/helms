@@ -12,6 +12,8 @@ dist/
 /crates/crm-server/proptest-regressions
 /apps/extension/node_modules
 /apps/extension/dist
+node_modules/
+packages/*/dist
 data/seed/*.parquet
 .env
 .env.*

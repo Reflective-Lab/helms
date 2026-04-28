@@ -1,0 +1,123 @@
+<script lang="ts">
+  /**
+   * Generic HITL (Human In The Loop) approval form.
+   *
+   * No domain assumptions about what the decision is.
+   * Domain layer binds decision package content.
+   * Converge/Axiom decide why the gate exists; Helm just renders the form.
+   */
+
+  interface Props {
+    decisionSummary?: {
+      candidate?: string
+      reason?: string
+      threshold?: string
+    }
+    approverName?: string
+    approvalNote?: string
+    delegateToPolicy?: boolean
+    policyPreview?: string
+    onApprove?: () => void
+    disabled?: boolean
+  }
+
+  let {
+    decisionSummary = {},
+    approverName = $bindable(''),
+    approvalNote = $bindable(''),
+    delegateToPolicy = $bindable(false),
+    policyPreview = '',
+    onApprove = () => {},
+    disabled = false,
+  }: Props = $props()
+
+  function handleSubmit(event: SubmitEvent) {
+    event.preventDefault()
+    onApprove()
+  }
+</script>
+
+<form class="rounded-2xl border border-warn/30 bg-warn/5 p-4" onsubmit={handleSubmit}>
+  <span class="card-label text-warn!">HITL Gate</span>
+  <h2 class="mt-1 font-display text-xl font-semibold text-bright">Human approval required.</h2>
+  <p class="mt-2 text-sm text-subtle">The governed process requires human review before promoting this decision.</p>
+
+  {#if decisionSummary.candidate || decisionSummary.reason}
+    <div class="mt-4 grid gap-3 md:grid-cols-2">
+      {#if decisionSummary.candidate}
+        <div class="rounded-xl border border-border bg-deep p-3">
+          <span class="card-label">Recommendation</span>
+          <p class="mt-1 text-sm text-bright">{decisionSummary.candidate}</p>
+        </div>
+      {/if}
+      {#if decisionSummary.reason}
+        <div class="rounded-xl border border-border bg-deep p-3">
+          <span class="card-label">Gate Reason</span>
+          <p class="mt-1 text-sm text-bright">{decisionSummary.reason}</p>
+        </div>
+      {/if}
+      {#if decisionSummary.threshold}
+        <div class="rounded-xl border border-border bg-deep p-3">
+          <span class="card-label">Threshold</span>
+          <p class="mt-1 text-sm text-bright">{decisionSummary.threshold}</p>
+        </div>
+      {/if}
+    </div>
+  {/if}
+
+  <div class="mt-4 grid gap-3">
+    <label class="block">
+      <span class="card-label mb-1 block">Approver</span>
+      <input
+        class="w-full rounded-xl border border-border bg-deep px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"
+        type="email"
+        bind:value={approverName}
+        {disabled}
+        placeholder="approver@example.com"
+      />
+    </label>
+    <label class="block">
+      <span class="card-label mb-1 block">Decision Note</span>
+      <textarea
+        class="min-h-20 w-full rounded-xl border border-border bg-deep px-3 py-2 text-sm text-text focus:border-lime/50 focus:outline-none"
+        bind:value={approvalNote}
+        {disabled}
+        placeholder="Rationale for approval..."
+      ></textarea>
+    </label>
+    <label class="flex items-start gap-3 rounded-xl border border-lime/20 bg-lime-glow p-3">
+      <input class="mt-1 accent-lime" type="checkbox" bind:checked={delegateToPolicy} {disabled} />
+      <span>
+        <strong class="block text-sm text-bright">Delegate to policy for matching future cases</strong>
+        <span class="text-xs text-subtle">Auto-approve next time when these conditions recur.</span>
+      </span>
+    </label>
+  </div>
+
+  {#if policyPreview}
+    <pre class="mt-4 overflow-auto rounded-xl border border-border bg-deep p-3 font-mono text-xs leading-relaxed text-subtle">{policyPreview}</pre>
+  {/if}
+
+  <button class="btn-lime mt-4 w-full justify-center" type="submit" {disabled}>
+    Approve And Promote
+  </button>
+</form>
+
+<style>
+  /* Inherit from consuming app's design system */
+  :global(.card-label) {
+    @apply text-xs font-semibold uppercase tracking-widest text-muted;
+  }
+
+  :global(.btn-lime) {
+    @apply rounded-xl border border-lime bg-lime px-4 py-2 font-semibold text-near-black transition hover:border-lime hover:bg-lime-bright disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  :global(.rounded-xl) {
+    @apply rounded-[12px];
+  }
+
+  :global(.border) {
+    @apply border-[1px];
+  }
+</style>
