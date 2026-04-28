@@ -15,7 +15,9 @@
     },
     "./replay": {
       "types": "./dist/replay.d.ts"
-    }
+    },
+    "./src/HitlGate.svelte": "./src/HitlGate.svelte",
+    "./src/DocumentIntake.svelte": "./src/DocumentIntake.svelte"
   },
   "files": [
     "src",

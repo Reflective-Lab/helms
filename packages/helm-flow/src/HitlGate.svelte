@@ -38,7 +38,7 @@
 </script>
 
 <form class="rounded-2xl border border-warn/30 bg-warn/5 p-4" onsubmit={handleSubmit}>
-  <span class="card-label text-warn!">HITL Gate</span>
+  <span class="block text-xs font-semibold uppercase tracking-widest text-muted">HITL Gate</span>
   <h2 class="mt-1 font-display text-xl font-semibold text-bright">Human approval required.</h2>
   <p class="mt-2 text-sm text-subtle">The governed process requires human review before promoting this decision.</p>
 
@@ -102,22 +102,3 @@
     Approve And Promote
   </button>
 </form>
-
-<style>
-  /* Inherit from consuming app's design system */
-  :global(.card-label) {
-    @apply text-xs font-semibold uppercase tracking-widest text-muted;
-  }
-
-  :global(.btn-lime) {
-    @apply rounded-xl border border-lime bg-lime px-4 py-2 font-semibold text-near-black transition hover:border-lime hover:bg-lime-bright disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-
-  :global(.rounded-xl) {
-    @apply rounded-[12px];
-  }
-
-  :global(.border) {
-    @apply border-[1px];
-  }
-</style>

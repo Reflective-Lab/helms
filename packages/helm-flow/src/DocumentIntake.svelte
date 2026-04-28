@@ -87,7 +87,7 @@
         multiple
         onchange={handleFileInput}
       />
-      <span class="card-label">Decision Package</span>
+      <span class="block text-xs font-semibold uppercase tracking-widest text-muted">Decision Package</span>
       <h2 class="mt-1 font-display text-xl font-semibold text-bright">Drop your documents</h2>
       <p class="mt-1 text-sm text-subtle">3+ supporting documents for the decision.</p>
       <p class="mt-3 font-mono text-xs text-muted">Click to browse or drag files here.</p>
@@ -193,13 +193,3 @@
   </div>
 {/if}
 
-<style>
-  /* Inherit from consuming app's design system */
-  :global(.card-label) {
-    @apply text-xs font-semibold uppercase tracking-widest text-muted;
-  }
-
-  :global(.btn-ghost) {
-    @apply rounded-xl border border-border bg-transparent px-3 py-2 font-semibold text-text transition hover:border-lime/50 hover:text-lime disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-</style>
