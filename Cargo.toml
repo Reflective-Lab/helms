@@ -35,19 +35,11 @@ members = [
     "crates/prio-agent-ops",
     "crates/truth-catalog",
 
-    # Application crates.
-    "crates/helm-notes",
+    # Platform primitives.
+    "crates/notes",
 
     # Utility and support crates.
     "crates/seed-gen",
-
-    # CLI examples — demonstrate organism-intelligence capabilities.
-    "examples/capture-social",
-    "examples/capture-web",
-    "examples/extract-ocr",
-    "examples/extract-pdf",
-    "examples/describe-image",
-    "examples/helm-capture",
 ]
 
 [workspace.package]
@@ -55,6 +47,7 @@ version = "0.1.1"
 edition = "2024"
 rust-version = "1.94.0"
 license = "MIT"
+publish = false
 
 [workspace.dependencies]
 anyhow = "1"
@@ -62,20 +55,25 @@ async-stream = "0.3"
 axiom-truth = { git = "https://github.com/Reflective-Lab/axiom", tag = "v0.6.0" }
 axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
-converge-analytics = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
-converge-core = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
-converge-domain = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
-converge-experience = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
-converge-kernel = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
-converge-knowledge = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
-converge-model = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
-converge-optimization = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
-converge-pack = { git = "https://github.com/Reflective-Lab/converge", tag = "v3.4.0" }
-organism-domain = { git = "https://github.com/Reflective-Lab/organism", rev = "18200b5e7a709e38630c4c7d02ed8bb231511041" }
-organism-intelligence = { git = "https://github.com/Reflective-Lab/organism", rev = "18200b5e7a709e38630c4c7d02ed8bb231511041" }
-organism-notes = { git = "https://github.com/Reflective-Lab/organism", rev = "18200b5e7a709e38630c4c7d02ed8bb231511041" }
-organism-pack = { git = "https://github.com/Reflective-Lab/organism", rev = "18200b5e7a709e38630c4c7d02ed8bb231511041" }
-organism-runtime = { git = "https://github.com/Reflective-Lab/organism", rev = "18200b5e7a709e38630c4c7d02ed8bb231511041" }
+# Extracted Converge extension packages. Keep the dependency keys stable so
+# existing Helm code can keep using `converge_analytics`, `converge_domain`,
+# and `converge_knowledge` while the implementation packages live in their new
+# repositories.
+converge-analytics = { package = "prism", path = "../../extensions/prism/crates/prism" }
+converge-core = { path = "../converge/crates/core" }
+converge-domain = { package = "atelier-domain", path = "../../atelier/crates/atelier-domain" }
+converge-experience = { path = "../converge/crates/experience" }
+converge-kernel = { path = "../converge/crates/kernel" }
+converge-knowledge = { package = "mnemos", path = "../../extensions/mnemos/crates/mnemos" }
+converge-model = { path = "../converge/crates/model" }
+converge-optimization = { path = "../converge/crates/optimization" }
+converge-pack = { path = "../converge/crates/pack" }
+converge-policy = { package = "arbiter", path = "../../extensions/arbiter/crates/arbiter" }
+organism-domain = { path = "../organism/crates/domain" }
+organism-intelligence = { path = "../organism/crates/intelligence" }
+organism-notes = { path = "../organism/crates/notes" }
+organism-pack = { path = "../organism/crates/pack" }
+organism-runtime = { path = "../organism/crates/runtime" }
 prost = "0.13"
 prost-types = "0.13"
 serde = { version = "1", features = ["derive"] }
@@ -91,3 +89,24 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["serde", "v4"] }
 proptest = "1"
+
+# Redirect transitive crates.io converge/organism deps to local head
+# until the next tag ships. Local-only — remove before publishing.
+[patch.crates-io]
+converge-client       = { path = "../converge/crates/client" }
+converge-core         = { path = "../converge/crates/core" }
+converge-experience   = { path = "../converge/crates/experience" }
+converge-kernel       = { path = "../converge/crates/kernel" }
+converge-model        = { path = "../converge/crates/model" }
+converge-optimization = { path = "../converge/crates/optimization" }
+converge-pack         = { path = "../converge/crates/pack" }
+converge-protocol     = { path = "../converge/crates/protocol" }
+converge-provider     = { path = "../converge/crates/provider" }
+converge-provider-api = { path = "../converge/crates/provider-api" }
+converge-runtime      = { path = "../converge/crates/runtime" }
+converge-storage      = { path = "../converge/crates/storage" }
+organism-domain       = { path = "../organism/crates/domain" }
+organism-intelligence = { path = "../organism/crates/intelligence" }
+organism-notes        = { path = "../organism/crates/notes" }
+organism-pack         = { path = "../organism/crates/pack" }
+organism-runtime      = { path = "../organism/crates/runtime" }
