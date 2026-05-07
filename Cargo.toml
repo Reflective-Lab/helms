@@ -65,6 +65,12 @@ converge-domain = { package = "converge-atelier-domain", path = "../../extension
 converge-experience = { path = "../converge/crates/experience" }
 converge-kernel = { path = "../converge/crates/kernel" }
 converge-knowledge = { package = "converge-mnemos-knowledge", path = "../../extensions/mnemos-knowledge/crates/mnemos", version = "1.0.0" }
+# `_chat` feature pulled in here so axiom-truth's `guidance` module (which
+# imports `manifold::select_healthy_chat_backend`, gated behind `_chat` in the
+# local manifold) compiles via the [patch.crates-io] redirect. Drop once
+# manifold publishes a version that ungates the selection helpers or axiom
+# bumps to one that does.
+converge-manifold-adapters = { path = "../../extensions/manifold-adapters/crates/manifold", version = "1.0.0", features = ["_chat"] }
 converge-model = { path = "../converge/crates/model" }
 converge-optimization = { path = "../converge/crates/optimization" }
 converge-pack = { path = "../converge/crates/pack" }

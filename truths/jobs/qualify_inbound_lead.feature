@@ -1,7 +1,10 @@
 # Truth: Qualify inbound lead
-@truth @job @commercial
 Feature: Qualify inbound lead
 
+  Intent:
+    Outcome: qualify inbound lead with external enrichment and governed routing
+
+  @truth @job @commercial
   Scenario: Inbound interest is assessed for fit
     Given an inbound contact arrives from a known or new organization
     When the operator captures the conversation and qualification facts

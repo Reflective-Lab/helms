@@ -1,4 +1,6 @@
 mod converge;
+pub mod equiv;
+pub mod intent_compile;
 mod organism;
 
 use serde::Serialize;

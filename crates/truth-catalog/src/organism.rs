@@ -56,6 +56,14 @@ fn build_binding(truth: TruthDefinition) -> Option<TruthOrganismBinding> {
     })
 }
 
+/// Test-only accessor that exposes the legacy `IntentPacket` produced by
+/// `organism_recipe`. Used by the axiom-equivalence gate during the organism
+/// 1.8.0 migration; goes away once `organism_recipe` itself is deleted.
+#[cfg(test)]
+pub(crate) fn organism_recipe_for_test(truth: TruthDefinition) -> Option<IntentPacket> {
+    organism_recipe(truth).map(|(_, intent, _, _)| intent)
+}
+
 fn organism_recipe(
     truth: TruthDefinition,
 ) -> Option<(
