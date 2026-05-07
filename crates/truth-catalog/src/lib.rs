@@ -1,3 +1,4 @@
+pub mod admission;
 mod converge;
 pub mod equiv;
 pub mod intent_compile;

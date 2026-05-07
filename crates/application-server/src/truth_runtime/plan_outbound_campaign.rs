@@ -16,7 +16,9 @@ use converge_pack::gate::{ObjectiveSpec, ProblemSpec};
 use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
-use truth_catalog::{PlanOutboundCampaignEvaluator, converge_binding_for_truth};
+use truth_catalog::{
+    PlanOutboundCampaignEvaluator, admission::admit_truth_intent, converge_binding_for_truth,
+};
 use uuid::Uuid;
 
 use super::{
@@ -187,13 +189,22 @@ pub(super) async fn execute<S: KernelStore>(
         },
     );
 
+    let mut seed_ctx = seed_context()?;
+    admit_truth_intent(
+        "plan-outbound-campaign",
+        &actor.actor_id,
+        "truth:plan-outbound-campaign",
+        &mut seed_ctx,
+    )
+    .map_err(|e| Status::internal(format!("admit intent failed: {e}")))?;
+
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
         &super::RuntimeContext {
             scope_id: slug(&inputs.campaign_name),
         },
-        seed_context()?,
+        seed_ctx,
         &binding.intent,
         std::sync::Arc::new(PlanOutboundCampaignEvaluator),
     )

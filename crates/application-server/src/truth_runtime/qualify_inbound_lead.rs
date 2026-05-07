@@ -10,7 +10,7 @@ use converge_kernel::{ContextState as Context, ConvergeResult, Engine, TypesRunH
 use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
-use truth_catalog::{QualifyInboundLeadEvaluator, converge_binding_for_truth};
+use truth_catalog::{QualifyInboundLeadEvaluator, admission::admit_truth_intent, converge_binding_for_truth};
 
 use super::{
     RecordingObserver, TruthExecutionArtifacts, TruthProjection,
@@ -144,6 +144,15 @@ pub(super) async fn execute<S: KernelStore>(
     engine.register_suggestor_in_pack(COMMERCIAL_PACK_ID, LeadQualificationAgent);
     engine.register_suggestor_in_pack(WORK_PACK_ID, LeadRoutingAgent);
 
+    let mut seed_ctx = seed_context(&inputs)?;
+    admit_truth_intent(
+        "qualify-inbound-lead",
+        &actor.actor_id,
+        "truth:qualify-inbound-lead",
+        &mut seed_ctx,
+    )
+    .map_err(|e| Status::internal(format!("admit intent failed: {e}")))?;
+
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
@@ -153,7 +162,7 @@ pub(super) async fn execute<S: KernelStore>(
                 .map(|id| id.to_string())
                 .unwrap_or_else(|| "inbound".to_string()),
         },
-        seed_context(&inputs)?,
+        seed_ctx,
         &binding.intent,
         std::sync::Arc::new(QualifyInboundLeadEvaluator),
     )

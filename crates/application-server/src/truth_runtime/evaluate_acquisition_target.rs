@@ -12,7 +12,9 @@ use organism_pack::{
     IntentPacket, Plan, PlanStep, ReasoningSystem, SearchHit, SharedBudget, SynthesisSuggestor,
 };
 use tonic::Status;
-use truth_catalog::{EvaluateAcquisitionTargetEvaluator, converge_binding_for_truth};
+use truth_catalog::{
+    EvaluateAcquisitionTargetEvaluator, admission::admit_truth_intent, converge_binding_for_truth,
+};
 
 use super::{
     TruthExecutionArtifacts, TruthProjection,
@@ -109,7 +111,14 @@ pub(super) async fn execute<S: KernelStore>(
     // Governance gate — blocks recommendation when contradictions need human review
     engine.register_suggestor_in_pack(TRUST_PACK_ID, ContradictionGateAgent);
 
-    let seed_ctx = seed_context(&company)?;
+    let mut seed_ctx = seed_context(&company)?;
+    admit_truth_intent(
+        "evaluate-acquisition-target",
+        &actor.actor_id,
+        "truth:evaluate-acquisition-target",
+        &mut seed_ctx,
+    )
+    .map_err(|e| Status::internal(format!("admit intent failed: {e}")))?;
 
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
