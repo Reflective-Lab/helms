@@ -1,12 +1,12 @@
-use chrono::{Duration, Utc};
 use organism_domain::packs;
-use organism_pack::{DeclarativeBinding, IntentBinding, IntentPacket, IntentResolver};
+use organism_pack::{DeclarativeBinding, IntentBinding, IntentResolver};
 use organism_runtime::{
     BudgetProbe, CredentialProbe, PackProbe, ReadinessProbe, ReadinessReport, Registry,
     StructuralResolver, check_readiness,
 };
 use serde::Serialize;
 
+use crate::intent_compile::compile_intent_for_truth;
 use crate::{TruthDefinition, find_truth};
 
 #[derive(Debug, Clone, Serialize)]
@@ -39,7 +39,9 @@ pub fn display_pack_names_for_truth(truth_key: &str) -> Option<Vec<String>> {
 }
 
 fn build_binding(truth: TruthDefinition) -> Option<TruthOrganismBinding> {
-    let (blueprint, intent, baseline, readiness) = organism_recipe(truth)?;
+    let (blueprint, baseline, readiness) = binding_recipe(truth)?;
+    let intent = compile_intent_for_truth(&truth)
+        .expect("truth has axiom-compilable governance and a known overlay");
     let registry = organism_registry();
     let resolver = StructuralResolver::new(&registry);
     let binding = resolver.resolve(&intent, &baseline);
@@ -56,43 +58,20 @@ fn build_binding(truth: TruthDefinition) -> Option<TruthOrganismBinding> {
     })
 }
 
-/// Test-only accessor that exposes the legacy `IntentPacket` produced by
-/// `organism_recipe`. Used by the axiom-equivalence gate during the organism
-/// 1.8.0 migration; goes away once `organism_recipe` itself is deleted.
-#[cfg(test)]
-pub(crate) fn organism_recipe_for_test(truth: TruthDefinition) -> Option<IntentPacket> {
-    organism_recipe(truth).map(|(_, intent, _, _)| intent)
-}
-
-fn organism_recipe(
+/// Per-truth helms-static binding metadata: blueprint label, the declarative
+/// pack/capability/invariant baseline that `StructuralResolver` resolves
+/// against, and the budget probe used by readiness checks.
+///
+/// The IntentPacket part of the legacy `organism_recipe` lives in
+/// `intent_compile::compile_intent_for_truth` now (axiom-compiled +
+/// helms overlay). Whatever remains here is the "smart selection" surface
+/// the handoff explicitly tells helms to keep until `select_formation`
+/// replaces it (handoff step 5).
+fn binding_recipe(
     truth: TruthDefinition,
-) -> Option<(
-    Option<&'static str>,
-    IntentPacket,
-    IntentBinding,
-    BudgetProbe,
-)> {
-    let expires = Utc::now() + Duration::hours(1);
-
+) -> Option<(Option<&'static str>, IntentBinding, BudgetProbe)> {
     match truth.key {
         "submit-expense-report" => {
-            let mut intent =
-                IntentPacket::new("submit employee expense report for reimbursement", expires)
-                    .with_context(serde_json::json!({
-                        "expense": {
-                            "receipt": "receipt:pending",
-                            "category": "expense:travel",
-                            "approval": "approval:route",
-                            "budget": "budget_envelope:team-travel",
-                        },
-                        "documents": ["receipt:pending"],
-                        "evaluations": "approval review required",
-                    }));
-            intent.constraints = vec![
-                "approval_has_rationale".to_string(),
-                "no_spend_beyond_envelope".to_string(),
-            ];
-
             let binding = DeclarativeBinding::new()
                 .pack(
                     "procurement",
@@ -106,10 +85,8 @@ fn organism_recipe(
                 .invariant("approval_has_rationale")
                 .invariant("no_spend_beyond_envelope")
                 .build();
-
             Some((
                 Some("procure_to_pay"),
-                intent,
                 binding,
                 BudgetProbe::new()
                     .with_token_budget(5_000)
@@ -117,16 +94,6 @@ fn organism_recipe(
             ))
         }
         "qualify-inbound-lead" => {
-            let mut intent = IntentPacket::new(
-                "qualify inbound lead with external enrichment and governed routing",
-                expires,
-            )
-            .with_context(serde_json::json!({
-                "pending": ["lead:inbound"],
-                "strategies": "next owner and route required",
-            }));
-            intent.constraints = vec!["lead_has_source".to_string()];
-
             let binding = DeclarativeBinding::new()
                 .pack("customers", "lead qualification workflow")
                 .pack(
@@ -135,10 +102,8 @@ fn organism_recipe(
                 )
                 .invariant("lead_has_source")
                 .build();
-
             Some((
                 Some("lead_to_cash"),
-                intent,
                 binding,
                 BudgetProbe::new()
                     .with_token_budget(8_000)
@@ -146,22 +111,6 @@ fn organism_recipe(
             ))
         }
         "evaluate-acquisition-target" => {
-            let mut intent = IntentPacket::new(
-                "evaluate acquisition target with convergent due diligence research",
-                expires,
-            )
-            .with_context(serde_json::json!({
-                "target": "company:pending",
-                "research": ["market", "competition", "technology", "financials", "team"],
-                "evaluations": "investment committee review required",
-            }));
-            intent.constraints = vec![
-                "contradictions_flagged".to_string(),
-                "synthesis_requires_coverage".to_string(),
-                "hypothesis_has_source".to_string(),
-            ];
-            intent.authority = vec!["investment-committee".to_string()];
-
             let binding = DeclarativeBinding::new()
                 .pack(
                     "due_diligence",
@@ -178,10 +127,8 @@ fn organism_recipe(
                 .invariant("contradictions_flagged")
                 .invariant("synthesis_requires_coverage")
                 .build();
-
             Some((
                 Some("diligence_to_decision"),
-                intent,
                 binding,
                 BudgetProbe::new()
                     .with_token_budget(20_000)
@@ -189,18 +136,6 @@ fn organism_recipe(
             ))
         }
         "plan-outbound-campaign" => {
-            let mut intent = IntentPacket::new(
-                "plan outbound campaign with governed spend and downstream customer handoff",
-                expires,
-            )
-            .with_context(serde_json::json!({
-                "campaign": "campaign:q3-pipeline",
-                "audience": "audience:target-accounts",
-                "budget": "budget:quarterly-outbound",
-                "evaluations": "attribution review",
-            }));
-            intent.constraints = vec!["budget_guardrails_enforced".to_string()];
-
             let binding = DeclarativeBinding::new()
                 .pack(
                     "growth_marketing",
@@ -209,10 +144,8 @@ fn organism_recipe(
                 .pack("customers", "downstream lead handling and handoff")
                 .invariant("budget_guardrails_enforced")
                 .build();
-
             Some((
                 Some("campaign_to_revenue"),
-                intent,
                 binding,
                 BudgetProbe::new()
                     .with_token_budget(6_000)

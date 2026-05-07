@@ -97,39 +97,39 @@ fn truth_overlay(truth: &TruthDefinition, intent: &mut IntentPacket) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{equiv::intent_packet_equiv, find_truth};
+    use crate::find_truth;
 
-    /// Equivalence gate (handoff step 2): the axiom-compiled IntentPacket plus
-    /// helms overlay must match the legacy `organism_recipe` output before the
-    /// recipe path can be deleted for this truth.
-    fn assert_axiom_matches_legacy(key: &str) {
+    /// Regression test: each truth's outcome string is round-trippable through
+    /// axiom's parse + compile pipeline. The legacy `organism_recipe`
+    /// equivalence gates lived here during the migration and were retired
+    /// once the recipe path was deleted (handoff step 3).
+    fn assert_compiles(key: &str) {
         let truth = find_truth(key).unwrap_or_else(|| panic!("truth {key} exists"));
-        let mut from_axiom = compile_intent_for_truth(&truth).expect("axiom compiles");
-        let legacy = crate::organism::organism_recipe_for_test(truth)
-            .expect("legacy recipe still produces an intent");
-        from_axiom.expires = legacy.expires;
-        if let Err(diff) = intent_packet_equiv(&from_axiom, &legacy) {
-            panic!("axiom-compiled intent diverges from organism_recipe for {key}:\n{diff}");
-        }
+        let intent =
+            compile_intent_for_truth(&truth).unwrap_or_else(|e| panic!("compile {key}: {e}"));
+        assert!(
+            !intent.outcome.trim().is_empty(),
+            "{key} compiled with empty outcome"
+        );
     }
 
     #[test]
-    fn qualify_inbound_lead_axiom_matches_legacy_recipe() {
-        assert_axiom_matches_legacy("qualify-inbound-lead");
+    fn qualify_inbound_lead_compiles() {
+        assert_compiles("qualify-inbound-lead");
     }
 
     #[test]
-    fn submit_expense_report_axiom_matches_legacy_recipe() {
-        assert_axiom_matches_legacy("submit-expense-report");
+    fn submit_expense_report_compiles() {
+        assert_compiles("submit-expense-report");
     }
 
     #[test]
-    fn evaluate_acquisition_target_axiom_matches_legacy_recipe() {
-        assert_axiom_matches_legacy("evaluate-acquisition-target");
+    fn evaluate_acquisition_target_compiles() {
+        assert_compiles("evaluate-acquisition-target");
     }
 
     #[test]
-    fn plan_outbound_campaign_axiom_matches_legacy_recipe() {
-        assert_axiom_matches_legacy("plan-outbound-campaign");
+    fn plan_outbound_campaign_compiles() {
+        assert_compiles("plan-outbound-campaign");
     }
 }
