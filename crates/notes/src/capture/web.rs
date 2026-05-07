@@ -32,7 +32,9 @@ pub fn capture_web(vault: &ObsidianVault, url: &str) -> Result<CaptureReport, St
     );
 
     let filename = sanitize_filename(
-        doc.title.as_deref().unwrap_or_else(|| url.split('/').last().unwrap_or("page")),
+        doc.title
+            .as_deref()
+            .unwrap_or_else(|| url.split('/').last().unwrap_or("page")),
     );
     let vault_path = format!("Inbox/Web/{filename}.md");
 
@@ -86,7 +88,13 @@ fn strip_html_rough(html: &str) -> String {
 fn sanitize_filename(name: &str) -> String {
     name.chars()
         .take(80)
-        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect::<String>()
         .trim()
         .to_string()

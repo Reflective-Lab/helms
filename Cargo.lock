@@ -240,19 +240,20 @@ dependencies = [
  "application-kernel",
  "application-storage",
  "async-trait",
- "atelier-domain",
  "axum 0.8.8",
  "capability-core",
  "capability-registry",
  "chrono",
+ "converge-atelier-domain",
  "converge-core",
  "converge-kernel",
+ "converge-mnemos-knowledge",
  "converge-optimization",
  "converge-pack",
- "mnemos",
+ "converge-prism-analytics",
+ "converge-provider",
  "organism-pack",
  "polars",
- "prism",
  "proptest",
  "prost 0.13.5",
  "prost-types 0.13.5",
@@ -304,27 +305,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7eb93bbb63b9c227414f6eb3a0adfddca591a8ce1e9b60661bb08969b87e340b"
 dependencies = [
  "object",
-]
-
-[[package]]
-name = "arbiter"
-version = "1.0.0"
-dependencies = [
- "async-trait",
- "axum 0.8.8",
- "base64",
- "cedar-policy",
- "ciborium",
- "converge-core",
- "converge-pack",
- "ed25519-dalek",
- "regex",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -474,20 +454,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "atelier-domain"
-version = "1.0.0"
-dependencies = [
- "arbiter",
- "async-trait",
- "converge-core",
- "converge-provider",
- "futures",
- "serde",
- "serde_json",
- "tracing",
 ]
 
 [[package]]
@@ -2080,12 +2046,47 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "136d3e02915a2cea4d74caa8681e2d44b1c3254bdbf17d11d41d587ff858832c"
 
 [[package]]
+name = "converge-arbiter-policy"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "axum 0.8.8",
+ "base64",
+ "cedar-policy",
+ "ciborium",
+ "converge-core",
+ "converge-pack",
+ "ed25519-dalek",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "converge-atelier-domain"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "converge-arbiter-policy",
+ "converge-core",
+ "converge-provider",
+ "futures",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
 name = "converge-core"
-version = "3.7.6"
+version = "3.8.1"
 dependencies = [
  "async-trait",
  "converge-pack",
- "converge-provider-api",
+ "converge-provider",
  "hex",
  "serde",
  "serde_json",
@@ -2098,7 +2099,7 @@ dependencies = [
 
 [[package]]
 name = "converge-experience"
-version = "3.7.6"
+version = "3.8.1"
 dependencies = [
  "converge-core",
  "serde",
@@ -2107,29 +2108,61 @@ dependencies = [
 
 [[package]]
 name = "converge-kernel"
-version = "3.7.6"
+version = "3.8.1"
 dependencies = [
+ "async-trait",
  "converge-core",
  "converge-model",
  "converge-optimization",
  "converge-pack",
  "converge-provider",
- "converge-provider-api",
+ "serde_json",
+]
+
+[[package]]
+name = "converge-mnemos-knowledge"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode 1.3.3",
+ "chrono",
+ "clap",
+ "converge-pack",
+ "dashmap",
+ "parking_lot",
+ "prost 0.13.5",
+ "prost-types 0.13.5",
+ "pulldown-cmark",
+ "rand 0.8.5",
+ "regex",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "tonic 0.12.3",
+ "tonic-build",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
 name = "converge-model"
-version = "3.7.6"
+version = "3.8.1"
 dependencies = [
  "converge-core",
  "converge-pack",
- "converge-provider-api",
+ "converge-provider",
  "serde",
 ]
 
 [[package]]
 name = "converge-optimization"
-version = "3.7.6"
+version = "3.8.1"
 dependencies = [
  "async-trait",
  "bitvec",
@@ -2150,7 +2183,7 @@ dependencies = [
 
 [[package]]
 name = "converge-pack"
-version = "3.7.6"
+version = "3.8.1"
 dependencies = [
  "async-trait",
  "hex",
@@ -2161,34 +2194,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "converge-provider"
-version = "3.7.6"
+name = "converge-prism-analytics"
+version = "1.0.0"
 dependencies = [
+ "anyhow",
  "async-trait",
- "base64",
- "converge-core",
+ "bincode 1.3.3",
+ "burn",
  "converge-optimization",
  "converge-pack",
- "converge-provider-api",
- "hex",
- "quick-xml 0.39.3",
- "regex-lite",
+ "ndarray 0.17.2",
+ "polars",
+ "proptest",
+ "rand 0.8.5",
  "reqwest 0.12.28",
- "schemars 0.8.22",
  "serde",
  "serde_json",
- "serde_yaml",
- "sha2 0.10.9",
- "thiserror 2.0.18",
  "tokio",
- "toml 0.8.23",
  "tracing",
- "urlencoding",
 ]
 
 [[package]]
-name = "converge-provider-api"
-version = "3.7.6"
+name = "converge-provider"
+version = "3.8.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -2740,7 +2768,7 @@ dependencies = [
  "serde_json",
  "spin 0.10.0",
  "thiserror 2.0.18",
- "toml 0.9.12+spec-1.1.0",
+ "toml",
  "tracing",
  "variadics_please",
  "wasm-bindgen-futures",
@@ -5800,37 +5828,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mnemos"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode 1.3.3",
- "chrono",
- "clap",
- "converge-pack",
- "dashmap",
- "parking_lot",
- "prost 0.13.5",
- "prost-types 0.13.5",
- "pulldown-cmark",
- "rand 0.8.5",
- "regex",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "serde_yaml",
- "thiserror 2.0.18",
- "tokio",
- "tokio-stream",
- "tonic 0.12.3",
- "tonic-build",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
 name = "moddef"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6269,7 +6266,7 @@ dependencies = [
  "itertools 0.14.0",
  "parking_lot",
  "percent-encoding",
- "quick-xml 0.38.4",
+ "quick-xml",
  "rand 0.9.2",
  "reqwest 0.12.28",
  "ring",
@@ -6393,7 +6390,7 @@ dependencies = [
 
 [[package]]
 name = "organism-adversarial"
-version = "1.4.1"
+version = "1.8.0"
 dependencies = [
  "async-trait",
  "converge-pack",
@@ -6406,11 +6403,12 @@ dependencies = [
 
 [[package]]
 name = "organism-domain"
-version = "1.4.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "converge-pack",
  "organism-pack",
+ "organism-runtime",
  "serde",
  "serde_json",
  "uuid",
@@ -6418,7 +6416,7 @@ dependencies = [
 
 [[package]]
 name = "organism-intelligence"
-version = "1.4.1"
+version = "1.8.0"
 dependencies = [
  "base64",
  "pdf-extract",
@@ -6432,9 +6430,11 @@ dependencies = [
 
 [[package]]
 name = "organism-intent"
-version = "1.4.1"
+version = "1.8.0"
 dependencies = [
+ "async-trait",
  "chrono",
+ "converge-pack",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -6443,7 +6443,7 @@ dependencies = [
 
 [[package]]
 name = "organism-learning"
-version = "1.4.1"
+version = "1.8.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -6457,7 +6457,7 @@ dependencies = [
 
 [[package]]
 name = "organism-notes"
-version = "1.4.1"
+version = "1.8.0"
 dependencies = [
  "base64",
  "chrono",
@@ -6470,7 +6470,7 @@ dependencies = [
 
 [[package]]
 name = "organism-pack"
-version = "1.4.1"
+version = "1.8.0"
 dependencies = [
  "converge-pack",
  "organism-adversarial",
@@ -6478,17 +6478,19 @@ dependencies = [
  "organism-learning",
  "organism-planning",
  "organism-simulation",
+ "serde",
 ]
 
 [[package]]
 name = "organism-planning"
-version = "1.4.1"
+version = "1.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
  "converge-kernel",
  "converge-pack",
+ "converge-provider",
  "organism-intent",
  "serde",
  "serde_json",
@@ -6498,15 +6500,14 @@ dependencies = [
 
 [[package]]
 name = "organism-runtime"
-version = "1.4.1"
+version = "1.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "converge-kernel",
  "converge-pack",
- "converge-provider-api",
+ "converge-provider",
  "organism-adversarial",
- "organism-domain",
  "organism-intent",
  "organism-learning",
  "organism-pack",
@@ -6521,7 +6522,7 @@ dependencies = [
 
 [[package]]
 name = "organism-simulation"
-version = "1.4.1"
+version = "1.8.0"
 dependencies = [
  "async-trait",
  "converge-pack",
@@ -7700,33 +7701,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "prism"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode 1.3.3",
- "burn",
- "converge-optimization",
- "converge-pack",
- "ndarray 0.17.2",
- "polars",
- "proptest",
- "rand 0.8.5",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "proc-macro-crate"
 version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
 dependencies = [
- "toml_edit 0.25.8+spec-1.1.0",
+ "toml_edit",
 ]
 
 [[package]]
@@ -7973,15 +7953,6 @@ checksum = "b66c2058c55a409d601666cffe35f04333cf1013010882cec174a7467cd4e21c"
 dependencies = [
  "memchr",
  "serde",
-]
-
-[[package]]
-name = "quick-xml"
-version = "0.39.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "721da970c312655cde9b4ffe0547f20a8494866a4af5ff51f18b7c633d0c870b"
-dependencies = [
- "memchr",
 ]
 
 [[package]]
@@ -8446,12 +8417,6 @@ dependencies = [
  "memchr",
  "regex-syntax",
 ]
-
-[[package]]
-name = "regex-lite"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cab834c73d247e67f4fae452806d17d3c7501756d98c8808d7c9c7aa7d18f973"
 
 [[package]]
 name = "regex-syntax"
@@ -9087,18 +9052,6 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "0.8.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fbf2ae1b8bc8e02df939598064d22402220cd5bbcca1c76f7d6a310974d5615"
-dependencies = [
- "dyn-clone",
- "schemars_derive",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "schemars"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cd191f9397d57d581cddd31014772520aa448f65ef991055d7f61582c65165f"
@@ -9119,18 +9072,6 @@ dependencies = [
  "ref-cast",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "schemars_derive"
-version = "0.8.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32e265784ad618884abaea0600a9adf15393368d840e0222d101a072f3f7534d"
-dependencies = [
- "proc-macro2",
- "quote",
- "serde_derive_internals",
- "syn 2.0.117",
 ]
 
 [[package]]
@@ -9271,17 +9212,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_derive_internals"
-version = "0.29.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18d26a20a969b9e3fdf2fc2d9f21eda6c40e2de84c9408bb5d3b05d499aae711"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.117",
-]
-
-[[package]]
 name = "serde_json"
 version = "1.0.149"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9314,15 +9244,6 @@ checksum = "ec8bd74f47e124e760475a7e863b5820dcef09cae50782d03d65961f5ca1e6d9"
 dependencies = [
  "rusqlite",
  "serde_core",
-]
-
-[[package]]
-name = "serde_spanned"
-version = "0.6.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf41e0cfaf7226dca15e8197172c295a782857fcb97fad1808a166870dee75a3"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -10556,38 +10477,17 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.8.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc1beb996b9d83529a9e75c17a1686767d148d70663143c7854d8b4a09ced362"
-dependencies = [
- "serde",
- "serde_spanned 0.6.9",
- "toml_datetime 0.6.11",
- "toml_edit 0.22.27",
-]
-
-[[package]]
-name = "toml"
 version = "0.9.12+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf92845e79fc2e2def6a5d828f0801e29a2f8acc037becc5ab08595c7d5e9863"
 dependencies = [
  "indexmap 2.13.0",
  "serde_core",
- "serde_spanned 1.1.0",
+ "serde_spanned",
  "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
  "toml_writer",
  "winnow 0.7.15",
-]
-
-[[package]]
-name = "toml_datetime"
-version = "0.6.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22cddaf88f4fbc13c51aebbf5f8eceb5c7c5a9da2ac40a13519eb5b0a0e8f11c"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -10610,20 +10510,6 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
-dependencies = [
- "indexmap 2.13.0",
- "serde",
- "serde_spanned 0.6.9",
- "toml_datetime 0.6.11",
- "toml_write",
- "winnow 0.7.15",
-]
-
-[[package]]
-name = "toml_edit"
 version = "0.25.8+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16bff38f1d86c47f9ff0647e6838d7bb362522bdf44006c7068c2b1e606f1f3c"
@@ -10642,12 +10528,6 @@ checksum = "2334f11ee363607eb04df9b8fc8a13ca1715a72ba8662a26ac285c98aabb4011"
 dependencies = [
  "winnow 1.0.0",
 ]
-
-[[package]]
-name = "toml_write"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
 
 [[package]]
 name = "toml_writer"
@@ -12178,9 +12058,6 @@ name = "winnow"
 version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
-dependencies = [
- "memchr",
-]
 
 [[package]]
 name = "winnow"
@@ -12579,17 +12456,29 @@ dependencies = [
 ]
 
 [[patch.unused]]
+name = "axiom-truth"
+version = "0.8.1"
+
+[[patch.unused]]
 name = "converge-client"
-version = "3.7.6"
+version = "3.8.1"
+
+[[patch.unused]]
+name = "converge-ferrox-solver"
+version = "0.4.1"
+
+[[patch.unused]]
+name = "converge-manifold-adapters"
+version = "1.0.0"
 
 [[patch.unused]]
 name = "converge-protocol"
-version = "3.7.6"
+version = "3.8.1"
 
 [[patch.unused]]
 name = "converge-runtime"
-version = "3.7.6"
+version = "3.8.1"
 
 [[patch.unused]]
 name = "converge-storage"
-version = "3.7.6"
+version = "3.8.1"

@@ -7,14 +7,14 @@ use serde::Serialize;
 
 mod detect;
 mod format;
-#[cfg(feature = "web")]
-mod web;
-#[cfg(feature = "social")]
-mod social;
 #[cfg(feature = "ocr")]
 mod ocr;
 #[cfg(feature = "pdf")]
 mod pdf;
+#[cfg(feature = "social")]
+mod social;
+#[cfg(feature = "web")]
+mod web;
 
 // ── Public Types ────────────────────────────────────────────────────
 

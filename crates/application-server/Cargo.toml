@@ -21,6 +21,7 @@ converge-kernel.workspace = true
 converge-knowledge.workspace = true
 converge-optimization.workspace = true
 converge-pack.workspace = true
+converge-provider.workspace = true
 organism-pack.workspace = true
 polars = { version = "0.51", features = ["lazy", "parquet"] }
 application-kernel = { path = "../application-kernel" }

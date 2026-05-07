@@ -52,28 +52,29 @@ publish = false
 [workspace.dependencies]
 anyhow = "1"
 async-stream = "0.3"
-axiom-truth = { git = "https://github.com/Reflective-Lab/axiom", tag = "v0.6.0" }
+axiom-truth = { path = "../axiom", version = "0.8.1" }
 axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 # Extracted Converge extension packages. Keep the dependency keys stable so
 # existing Helm code can keep using `converge_analytics`, `converge_domain`,
-# and `converge_knowledge` while the implementation packages live in their new
-# repositories.
-converge-analytics = { package = "prism", path = "../../extensions/prism/crates/prism" }
+# `converge_knowledge`, and `converge_policy` while the implementation
+# packages live in their canonical `converge-<brand>-<topic>` form.
+converge-analytics = { package = "converge-prism-analytics", path = "../../extensions/prism-analytics/crates/prism", version = "1.0.0" }
 converge-core = { path = "../converge/crates/core" }
-converge-domain = { package = "atelier-domain", path = "../../atelier/crates/atelier-domain" }
+converge-domain = { package = "converge-atelier-domain", path = "../../extensions/atelier-showcase/crates/atelier-domain", version = "1.0.0" }
 converge-experience = { path = "../converge/crates/experience" }
 converge-kernel = { path = "../converge/crates/kernel" }
-converge-knowledge = { package = "mnemos", path = "../../extensions/mnemos/crates/mnemos" }
+converge-knowledge = { package = "converge-mnemos-knowledge", path = "../../extensions/mnemos-knowledge/crates/mnemos", version = "1.0.0" }
 converge-model = { path = "../converge/crates/model" }
 converge-optimization = { path = "../converge/crates/optimization" }
 converge-pack = { path = "../converge/crates/pack" }
-converge-policy = { package = "arbiter", path = "../../extensions/arbiter/crates/arbiter" }
-organism-domain = { path = "../organism/crates/domain" }
-organism-intelligence = { path = "../organism/crates/intelligence" }
-organism-notes = { path = "../organism/crates/notes" }
-organism-pack = { path = "../organism/crates/pack" }
-organism-runtime = { path = "../organism/crates/runtime" }
+converge-policy = { package = "converge-arbiter-policy", path = "../../extensions/arbiter-policy/crates/arbiter", version = "1.0.0" }
+converge-provider = { path = "../converge/crates/provider", version = "3.8.1" }
+organism-domain = { path = "../../extensions/atelier-showcase/crates/organism-domain", version = "1.0.0" }
+organism-intelligence = { path = "../organism/crates/intelligence", version = "1.8.0" }
+organism-notes = { path = "../organism/crates/notes", version = "1.8.0" }
+organism-pack = { path = "../organism/crates/pack", version = "1.8.0" }
+organism-runtime = { path = "../organism/crates/runtime", version = "1.8.0" }
 prost = "0.13"
 prost-types = "0.13"
 serde = { version = "1", features = ["derive"] }
@@ -90,23 +91,29 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["serde", "v4"] }
 proptest = "1"
 
-# Redirect transitive crates.io converge/organism deps to local head
+# Redirect transitive crates.io converge/organism/extension deps to local head
 # until the next tag ships. Local-only — remove before publishing.
 [patch.crates-io]
-converge-client       = { path = "../converge/crates/client" }
-converge-core         = { path = "../converge/crates/core" }
-converge-experience   = { path = "../converge/crates/experience" }
-converge-kernel       = { path = "../converge/crates/kernel" }
-converge-model        = { path = "../converge/crates/model" }
-converge-optimization = { path = "../converge/crates/optimization" }
-converge-pack         = { path = "../converge/crates/pack" }
-converge-protocol     = { path = "../converge/crates/protocol" }
-converge-provider     = { path = "../converge/crates/provider" }
-converge-provider-api = { path = "../converge/crates/provider-api" }
-converge-runtime      = { path = "../converge/crates/runtime" }
-converge-storage      = { path = "../converge/crates/storage" }
-organism-domain       = { path = "../organism/crates/domain" }
-organism-intelligence = { path = "../organism/crates/intelligence" }
-organism-notes        = { path = "../organism/crates/notes" }
-organism-pack         = { path = "../organism/crates/pack" }
-organism-runtime      = { path = "../organism/crates/runtime" }
+axiom-truth                = { path = "../axiom" }
+converge-client            = { path = "../converge/crates/client" }
+converge-core              = { path = "../converge/crates/core" }
+converge-experience        = { path = "../converge/crates/experience" }
+converge-kernel            = { path = "../converge/crates/kernel" }
+converge-model             = { path = "../converge/crates/model" }
+converge-optimization      = { path = "../converge/crates/optimization" }
+converge-pack              = { path = "../converge/crates/pack" }
+converge-protocol          = { path = "../converge/crates/protocol" }
+converge-provider          = { path = "../converge/crates/provider" }
+converge-runtime           = { path = "../converge/crates/runtime" }
+converge-storage           = { path = "../converge/crates/storage" }
+converge-arbiter-policy    = { path = "../../extensions/arbiter-policy/crates/arbiter" }
+converge-atelier-domain    = { path = "../../extensions/atelier-showcase/crates/atelier-domain" }
+converge-ferrox-solver     = { path = "../../extensions/ferrox-solvers/crates/ferrox" }
+converge-manifold-adapters = { path = "../../extensions/manifold-adapters/crates/manifold" }
+converge-mnemos-knowledge  = { path = "../../extensions/mnemos-knowledge/crates/mnemos" }
+converge-prism-analytics   = { path = "../../extensions/prism-analytics/crates/prism" }
+organism-domain            = { path = "../../extensions/atelier-showcase/crates/organism-domain" }
+organism-intelligence      = { path = "../organism/crates/intelligence" }
+organism-notes             = { path = "../organism/crates/notes" }
+organism-pack              = { path = "../organism/crates/pack" }
+organism-runtime           = { path = "../organism/crates/runtime" }

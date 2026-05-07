@@ -21,8 +21,8 @@ use application_kernel::Actor;
 use application_storage::{AppRuntimeStores, KernelStore};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::IntoResponse;
+use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
@@ -119,8 +119,14 @@ where
         .route("/v1/pipeline/showcase/status", get(pipeline_status::<S>))
         .route("/v1/pipeline/showcase/reset", post(reset_pipeline::<S>))
         .route("/v1/approvals/pending", get(list_pending_approvals::<S>))
-        .route("/v1/approvals/{approval_ref}/approve", post(approve_step::<S>))
-        .route("/v1/approvals/{approval_ref}/reject", post(reject_step::<S>))
+        .route(
+            "/v1/approvals/{approval_ref}/approve",
+            post(approve_step::<S>),
+        )
+        .route(
+            "/v1/approvals/{approval_ref}/reject",
+            post(reject_step::<S>),
+        )
 }
 
 // ── SSE Stream ──────────────────────────────────────────────────────
@@ -333,7 +339,10 @@ where
     S: KernelStore + Clone + Send + Sync + 'static,
 {
     let mut approvals = state.pending_approvals.write().await;
-    if let Some(pos) = approvals.iter().position(|a| a.approval_ref == approval_ref) {
+    if let Some(pos) = approvals
+        .iter()
+        .position(|a| a.approval_ref == approval_ref)
+    {
         let approval = approvals.remove(pos);
         let _ = state.events_tx.send(PipelineEvent::StepCompleted {
             step: approval.step,
@@ -343,7 +352,10 @@ where
         });
         (StatusCode::OK, format!("approved: {approval_ref}"))
     } else {
-        (StatusCode::NOT_FOUND, format!("approval not found: {approval_ref}"))
+        (
+            StatusCode::NOT_FOUND,
+            format!("approval not found: {approval_ref}"),
+        )
     }
 }
 
@@ -356,9 +368,14 @@ where
     S: KernelStore + Clone + Send + Sync + 'static,
 {
     let mut approvals = state.pending_approvals.write().await;
-    if let Some(pos) = approvals.iter().position(|a| a.approval_ref == approval_ref) {
+    if let Some(pos) = approvals
+        .iter()
+        .position(|a| a.approval_ref == approval_ref)
+    {
         let approval = approvals.remove(pos);
-        let reason = decision.reason.unwrap_or_else(|| "rejected by operator".into());
+        let reason = decision
+            .reason
+            .unwrap_or_else(|| "rejected by operator".into());
         let _ = state.events_tx.send(PipelineEvent::StepFailed {
             step: approval.step,
             truth_key: approval.truth_key,
@@ -366,6 +383,9 @@ where
         });
         (StatusCode::OK, format!("rejected: {approval_ref}"))
     } else {
-        (StatusCode::NOT_FOUND, format!("approval not found: {approval_ref}"))
+        (
+            StatusCode::NOT_FOUND,
+            format!("approval not found: {approval_ref}"),
+        )
     }
 }

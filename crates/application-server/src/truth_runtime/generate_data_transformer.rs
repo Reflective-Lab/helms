@@ -13,10 +13,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use converge_kernel::{Context, Engine};
-use converge_pack::{
-    AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor,
-};
+use converge_kernel::{ContextState as Context, Engine};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use sha2::{Digest, Sha256};
 
 // ── Code Generation Suggestor ───────────────────────────────────────
@@ -51,11 +49,11 @@ impl Suggestor for CodeGenSuggestor {
         let needs_codegen = ctx
             .get(ContextKey::Strategies)
             .iter()
-            .any(|f| f.content.contains("[codegen]"));
+            .any(|f| f.content().contains("[codegen]"));
         let has_artifact = ctx
             .get(ContextKey::Hypotheses)
             .iter()
-            .any(|f| f.id.starts_with("artifact:generated-source:"));
+            .any(|f| f.id().starts_with("artifact:generated-source:"));
         let already_generated = *self.generated.lock().unwrap();
 
         needs_codegen && !has_artifact && !already_generated
@@ -69,8 +67,8 @@ impl Suggestor for CodeGenSuggestor {
         let strategy = ctx
             .get(ContextKey::Strategies)
             .iter()
-            .find(|f| f.content.contains("[codegen]"))
-            .map(|f| f.content.clone())
+            .find(|f| f.content().contains("[codegen]"))
+            .map(|f| f.content().to_string())
             .unwrap_or_default();
 
         let source = if self.llm_stub {
@@ -136,7 +134,7 @@ impl Suggestor for CodeVerifierSuggestor {
         let has_source = ctx
             .get(ContextKey::Hypotheses)
             .iter()
-            .any(|f| f.id.starts_with("artifact:generated-source:"));
+            .any(|f| f.id().starts_with("artifact:generated-source:"));
         let already_verified = *self.verified.lock().unwrap();
 
         has_source && !already_verified
@@ -148,23 +146,22 @@ impl Suggestor for CodeVerifierSuggestor {
         let source_fact = ctx
             .get(ContextKey::Hypotheses)
             .iter()
-            .find(|f| f.id.starts_with("artifact:generated-source:"))
+            .find(|f| f.id().starts_with("artifact:generated-source:"))
             .cloned();
 
         let Some(source_fact) = source_fact else {
             return AgentEffect::empty();
         };
 
-        let parsed: serde_json::Value =
-            match serde_json::from_str(&source_fact.content) {
-                Ok(v) => v,
-                Err(e) => {
-                    return verification_failure(
-                        "parse-error",
-                        &format!("could not parse source artifact: {e}"),
-                    );
-                }
-            };
+        let parsed: serde_json::Value = match serde_json::from_str(&source_fact.content()) {
+            Ok(v) => v,
+            Err(e) => {
+                return verification_failure(
+                    "parse-error",
+                    &format!("could not parse source artifact: {e}"),
+                );
+            }
+        };
 
         let source = parsed["source"].as_str().unwrap_or("");
         let source_hash = parsed["source_hash"].as_str().unwrap_or("");
@@ -181,10 +178,16 @@ impl Suggestor for CodeVerifierSuggestor {
         // Structural checks (production: actual Wasm compilation via Axiom)
         let checks = vec![
             ("has-function", source.contains("fn transform")),
-            ("has-input-type", source.contains("&str") || source.contains("&[u8]")),
+            (
+                "has-input-type",
+                source.contains("&str") || source.contains("&[u8]"),
+            ),
             ("has-return-type", source.contains("-> ")),
             ("no-unsafe", !source.contains("unsafe")),
-            ("no-std-compatible", !source.contains("use std::") || source.contains("#![no_std]")),
+            (
+                "no-std-compatible",
+                !source.contains("use std::") || source.contains("#![no_std]"),
+            ),
         ];
 
         let failures: Vec<_> = checks
@@ -213,7 +216,7 @@ impl Suggestor for CodeVerifierSuggestor {
             "provenance": {
                 "generated_by": "codegen",
                 "verified_by": "code-verifier",
-                "source_fact_id": source_fact.id,
+                "source_fact_id": source_fact.id(),
             },
         })
         .to_string();
@@ -365,7 +368,7 @@ fn verification_failure(kind: &str, detail: &str) -> AgentEffect {
     AgentEffect::with_proposal(
         ProposedFact::new(
             ContextKey::Evaluations,
-            &format!("artifact:verification-failure:{kind}"),
+            format!("artifact:verification-failure:{kind}"),
             content,
             "code-verifier",
         )
@@ -445,10 +448,12 @@ mod tests {
         let a: serde_json::Value = serde_json::from_str(&artifact.content).unwrap();
         assert_eq!(a["provenance"]["generated_by"], "codegen");
         assert_eq!(a["provenance"]["verified_by"], "code-verifier");
-        assert!(a["provenance"]["source_fact_id"]
-            .as_str()
-            .unwrap()
-            .starts_with("artifact:generated-source:"));
+        assert!(
+            a["provenance"]["source_fact_id"]
+                .as_str()
+                .unwrap()
+                .starts_with("artifact:generated-source:")
+        );
 
         // Integrity proof should be available
         let proof = &result.integrity;

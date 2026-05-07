@@ -3,10 +3,10 @@ use application_kernel::{
     TimelineEntryKind, WorkflowPriority, WorkflowState,
 };
 use application_storage::{AppConfig, RuntimeModuleConfig};
-use chrono::{DateTime, Utc};
 use capability_core::CapabilityModule;
-use truth_catalog::TruthKind;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use truth_catalog::TruthKind;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct OperatorDashboard {

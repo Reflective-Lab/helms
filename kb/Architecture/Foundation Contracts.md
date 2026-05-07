@@ -13,6 +13,20 @@ redefine them.
 | Capability contracts for chat and routing | `converge-provider-api` | `converge-provider` for ready-made adapters | direct vendor HTTP spread across product code |
 | Reusable reasoning and planning | `organism-pack`, `organism-runtime` | `organism-domain`, `organism-intelligence`, `organism-notes` | Organism phase crates |
 
+## Extension Locations
+
+Converge v3.8 extracts implementation-heavy capabilities out of the foundation
+repository. Helm should resolve those capabilities from extension repositories
+and keep the foundation dependencies focused on contracts.
+
+| Capability | Current location | Helm dependency rule |
+|---|---|---|
+| Policy gates / Cedar PDP | `/Users/kpernyer/dev/extensions/arbiter` | Import through the `arbiter` package; alias to `converge-policy` only for transitional code that still uses `converge_policy`. |
+| Native optimization solvers | `/Users/kpernyer/dev/extensions/ferrox` | Treat as an optional solver extension; do not reintroduce OR-Tools into Helm or Converge foundation crates. |
+| Provider adapters / external tools | `/Users/kpernyer/dev/extensions/manifold` | Planned home for concrete adapters; keep Helm coupled to capability contracts, not vendor types. |
+| Knowledge and recall | `/Users/kpernyer/dev/extensions/mnemos` | Existing `converge_knowledge` imports may be satisfied by aliasing the `mnemos` package during migration. |
+| Analytics and ML pipelines | `/Users/kpernyer/dev/extensions/prism` | Existing `converge_analytics` imports may be satisfied by aliasing the `prism` package during migration. |
+
 ## What Helm Owns
 
 - operator-facing UX

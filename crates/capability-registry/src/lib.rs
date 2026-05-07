@@ -1,6 +1,7 @@
 use prio_agent_ops::MODULE as AGENT_OPS;
 use std::collections::BTreeMap;
 
+use capability_core::{CapabilityModule, ModuleSuite};
 use prio_approvals::MODULE as APPROVALS;
 use prio_audit::MODULE as AUDIT;
 use prio_catalog::MODULE as CATALOG;
@@ -14,7 +15,6 @@ use prio_intents::MODULE as INTENTS;
 use prio_ledger::MODULE as LEDGER;
 use prio_memory::MODULE as MEMORY;
 use prio_metering::MODULE as METERING;
-use capability_core::{CapabilityModule, ModuleSuite};
 use prio_opportunities::MODULE as OPPORTUNITIES;
 use prio_parties::MODULE as PARTIES;
 use prio_payments::MODULE as PAYMENTS;

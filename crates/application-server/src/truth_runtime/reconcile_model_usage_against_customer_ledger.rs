@@ -6,14 +6,14 @@ use application_kernel::{
     WorkflowState,
 };
 use application_storage::{KernelStore, StoreWriteResult};
-use converge_kernel::{Context, ConvergeResult, Engine};
-use converge_pack::{
-    AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor,
-};
 use converge_domain::packs::ReconciliationMatcherAgent;
-use truth_catalog::{ReconcileModelUsageAgainstCustomerLedgerEvaluator, converge_binding_for_truth};
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
+use truth_catalog::{
+    ReconcileModelUsageAgainstCustomerLedgerEvaluator, converge_binding_for_truth,
+};
 use uuid::Uuid;
 
 use super::{
@@ -399,7 +399,8 @@ pub(super) async fn execute<S: KernelStore>(
         seed_context(seed.subscription.id)?,
         &binding.intent,
         std::sync::Arc::new(ReconcileModelUsageAgainstCustomerLedgerEvaluator),
-    ).await?;
+    )
+    .await?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -651,21 +652,21 @@ impl Suggestor for UsageSummaryAgent {
     }
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
-        AgentEffect {
-            proposals: vec![ProposedFact::new(
-                ContextKey::Signals,
-                USAGE_SUMMARY_FACT_ID.to_string(),
-                serde_json::to_string(&UsageSummaryPayload {
-                    subscription_id: self.seed.subscription.id,
-                    burn_minor: self.seed.usage.burn_minor,
-                    meter_name: self.seed.usage.meter_name.clone(),
-                    period_label: self.seed.usage.period_label.clone(),
-                })
-                .expect("usage summary should serialize"),
-                USAGE_PROVENANCE.to_string(),
+        AgentEffect::with_proposals(vec![
+                ProposedFact::new(
+                    ContextKey::Signals,
+                    USAGE_SUMMARY_FACT_ID.to_string(),
+                    serde_json::to_string(&UsageSummaryPayload {
+                        subscription_id: self.seed.subscription.id,
+                        burn_minor: self.seed.usage.burn_minor,
+                        meter_name: self.seed.usage.meter_name.clone(),
+                        period_label: self.seed.usage.period_label.clone(),
+                    })
+                    .expect("usage summary should serialize"),
+                    USAGE_PROVENANCE.to_string(),
                 )
-                .with_confidence(0.99)],
-        }
+                .with_confidence(0.99),
+            ])
     }
 }
 
@@ -685,8 +686,7 @@ impl Suggestor for ProviderBillingSummaryAgent {
     }
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
-        AgentEffect {
-            proposals: vec![
+        AgentEffect::with_proposals(vec![
                 ProposedFact::new(
                     ContextKey::Signals,
                     PROVIDER_SUMMARY_FACT_ID.to_string(),
@@ -699,8 +699,8 @@ impl Suggestor for ProviderBillingSummaryAgent {
                     })
                     .expect("provider summary should serialize"),
                     PROVIDER_PROVENANCE.to_string(),
-                    )
-                    .with_confidence(0.99),
+                )
+                .with_confidence(0.99),
                 ProposedFact::new(
                     ContextKey::Signals,
                     format!(
@@ -715,10 +715,9 @@ impl Suggestor for ProviderBillingSummaryAgent {
                     })
                     .to_string(),
                     PROVIDER_PROVENANCE.to_string(),
-                    )
-                    .with_confidence(0.95),
-            ],
-        }
+                )
+                .with_confidence(0.95),
+            ])
     }
 }
 
@@ -738,8 +737,7 @@ impl Suggestor for LedgerSummaryAgent {
     }
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
-        AgentEffect {
-            proposals: vec![
+        AgentEffect::with_proposals(vec![
                 ProposedFact::new(
                     ContextKey::Proposals,
                     LEDGER_SUMMARY_FACT_ID.to_string(),
@@ -752,8 +750,8 @@ impl Suggestor for LedgerSummaryAgent {
                     })
                     .expect("ledger summary should serialize"),
                     LEDGER_PROVENANCE.to_string(),
-                    )
-                    .with_confidence(0.99),
+                )
+                .with_confidence(0.99),
                 ProposedFact::new(
                     ContextKey::Proposals,
                     format!("invoice:reconciliation:{}", self.seed.subscription.id),
@@ -766,10 +764,9 @@ impl Suggestor for LedgerSummaryAgent {
                     })
                     .to_string(),
                     LEDGER_PROVENANCE.to_string(),
-                    )
-                    .with_confidence(0.95),
-            ],
-        }
+                )
+                .with_confidence(0.95),
+            ])
     }
 }
 
@@ -789,20 +786,20 @@ impl Suggestor for EntitlementSummaryAgent {
     }
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
-        AgentEffect {
-            proposals: vec![ProposedFact::new(
-                ContextKey::Signals,
-                ENTITLEMENT_SUMMARY_FACT_ID.to_string(),
-                serde_json::to_string(&EntitlementSummaryPayload {
-                    subscription_id: self.seed.subscription.id,
-                    current_credit_balance_minor: self.seed.entitlements.credit_balance_minor,
-                    service_access_state: self.seed.entitlements.service_access_state.clone(),
-                })
-                .expect("entitlement summary should serialize"),
-                ENTITLEMENT_PROVENANCE.to_string(),
+        AgentEffect::with_proposals(vec![
+                ProposedFact::new(
+                    ContextKey::Signals,
+                    ENTITLEMENT_SUMMARY_FACT_ID.to_string(),
+                    serde_json::to_string(&EntitlementSummaryPayload {
+                        subscription_id: self.seed.subscription.id,
+                        current_credit_balance_minor: self.seed.entitlements.credit_balance_minor,
+                        service_access_state: self.seed.entitlements.service_access_state.clone(),
+                    })
+                    .expect("entitlement summary should serialize"),
+                    ENTITLEMENT_PROVENANCE.to_string(),
                 )
-                .with_confidence(0.99)],
-        }
+                .with_confidence(0.99),
+            ])
     }
 }
 
@@ -820,7 +817,7 @@ impl Suggestor for ReconciliationAssessmentAgent {
         let matched_provider_to_ledger = ctx
             .get(ContextKey::Proposals)
             .iter()
-            .any(|fact| fact.id.starts_with("ledger:") && fact.id.contains("bank_txn"));
+            .any(|fact| fact.id().starts_with("ledger:") && fact.id().contains("bank_txn"));
         has_fact_id(ctx, ContextKey::Signals, USAGE_SUMMARY_FACT_ID)
             && has_fact_id(ctx, ContextKey::Signals, PROVIDER_SUMMARY_FACT_ID)
             && has_fact_id(ctx, ContextKey::Signals, ENTITLEMENT_SUMMARY_FACT_ID)
@@ -835,7 +832,7 @@ impl Suggestor for ReconciliationAssessmentAgent {
         let matched_provider_to_ledger = ctx
             .get(ContextKey::Proposals)
             .iter()
-            .any(|fact| fact.id.starts_with("ledger:") && fact.id.contains("bank_txn"));
+            .any(|fact| fact.id().starts_with("ledger:") && fact.id().contains("bank_txn"));
 
         let expected_credit_balance_minor = self.seed.ledger.opening_balance_minor
             + self.seed.ledger.credit_grants_minor
@@ -867,16 +864,16 @@ impl Suggestor for ReconciliationAssessmentAgent {
             .max(entitlement_delta_minor.abs());
 
         if matched_provider_to_ledger && max_delta_minor == 0 {
-            return AgentEffect {
-                proposals: vec![ProposedFact::new(
-                    ContextKey::Evaluations,
-                    CLEAN_FACT_ID.to_string(),
-                    serde_json::to_string(&assessment)
-                        .expect("clean reconciliation payload should serialize"),
-                    ASSESSMENT_PROVENANCE.to_string(),
+            return AgentEffect::with_proposals(vec![
+                    ProposedFact::new(
+                        ContextKey::Evaluations,
+                        CLEAN_FACT_ID.to_string(),
+                        serde_json::to_string(&assessment)
+                            .expect("clean reconciliation payload should serialize"),
+                        ASSESSMENT_PROVENANCE.to_string(),
                     )
-                    .with_confidence(0.99)],
-            };
+                    .with_confidence(0.99),
+                ]);
         }
 
         let target_id = if max_delta_minor > self.seed.threshold_minor {
@@ -884,16 +881,16 @@ impl Suggestor for ReconciliationAssessmentAgent {
         } else {
             EXCEPTION_FACT_ID
         };
-        AgentEffect {
-            proposals: vec![ProposedFact::new(
-                ContextKey::Evaluations,
-                target_id.to_string(),
-                serde_json::to_string(&assessment)
-                    .expect("reconciliation exception payload should serialize"),
-                ASSESSMENT_PROVENANCE.to_string(),
+        AgentEffect::with_proposals(vec![
+                ProposedFact::new(
+                    ContextKey::Evaluations,
+                    target_id.to_string(),
+                    serde_json::to_string(&assessment)
+                        .expect("reconciliation exception payload should serialize"),
+                    ASSESSMENT_PROVENANCE.to_string(),
                 )
-                .with_confidence(0.99)],
-        }
+                .with_confidence(0.99),
+            ])
     }
 }
 
@@ -916,27 +913,27 @@ impl Suggestor for ExceptionRoutingAgent {
         let exception = ctx
             .get(ContextKey::Evaluations)
             .iter()
-            .find(|fact| fact.id == EXCEPTION_FACT_ID)
+            .find(|fact| fact.id() == EXCEPTION_FACT_ID)
             .expect("exception fact should exist before routing");
         let assessment: ReconciliationAssessmentPayload =
-            serde_json::from_str(&exception.content).expect("exception payload should deserialize");
-        AgentEffect {
-            proposals: vec![ProposedFact::new(
-                ContextKey::Strategies,
-                ROUTE_FACT_ID.to_string(),
-                serde_json::to_string(&ReconciliationRoutePayload {
-                    severity: "warning".to_string(),
-                    workflow_state: "blocked".to_string(),
-                    summary: format!(
-                        "reconciliation drift routed for investigation: {}",
-                        assessment.summary
-                    ),
-                })
-                .expect("route payload should serialize"),
-                ROUTING_PROVENANCE.to_string(),
+            serde_json::from_str(&exception.content()).expect("exception payload should deserialize");
+        AgentEffect::with_proposals(vec![
+                ProposedFact::new(
+                    ContextKey::Strategies,
+                    ROUTE_FACT_ID.to_string(),
+                    serde_json::to_string(&ReconciliationRoutePayload {
+                        severity: "warning".to_string(),
+                        workflow_state: "blocked".to_string(),
+                        summary: format!(
+                            "reconciliation drift routed for investigation: {}",
+                            assessment.summary
+                        ),
+                    })
+                    .expect("route payload should serialize"),
+                    ROUTING_PROVENANCE.to_string(),
                 )
-                .with_confidence(0.98)],
-        }
+                .with_confidence(0.98),
+            ])
     }
 }
 
@@ -961,9 +958,9 @@ fn manual_review_from_result(
         .context
         .get(ContextKey::Evaluations)
         .iter()
-        .find(|fact| fact.id == MANUAL_REVIEW_FACT_ID)
+        .find(|fact| fact.id() == MANUAL_REVIEW_FACT_ID)
         .map(|fact| {
-            serde_json::from_str(&fact.content).map_err(|error| {
+            serde_json::from_str(&fact.content()).map_err(|error| {
                 Status::internal(format!(
                     "invalid reconciliation manual review payload: {error}"
                 ))

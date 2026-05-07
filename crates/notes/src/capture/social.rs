@@ -80,7 +80,13 @@ fn count_fields(profile: &organism_intelligence::social::SocialProfile) -> usize
 
 fn sanitize_filename(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect::<String>()
         .trim()
         .to_string()

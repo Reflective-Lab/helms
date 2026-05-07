@@ -5,13 +5,11 @@ use application_kernel::{
     OrganizationUpsert, RecordKind, RecordRef,
 };
 use application_storage::{KernelStore, StoreWriteResult};
-use converge_kernel::{Context, ConvergeResult, Engine};
-use converge_pack::{
-    AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor,
-};
-use truth_catalog::{ScheduleStrategicMeetingsEvaluator, converge_binding_for_truth};
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
+use truth_catalog::{ScheduleStrategicMeetingsEvaluator, converge_binding_for_truth};
 use uuid::Uuid;
 
 use super::{
@@ -204,7 +202,8 @@ pub(super) async fn execute<S: KernelStore>(
         seed_context(&inputs)?,
         &binding.intent,
         std::sync::Arc::new(ScheduleStrategicMeetingsEvaluator),
-    ).await?;
+    )
+    .await?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -272,7 +271,8 @@ impl Suggestor for CandidateRankerAgent {
 
         let content = serde_json::to_string(&ranked).unwrap_or_default();
 
-        let mut effect = AgentEffect::with_proposal(
+        let mut builder = AgentEffect::builder();
+        builder.push(
             ProposedFact::new(
                 ContextKey::Proposals,
                 RANKED_CANDIDATES_FACT_ID,
@@ -283,7 +283,7 @@ impl Suggestor for CandidateRankerAgent {
         );
 
         for candidate in &ranked {
-            effect.proposals.push(
+            builder.push(
                 ProposedFact::new(
                     ContextKey::Signals,
                     format!("meeting:alignment:{}", slug(&candidate.prospect.name)),
@@ -300,7 +300,7 @@ impl Suggestor for CandidateRankerAgent {
             );
         }
 
-        effect
+        builder.build()
     }
 }
 
@@ -364,19 +364,19 @@ impl Suggestor for SlateProposerAgent {
         let candidates_fact = ctx
             .get(ContextKey::Proposals)
             .iter()
-            .find(|f| f.id == RANKED_CANDIDATES_FACT_ID)
+            .find(|f| f.id() == RANKED_CANDIDATES_FACT_ID)
             .cloned();
         let availability_fact = ctx
             .get(ContextKey::Signals)
             .iter()
-            .find(|f| f.id == AVAILABILITY_FACT_ID)
+            .find(|f| f.id() == AVAILABILITY_FACT_ID)
             .cloned();
 
         let candidates: Vec<RankedCandidate> = candidates_fact
-            .and_then(|f| serde_json::from_str(&f.content).ok())
+            .and_then(|f| serde_json::from_str(&f.content()).ok())
             .unwrap_or_default();
         let slots: Vec<CalendarSlot> = availability_fact
-            .and_then(|f| serde_json::from_str(&f.content).ok())
+            .and_then(|f| serde_json::from_str(&f.content()).ok())
             .unwrap_or_default();
 
         let candidates_considered = candidates.len() as u32;
@@ -422,7 +422,8 @@ impl Suggestor for SlateProposerAgent {
             proposals,
         };
 
-        let mut effect = AgentEffect::with_proposal(
+        let mut builder = AgentEffect::builder();
+        builder.push(
             ProposedFact::new(
                 ContextKey::Strategies,
                 SLATE_FACT_ID,
@@ -432,7 +433,7 @@ impl Suggestor for SlateProposerAgent {
             .with_confidence(0.9),
         );
 
-        effect.proposals.push(
+        builder.push(
             ProposedFact::new(
                 ContextKey::Evaluations,
                 CONFIRMATION_FACT_ID,
@@ -446,7 +447,7 @@ impl Suggestor for SlateProposerAgent {
             .with_confidence(1.0),
         );
 
-        effect
+        builder.build()
     }
 }
 

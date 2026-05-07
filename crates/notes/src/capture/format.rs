@@ -14,9 +14,8 @@ pub fn social_note(
     let now = Utc::now().format("%Y-%m-%d");
     let title = display_name.unwrap_or(handle.unwrap_or("Unknown"));
 
-    let mut note = format!(
-        "---\nsource: helm-capture\nplatform: {platform}\ncaptured: {now}\nurl: {url}\n"
-    );
+    let mut note =
+        format!("---\nsource: helm-capture\nplatform: {platform}\ncaptured: {now}\nurl: {url}\n");
     if let Some(h) = handle {
         note.push_str(&format!("handle: {h}\n"));
     }
@@ -38,7 +37,9 @@ pub fn social_note(
         note.push('\n');
     }
 
-    note.push_str(&format!("---\n*Captured from [{platform}]({url}) on {now}*\n"));
+    note.push_str(&format!(
+        "---\n*Captured from [{platform}]({url}) on {now}*\n"
+    ));
     note
 }
 
@@ -51,9 +52,8 @@ pub fn web_note(
     let now = Utc::now().format("%Y-%m-%d");
     let heading = title.unwrap_or(url);
 
-    let mut note = format!(
-        "---\nsource: helm-capture\ntype: web\ncaptured: {now}\nurl: {url}\n---\n\n"
-    );
+    let mut note =
+        format!("---\nsource: helm-capture\ntype: web\ncaptured: {now}\nurl: {url}\n---\n\n");
     note.push_str(&format!("# {heading}\n\n"));
 
     if let Some(d) = description {
@@ -85,7 +85,9 @@ pub fn ocr_note(
     note.push_str(&format!("# OCR: {source_filename}\n\n"));
     note.push_str(extracted_text);
     note.push_str("\n\n---\n");
-    note.push_str(&format!("*Extracted from {source_filename} via {provider} on {now}*\n"));
+    note.push_str(&format!(
+        "*Extracted from {source_filename} via {provider} on {now}*\n"
+    ));
     note
 }
 

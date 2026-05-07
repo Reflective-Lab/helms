@@ -7,13 +7,11 @@ use application_kernel::{
 };
 use application_storage::{KernelStore, StoreWriteResult};
 use chrono::{DateTime, Utc};
-use converge_kernel::{Context, ConvergeResult, Engine};
-use converge_pack::{
-    AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor,
-};
-use truth_catalog::{UpgradeSubscriptionPlanEvaluator, converge_binding_for_truth};
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
+use truth_catalog::{UpgradeSubscriptionPlanEvaluator, converge_binding_for_truth};
 use uuid::Uuid;
 
 use super::{
@@ -160,7 +158,8 @@ pub(super) async fn execute<S: KernelStore>(
         seed_context(seed.subscription.id)?,
         &binding.intent,
         std::sync::Arc::new(UpgradeSubscriptionPlanEvaluator),
-    ).await?;
+    )
+    .await?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -478,39 +477,43 @@ impl Suggestor for PlanChangeValidationAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         if let Some(reason) = &self.seed.manual_review_reason {
-            return AgentEffect::with_proposal(ProposedFact::new(
-                ContextKey::Evaluations,
-                MANUAL_REVIEW_FACT_ID.to_string(),
-                serde_json::to_string(&ManualReviewPayload {
-                    reason: reason.clone(),
-                })
-                .expect("manual review payload should serialize"),
-                REVIEW_PROVENANCE.to_string(),
+            return AgentEffect::with_proposal(
+                ProposedFact::new(
+                    ContextKey::Evaluations,
+                    MANUAL_REVIEW_FACT_ID.to_string(),
+                    serde_json::to_string(&ManualReviewPayload {
+                        reason: reason.clone(),
+                    })
+                    .expect("manual review payload should serialize"),
+                    REVIEW_PROVENANCE.to_string(),
                 )
-                .with_confidence(1.0));
+                .with_confidence(1.0),
+            );
         }
 
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Strategies,
-            PLAN_CHANGE_READY_FACT_ID.to_string(),
-            serde_json::to_string(&PlanChangeReadyPayload {
-                subscription_id: self.seed.subscription.id,
-                organization_id: self.seed.subscription.organization_id,
-                previous_catalog_item_id: self.seed.current_catalog_item.id,
-                target_catalog_item_id: self.seed.target_catalog_item.id,
-                previous_sku: self.seed.current_catalog_item.sku.clone(),
-                target_sku: self.seed.target_catalog_item.sku.clone(),
-                effective_at: self.seed.effective_at.to_rfc3339(),
-                previous_value_minor: self.seed.subscription.value.amount_minor,
-                target_value_minor: self.seed.target_value.amount_minor,
-                delta_amount_minor: self.seed.target_value.amount_minor
-                    - self.seed.subscription.value.amount_minor,
-                currency_code: self.seed.target_value.currency_code.clone(),
-            })
-            .expect("plan change payload should serialize"),
-            PLAN_CHANGE_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Strategies,
+                PLAN_CHANGE_READY_FACT_ID.to_string(),
+                serde_json::to_string(&PlanChangeReadyPayload {
+                    subscription_id: self.seed.subscription.id,
+                    organization_id: self.seed.subscription.organization_id,
+                    previous_catalog_item_id: self.seed.current_catalog_item.id,
+                    target_catalog_item_id: self.seed.target_catalog_item.id,
+                    previous_sku: self.seed.current_catalog_item.sku.clone(),
+                    target_sku: self.seed.target_catalog_item.sku.clone(),
+                    effective_at: self.seed.effective_at.to_rfc3339(),
+                    previous_value_minor: self.seed.subscription.value.amount_minor,
+                    target_value_minor: self.seed.target_value.amount_minor,
+                    delta_amount_minor: self.seed.target_value.amount_minor
+                        - self.seed.subscription.value.amount_minor,
+                    currency_code: self.seed.target_value.currency_code.clone(),
+                })
+                .expect("plan change payload should serialize"),
+                PLAN_CHANGE_PROVENANCE.to_string(),
             )
-            .with_confidence(0.99))
+            .with_confidence(0.99),
+        )
     }
 }
 
@@ -530,16 +533,18 @@ impl Suggestor for EntitlementPreviewAgent {
     }
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Signals,
-            ENTITLEMENT_PREVIEW_FACT_ID.to_string(),
-            serde_json::to_string(&EntitlementPreviewPayload {
-                grants: plan_change_preview_items(&self.seed),
-            })
-            .expect("entitlement preview should serialize"),
-            ENTITLEMENT_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Signals,
+                ENTITLEMENT_PREVIEW_FACT_ID.to_string(),
+                serde_json::to_string(&EntitlementPreviewPayload {
+                    grants: plan_change_preview_items(&self.seed),
+                })
+                .expect("entitlement preview should serialize"),
+                ENTITLEMENT_PROVENANCE.to_string(),
             )
-            .with_confidence(0.98))
+            .with_confidence(0.98),
+        )
     }
 }
 
@@ -559,21 +564,23 @@ impl Suggestor for CommercialDeltaAgent {
     }
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Evaluations,
-            COMMERCIAL_DELTA_FACT_ID.to_string(),
-            serde_json::to_string(&CommercialDeltaPayload {
-                previous_value_minor: self.seed.subscription.value.amount_minor,
-                target_value_minor: self.seed.target_value.amount_minor,
-                delta_amount_minor: self.seed.target_value.amount_minor
-                    - self.seed.subscription.value.amount_minor,
-                currency_code: self.seed.target_value.currency_code.clone(),
-                effective_at: self.seed.effective_at.to_rfc3339(),
-            })
-            .expect("commercial delta should serialize"),
-            DELTA_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Evaluations,
+                COMMERCIAL_DELTA_FACT_ID.to_string(),
+                serde_json::to_string(&CommercialDeltaPayload {
+                    previous_value_minor: self.seed.subscription.value.amount_minor,
+                    target_value_minor: self.seed.target_value.amount_minor,
+                    delta_amount_minor: self.seed.target_value.amount_minor
+                        - self.seed.subscription.value.amount_minor,
+                    currency_code: self.seed.target_value.currency_code.clone(),
+                    effective_at: self.seed.effective_at.to_rfc3339(),
+                })
+                .expect("commercial delta should serialize"),
+                DELTA_PROVENANCE.to_string(),
             )
-            .with_confidence(0.99))
+            .with_confidence(0.99),
+        )
     }
 }
 
@@ -676,9 +683,9 @@ fn manual_review_from_result(
         .context
         .get(ContextKey::Evaluations)
         .iter()
-        .find(|fact| fact.id == MANUAL_REVIEW_FACT_ID)
+        .find(|fact| fact.id() == MANUAL_REVIEW_FACT_ID)
         .map(|fact| {
-            serde_json::from_str(&fact.content).map_err(|error| {
+            serde_json::from_str(&fact.content()).map_err(|error| {
                 Status::internal(format!(
                     "invalid plan-change manual review payload: {error}"
                 ))

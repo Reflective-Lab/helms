@@ -6,13 +6,11 @@ use application_kernel::{
     WorkflowState,
 };
 use application_storage::{KernelStore, StoreWriteResult};
-use converge_kernel::{Context, ConvergeResult, Engine};
-use converge_pack::{
-    AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor,
-};
-use truth_catalog::{RefillPrepaidAiCreditsEvaluator, converge_binding_for_truth};
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
+use truth_catalog::{RefillPrepaidAiCreditsEvaluator, converge_binding_for_truth};
 use uuid::Uuid;
 
 use super::{
@@ -156,7 +154,8 @@ pub(super) async fn execute<S: KernelStore>(
         seed_context(seed.subscription.id)?,
         &binding.intent,
         std::sync::Arc::new(RefillPrepaidAiCreditsEvaluator),
-    ).await?;
+    )
+    .await?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -414,29 +413,33 @@ impl Suggestor for PaymentVerificationAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         if let Some(reason) = &self.seed.manual_review_reason {
-            return AgentEffect::with_proposal(ProposedFact::new(
-                ContextKey::Evaluations,
-                MANUAL_REVIEW_FACT_ID.to_string(),
-                serde_json::to_string(&ManualReviewPayload {
-                    reason: reason.clone(),
-                })
-                .expect("manual review payload should serialize"),
-                REVIEW_PROVENANCE.to_string(),
+            return AgentEffect::with_proposal(
+                ProposedFact::new(
+                    ContextKey::Evaluations,
+                    MANUAL_REVIEW_FACT_ID.to_string(),
+                    serde_json::to_string(&ManualReviewPayload {
+                        reason: reason.clone(),
+                    })
+                    .expect("manual review payload should serialize"),
+                    REVIEW_PROVENANCE.to_string(),
                 )
-                .with_confidence(1.0));
+                .with_confidence(1.0),
+            );
         }
 
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Evaluations,
-            PAYMENT_CONFIRMED_FACT_ID.to_string(),
-            serde_json::to_string(&PaymentConfirmationPayload {
-                payment_reference: self.seed.payment_reference.clone(),
-                status: payment_status_name(self.seed.payment_status).to_string(),
-            })
-            .expect("payment confirmation payload should serialize"),
-            PAYMENT_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Evaluations,
+                PAYMENT_CONFIRMED_FACT_ID.to_string(),
+                serde_json::to_string(&PaymentConfirmationPayload {
+                    payment_reference: self.seed.payment_reference.clone(),
+                    status: payment_status_name(self.seed.payment_status).to_string(),
+                })
+                .expect("payment confirmation payload should serialize"),
+                PAYMENT_PROVENANCE.to_string(),
             )
-            .with_confidence(1.0))
+            .with_confidence(1.0),
+        )
     }
 }
 
@@ -456,23 +459,25 @@ impl Suggestor for CreditGrantPlanAgent {
     }
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Strategies,
-            CREDIT_GRANT_READY_FACT_ID.to_string(),
-            serde_json::to_string(&CreditGrantReadyPayload {
-                subscription_id: self.seed.subscription.id,
-                organization_id: self.seed.subscription.organization_id,
-                payment_reference: self.seed.payment_reference.clone(),
-                amount_minor: self.seed.top_up_amount_minor,
-                currency_code: self.seed.subscription.value.currency_code.clone(),
-                previous_balance_minor: self.seed.current_credit_balance_minor,
-                resulting_balance_minor: self.seed.current_credit_balance_minor
-                    + self.seed.top_up_amount_minor,
-            })
-            .expect("credit grant plan payload should serialize"),
-            GRANT_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Strategies,
+                CREDIT_GRANT_READY_FACT_ID.to_string(),
+                serde_json::to_string(&CreditGrantReadyPayload {
+                    subscription_id: self.seed.subscription.id,
+                    organization_id: self.seed.subscription.organization_id,
+                    payment_reference: self.seed.payment_reference.clone(),
+                    amount_minor: self.seed.top_up_amount_minor,
+                    currency_code: self.seed.subscription.value.currency_code.clone(),
+                    previous_balance_minor: self.seed.current_credit_balance_minor,
+                    resulting_balance_minor: self.seed.current_credit_balance_minor
+                        + self.seed.top_up_amount_minor,
+                })
+                .expect("credit grant plan payload should serialize"),
+                GRANT_PROVENANCE.to_string(),
             )
-            .with_confidence(0.99))
+            .with_confidence(0.99),
+        )
     }
 }
 
@@ -492,19 +497,21 @@ impl Suggestor for EntitlementAdjustmentAgent {
     }
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Signals,
-            ENTITLEMENT_ADJUSTMENT_FACT_ID.to_string(),
-            serde_json::to_string(&EntitlementAdjustmentPayload {
-                key: "credit_balance_minor".to_string(),
-                previous_balance_minor: self.seed.current_credit_balance_minor,
-                resulting_balance_minor: self.seed.current_credit_balance_minor
-                    + self.seed.top_up_amount_minor,
-            })
-            .expect("entitlement adjustment payload should serialize"),
-            ENTITLEMENT_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Signals,
+                ENTITLEMENT_ADJUSTMENT_FACT_ID.to_string(),
+                serde_json::to_string(&EntitlementAdjustmentPayload {
+                    key: "credit_balance_minor".to_string(),
+                    previous_balance_minor: self.seed.current_credit_balance_minor,
+                    resulting_balance_minor: self.seed.current_credit_balance_minor
+                        + self.seed.top_up_amount_minor,
+                })
+                .expect("entitlement adjustment payload should serialize"),
+                ENTITLEMENT_PROVENANCE.to_string(),
             )
-            .with_confidence(0.99))
+            .with_confidence(0.99),
+        )
     }
 }
 
@@ -559,9 +566,9 @@ fn manual_review_from_result(
         .context
         .get(ContextKey::Evaluations)
         .iter()
-        .find(|fact| fact.id == MANUAL_REVIEW_FACT_ID)
+        .find(|fact| fact.id() == MANUAL_REVIEW_FACT_ID)
         .map(|fact| {
-            serde_json::from_str(&fact.content).map_err(|error| {
+            serde_json::from_str(&fact.content()).map_err(|error| {
                 Status::internal(format!("invalid manual review payload: {error}"))
             })
         })

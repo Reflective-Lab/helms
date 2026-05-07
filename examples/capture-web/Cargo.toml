@@ -1,9 +1,0 @@
-[package]
-name = "example-capture-web"
-version = "0.1.0"
-edition = "2024"
-publish = false
-
-[dependencies]
-organism-intelligence = { workspace = true, features = ["web"] }
-serde_json = { workspace = true }

@@ -6,13 +6,11 @@ use application_kernel::{
     WorkflowCaseCreate, WorkflowPriority, WorkflowState,
 };
 use application_storage::{KernelStore, StoreWriteResult};
-use converge_kernel::{Context, ConvergeResult, Engine};
-use converge_pack::{
-    AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor,
-};
-use truth_catalog::{ActivateSubscriptionEvaluator, converge_binding_for_truth};
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
+use truth_catalog::{ActivateSubscriptionEvaluator, converge_binding_for_truth};
 use uuid::Uuid;
 
 use super::{
@@ -172,7 +170,8 @@ pub(super) async fn execute<S: KernelStore>(
         seed_context(seed.subscription.id)?,
         &binding.intent,
         std::sync::Arc::new(ActivateSubscriptionEvaluator),
-    ).await?;
+    )
+    .await?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -575,9 +574,9 @@ fn manual_review_from_result(
         .context
         .get(ContextKey::Evaluations)
         .iter()
-        .find(|fact| fact.id == MANUAL_REVIEW_FACT_ID)
+        .find(|fact| fact.id() == MANUAL_REVIEW_FACT_ID)
         .map(|fact| {
-            serde_json::from_str(&fact.content).map_err(|error| {
+            serde_json::from_str(&fact.content()).map_err(|error| {
                 Status::internal(format!("invalid manual review payload: {error}"))
             })
         })

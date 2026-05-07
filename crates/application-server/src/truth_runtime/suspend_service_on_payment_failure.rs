@@ -6,14 +6,12 @@ use application_kernel::{
     WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority, WorkflowState,
 };
 use application_storage::{KernelStore, StoreWriteResult};
-use converge_kernel::{Context, ConvergeResult, Engine};
-use converge_pack::{
-    AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor,
-};
 use converge_domain::packs::OverdueDetectorAgent;
-use truth_catalog::{SuspendServiceOnPaymentFailureEvaluator, converge_binding_for_truth};
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
+use truth_catalog::{SuspendServiceOnPaymentFailureEvaluator, converge_binding_for_truth};
 use uuid::Uuid;
 
 use super::{
@@ -161,7 +159,8 @@ pub(super) async fn execute<S: KernelStore>(
         seed_context(&seed)?,
         &binding.intent,
         std::sync::Arc::new(SuspendServiceOnPaymentFailureEvaluator),
-    ).await?;
+    )
+    .await?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -494,7 +493,7 @@ impl Suggestor for SuspensionDecisionAgent {
     fn accepts(&self, ctx: &dyn ContextView) -> bool {
         ctx.get(ContextKey::Proposals)
             .iter()
-            .any(|fact| fact.id.starts_with("invoice:overdue_action:"))
+            .any(|fact| fact.id().starts_with("invoice:overdue_action:"))
             && !has_fact_id(ctx, ContextKey::Strategies, SUSPENSION_READY_FACT_ID)
             && !has_fact_id(ctx, ContextKey::Strategies, SUSPENSION_DEFERRED_FACT_ID)
             && !has_fact_id(ctx, ContextKey::Evaluations, MANUAL_REVIEW_FACT_ID)
@@ -502,55 +501,62 @@ impl Suggestor for SuspensionDecisionAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         if let Some(reason) = &self.seed.manual_review_reason {
-            return AgentEffect::with_proposal(ProposedFact::new(
-                ContextKey::Evaluations,
-                MANUAL_REVIEW_FACT_ID.to_string(),
-                serde_json::to_string(&ManualReviewPayload {
-                    reason: reason.clone(),
-                })
-                .expect("manual review payload should serialize"),
-                REVIEW_PROVENANCE.to_string(),
+            return AgentEffect::with_proposal(
+                ProposedFact::new(
+                    ContextKey::Evaluations,
+                    MANUAL_REVIEW_FACT_ID.to_string(),
+                    serde_json::to_string(&ManualReviewPayload {
+                        reason: reason.clone(),
+                    })
+                    .expect("manual review payload should serialize"),
+                    REVIEW_PROVENANCE.to_string(),
                 )
-                .with_confidence(1.0));
+                .with_confidence(1.0),
+            );
         }
 
         if should_suspend(&self.seed) {
-            return AgentEffect::with_proposal(ProposedFact::new(
+            return AgentEffect::with_proposal(
+                ProposedFact::new(
+                    ContextKey::Strategies,
+                    SUSPENSION_READY_FACT_ID.to_string(),
+                    serde_json::to_string(&SuspensionReadyPayload {
+                        subscription_id: self.seed.subscription.id,
+                        organization_id: self.seed.organization.id,
+                        payment_status: payment_failure_status_name(self.seed.payment_status)
+                            .to_string(),
+                        days_overdue: self.seed.days_overdue,
+                        grace_days: self.seed.grace_days,
+                        reason: suspension_reason(&self.seed),
+                    })
+                    .expect("suspension ready payload should serialize"),
+                    SUSPENSION_PROVENANCE.to_string(),
+                )
+                .with_confidence(0.99),
+            );
+        }
+
+        AgentEffect::with_proposal(
+            ProposedFact::new(
                 ContextKey::Strategies,
-                SUSPENSION_READY_FACT_ID.to_string(),
-                serde_json::to_string(&SuspensionReadyPayload {
+                SUSPENSION_DEFERRED_FACT_ID.to_string(),
+                serde_json::to_string(&SuspensionDeferredPayload {
                     subscription_id: self.seed.subscription.id,
                     organization_id: self.seed.organization.id,
                     payment_status: payment_failure_status_name(self.seed.payment_status)
                         .to_string(),
                     days_overdue: self.seed.days_overdue,
                     grace_days: self.seed.grace_days,
-                    reason: suspension_reason(&self.seed),
+                    reason: format!(
+                        "service remains active during grace period ({} of {} days overdue)",
+                        self.seed.days_overdue, self.seed.grace_days
+                    ),
                 })
-                .expect("suspension ready payload should serialize"),
+                .expect("suspension deferred payload should serialize"),
                 SUSPENSION_PROVENANCE.to_string(),
-                )
-                .with_confidence(0.99));
-        }
-
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Strategies,
-            SUSPENSION_DEFERRED_FACT_ID.to_string(),
-            serde_json::to_string(&SuspensionDeferredPayload {
-                subscription_id: self.seed.subscription.id,
-                organization_id: self.seed.organization.id,
-                payment_status: payment_failure_status_name(self.seed.payment_status).to_string(),
-                days_overdue: self.seed.days_overdue,
-                grace_days: self.seed.grace_days,
-                reason: format!(
-                    "service remains active during grace period ({} of {} days overdue)",
-                    self.seed.days_overdue, self.seed.grace_days
-                ),
-            })
-            .expect("suspension deferred payload should serialize"),
-            SUSPENSION_PROVENANCE.to_string(),
             )
-            .with_confidence(0.98))
+            .with_confidence(0.98),
+        )
     }
 }
 
@@ -577,18 +583,20 @@ impl Suggestor for EntitlementImpactAgent {
             } else {
                 ("grace", true)
             };
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Signals,
-            ENTITLEMENT_IMPACT_FACT_ID.to_string(),
-            serde_json::to_string(&EntitlementImpactPayload {
-                service_access_state: service_access_state.to_string(),
-                workspace_access_enabled,
-                recovery_allowed: true,
-            })
-            .expect("entitlement impact payload should serialize"),
-            ENTITLEMENT_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Signals,
+                ENTITLEMENT_IMPACT_FACT_ID.to_string(),
+                serde_json::to_string(&EntitlementImpactPayload {
+                    service_access_state: service_access_state.to_string(),
+                    workspace_access_enabled,
+                    recovery_allowed: true,
+                })
+                .expect("entitlement impact payload should serialize"),
+                ENTITLEMENT_PROVENANCE.to_string(),
             )
-            .with_confidence(0.99))
+            .with_confidence(0.99),
+        )
     }
 }
 
@@ -628,18 +636,20 @@ impl Suggestor for RecoveryPathAgent {
                 )
             };
 
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Strategies,
-            RECOVERY_PATH_FACT_ID.to_string(),
-            serde_json::to_string(&RecoveryPathPayload {
-                summary,
-                next_action,
-                workflow_state: WorkflowState::WaitingExternal.as_ref().to_string(),
-            })
-            .expect("recovery path payload should serialize"),
-            RECOVERY_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Strategies,
+                RECOVERY_PATH_FACT_ID.to_string(),
+                serde_json::to_string(&RecoveryPathPayload {
+                    summary,
+                    next_action,
+                    workflow_state: WorkflowState::WaitingExternal.as_ref().to_string(),
+                })
+                .expect("recovery path payload should serialize"),
+                RECOVERY_PROVENANCE.to_string(),
             )
-            .with_confidence(0.99))
+            .with_confidence(0.99),
+        )
     }
 }
 
@@ -698,9 +708,9 @@ fn manual_review_from_result(
         .context
         .get(ContextKey::Evaluations)
         .iter()
-        .find(|fact| fact.id == MANUAL_REVIEW_FACT_ID)
+        .find(|fact| fact.id() == MANUAL_REVIEW_FACT_ID)
         .map(|fact| {
-            serde_json::from_str(&fact.content).map_err(|error| {
+            serde_json::from_str(&fact.content()).map_err(|error| {
                 Status::internal(format!("invalid suspension manual review payload: {error}"))
             })
         })

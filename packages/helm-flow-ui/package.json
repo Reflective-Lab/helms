@@ -1,0 +1,33 @@
+{
+  "name": "@reflective/helm-flow-ui",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./FlowContainer.svelte": "./src/FlowContainer.svelte",
+    "./BaseReplayAdapter": "./dist/BaseReplayAdapter.js",
+    "./types": "./dist/types.js",
+    "./spinner": "./dist/spinner.js"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@reflective/helm-flow": "file:../helm-flow",
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "@reflective/helm-flow": "file:../helm-flow",
+    "@tauri-apps/api": "^2.0.0",
+    "svelte": "^5.0.0",
+    "typescript": "^5.7.0"
+  }
+}

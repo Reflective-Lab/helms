@@ -2,13 +2,14 @@ use std::collections::HashMap;
 use std::future::Future;
 
 use chrono::{DateTime, Utc};
-use converge_kernel::{ContextKey, ContextView, ConvergeResult};
+use converge_kernel::{ContextKey, ConvergeResult};
+use converge_pack::Context as ContextView;
 use serde::de::DeserializeOwned;
 use tonic::Status;
 use uuid::Uuid;
 
 pub(super) fn has_fact_id(ctx: &dyn ContextView, key: ContextKey, fact_id: &str) -> bool {
-    ctx.get(key).iter().any(|fact| fact.id == fact_id)
+    ctx.get(key).iter().any(|fact| fact.id() == fact_id)
 }
 
 pub(super) fn payload_from_result<T: DeserializeOwned>(
@@ -20,11 +21,11 @@ pub(super) fn payload_from_result<T: DeserializeOwned>(
         .context
         .get(key)
         .iter()
-        .find(|fact| fact.id == fact_id)
+        .find(|fact| fact.id() == fact_id)
         .ok_or_else(|| {
             Status::failed_precondition(format!("missing fact in converge context: {fact_id}"))
         })?;
-    serde_json::from_str(&fact.content)
+    serde_json::from_str(&fact.content())
         .map_err(|error| Status::internal(format!("invalid {fact_id} payload: {error}")))
 }
 

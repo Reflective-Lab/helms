@@ -6,14 +6,12 @@ use application_kernel::{
     RecordRef, WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority, WorkflowState,
 };
 use application_storage::{KernelStore, StorageError, StoreWriteResult};
-use converge_kernel::{Context, ConvergeResult, Engine};
-use converge_pack::{
-    AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor,
-};
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
 use converge_knowledge::{KnowledgeBase, KnowledgeEntry, SearchOptions};
-use truth_catalog::{MatchRenewalContextEvaluator, converge_binding_for_truth};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
+use truth_catalog::{MatchRenewalContextEvaluator, converge_binding_for_truth};
 use uuid::Uuid;
 
 use super::{
@@ -146,7 +144,8 @@ pub(super) async fn execute<S: KernelStore>(
         seed_context(organization_id)?,
         &binding.intent,
         std::sync::Arc::new(MatchRenewalContextEvaluator),
-    ).await?;
+    )
+    .await?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -239,7 +238,7 @@ impl Suggestor for RenewalSignalAgent {
             && !ctx
                 .get(ContextKey::Signals)
                 .iter()
-                .any(|fact| fact.id.starts_with("renewal:signal:"))
+                .any(|fact| fact.id().starts_with("renewal:signal:"))
     }
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
@@ -259,7 +258,7 @@ impl Suggestor for RenewalSignalAgent {
             ),
         ];
 
-        let mut effect = AgentEffect::empty();
+        let mut builder = AgentEffect::builder();
         for (signal_id, query) in queries {
             let options = SearchOptions::new(1)
                 .with_min_similarity(0.0)
@@ -273,7 +272,7 @@ impl Suggestor for RenewalSignalAgent {
             }) {
                 Ok(results) => results,
                 Err(error) => {
-                    effect.proposals.push(
+                    builder.push(
                         ProposedFact::new(
                             ContextKey::Diagnostic,
                             format!("renewal:signal:error:{signal_id}"),
@@ -296,7 +295,7 @@ impl Suggestor for RenewalSignalAgent {
                 source: result.entry.source.clone(),
                 similarity_bps: (result.similarity.clamp(0.0, 1.0) * 10_000.0).round() as u16,
             };
-            effect.proposals.push(
+            builder.push(
                 ProposedFact::new(
                     ContextKey::Signals,
                     format!("renewal:signal:{signal_id}"),
@@ -306,7 +305,7 @@ impl Suggestor for RenewalSignalAgent {
                 .with_confidence(result.similarity as f64),
             );
         }
-        effect
+        builder.build()
     }
 }
 
@@ -323,7 +322,7 @@ impl Suggestor for NegotiationBriefAgent {
     fn accepts(&self, ctx: &dyn ContextView) -> bool {
         ctx.get(ContextKey::Signals)
             .iter()
-            .any(|fact| fact.id.starts_with("renewal:signal:"))
+            .any(|fact| fact.id().starts_with("renewal:signal:"))
             && !has_fact_id(ctx, ContextKey::Strategies, RENEWAL_BRIEF_FACT_ID)
     }
 
@@ -409,11 +408,11 @@ impl Suggestor for RenewalTermsAgent {
         let Some(brief_fact) = ctx
             .get(ContextKey::Strategies)
             .iter()
-            .find(|fact| fact.id == RENEWAL_BRIEF_FACT_ID)
+            .find(|fact| fact.id() == RENEWAL_BRIEF_FACT_ID)
         else {
             return AgentEffect::empty();
         };
-        let brief = match serde_json::from_str::<RenewalBriefPayload>(&brief_fact.content) {
+        let brief = match serde_json::from_str::<RenewalBriefPayload>(&brief_fact.content()) {
             Ok(brief) => brief,
             Err(error) => {
                 return AgentEffect::with_proposal(
@@ -648,12 +647,12 @@ fn renewal_signals_from_result(
         .context
         .get(ContextKey::Signals)
         .iter()
-        .filter(|fact| fact.id.starts_with("renewal:signal:"))
+        .filter(|fact| fact.id().starts_with("renewal:signal:"))
         .map(|fact| {
-            serde_json::from_str::<RenewalSignalPayload>(&fact.content).map_err(|error| {
+            serde_json::from_str::<RenewalSignalPayload>(&fact.content()).map_err(|error| {
                 Status::internal(format!(
                     "invalid renewal signal payload {}: {error}",
-                    fact.id
+                    fact.id()
                 ))
             })
         })
@@ -664,8 +663,8 @@ fn renewal_signals_from_result(
 fn renewal_signals_from_context(ctx: &dyn ContextView) -> Vec<RenewalSignalPayload> {
     ctx.get(ContextKey::Signals)
         .iter()
-        .filter(|fact| fact.id.starts_with("renewal:signal:"))
-        .filter_map(|fact| serde_json::from_str::<RenewalSignalPayload>(&fact.content).ok())
+        .filter(|fact| fact.id().starts_with("renewal:signal:"))
+        .filter_map(|fact| serde_json::from_str::<RenewalSignalPayload>(&fact.content()).ok())
         .collect()
 }
 

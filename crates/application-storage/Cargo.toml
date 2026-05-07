@@ -8,7 +8,7 @@ publish.workspace = true
 [dependencies]
 converge-core.workspace = true
 converge-experience.workspace = true
-converge-pack = { workspace = true, features = ["kernel-authority"] }
+converge-pack.workspace = true
 application-kernel = { path = "../application-kernel" }
 serde.workspace = true
 serde_json.workspace = true

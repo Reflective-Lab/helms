@@ -6,20 +6,17 @@ use application_kernel::{
     WorkflowState,
 };
 use application_storage::{KernelStore, StoreWriteResult};
-use converge_kernel::{Context, ConvergeResult, Engine};
-use converge_pack::{
-    AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor,
-};
-use converge_optimization::gate::ObjectiveSpec;
-use converge_optimization::packs::Pack;
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
+use converge_optimization::Pack;
 use converge_optimization::packs::lead_routing::{
     Lead as RoutingLead, LeadRoutingInput, LeadRoutingOutput, LeadRoutingPack, RoutingConfig,
     SalesRep,
 };
-use converge_optimization::prelude::ProblemSpec;
-use truth_catalog::{PlanOutboundCampaignEvaluator, converge_binding_for_truth};
+use converge_pack::gate::{ObjectiveSpec, ProblemSpec};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
+use truth_catalog::{PlanOutboundCampaignEvaluator, converge_binding_for_truth};
 use uuid::Uuid;
 
 use super::{
@@ -199,7 +196,8 @@ pub(super) async fn execute<S: KernelStore>(
         seed_context()?,
         &binding.intent,
         std::sync::Arc::new(PlanOutboundCampaignEvaluator),
-    ).await?;
+    )
+    .await?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -261,13 +259,15 @@ impl Suggestor for ProspectPoolAgent {
             config: RoutingConfig::default(),
         };
 
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Proposals,
-            ROUTING_INPUT_FACT_ID.to_string(),
-            serde_json::to_string(&routing_input).unwrap_or_default(),
-            PLAN_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Proposals,
+                ROUTING_INPUT_FACT_ID.to_string(),
+                serde_json::to_string(&routing_input).unwrap_or_default(),
+                PLAN_PROVENANCE.to_string(),
             )
-            .with_confidence(1.0))
+            .with_confidence(1.0),
+        )
     }
 }
 
@@ -296,13 +296,15 @@ impl Suggestor for RepCapacityAgent {
                 .sum(),
             rep_count: self.reps.len(),
         };
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Signals,
-            CAPACITY_STATUS_FACT_ID.to_string(),
-            serde_json::to_string(&payload).unwrap_or_default(),
-            CAPACITY_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Signals,
+                CAPACITY_STATUS_FACT_ID.to_string(),
+                serde_json::to_string(&payload).unwrap_or_default(),
+                CAPACITY_PROVENANCE.to_string(),
             )
-            .with_confidence(1.0))
+            .with_confidence(1.0),
+        )
     }
 }
 
@@ -326,11 +328,11 @@ impl Suggestor for CampaignSolverAgent {
         let Some(input_fact) = ctx
             .get(ContextKey::Proposals)
             .iter()
-            .find(|fact| fact.id == ROUTING_INPUT_FACT_ID)
+            .find(|fact| fact.id() == ROUTING_INPUT_FACT_ID)
         else {
             return AgentEffect::empty();
         };
-        let routing_input = match serde_json::from_str::<LeadRoutingInput>(&input_fact.content) {
+        let routing_input = match serde_json::from_str::<LeadRoutingInput>(&input_fact.content()) {
             Ok(input) => input,
             Err(error) => {
                 return AgentEffect::with_proposal(
@@ -341,7 +343,7 @@ impl Suggestor for CampaignSolverAgent {
                         "diagnostic",
                     )
                     .with_confidence(1.0),
-                    );
+                );
             }
         };
 
@@ -363,7 +365,7 @@ impl Suggestor for CampaignSolverAgent {
                         "diagnostic",
                     )
                     .with_confidence(1.0),
-                    );
+                );
             }
         };
 
@@ -379,7 +381,7 @@ impl Suggestor for CampaignSolverAgent {
                         "diagnostic",
                     )
                     .with_confidence(1.0),
-                    );
+                );
             }
         };
         let output = match solved.plan.plan_as::<LeadRoutingOutput>() {
@@ -393,7 +395,7 @@ impl Suggestor for CampaignSolverAgent {
                         "diagnostic",
                     )
                     .with_confidence(1.0),
-                    );
+                );
             }
         };
         let plan_payload = CampaignPlanPayload {
@@ -421,16 +423,18 @@ impl Suggestor for CampaignSolverAgent {
                 .map(|lead| lead.lead_id.clone())
                 .collect(),
             average_fit_score: output.stats.average_fit_score,
-            confidence_bps: converge_confidence_to_bps(solved.plan.confidence),
+            confidence_bps: converge_confidence_to_bps(solved.plan.confidence()),
         };
 
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Strategies,
-            CAMPAIGN_PLAN_FACT_ID.to_string(),
-            serde_json::to_string(&plan_payload).unwrap_or_default(),
-            PLAN_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Strategies,
+                CAMPAIGN_PLAN_FACT_ID.to_string(),
+                serde_json::to_string(&plan_payload).unwrap_or_default(),
+                PLAN_PROVENANCE.to_string(),
             )
-            .with_confidence(solved.plan.confidence))
+            .with_confidence(solved.plan.confidence()),
+        )
     }
 }
 
@@ -453,11 +457,11 @@ impl Suggestor for BudgetGuardAgent {
         let Some(plan_fact) = ctx
             .get(ContextKey::Strategies)
             .iter()
-            .find(|fact| fact.id == CAMPAIGN_PLAN_FACT_ID)
+            .find(|fact| fact.id() == CAMPAIGN_PLAN_FACT_ID)
         else {
             return AgentEffect::empty();
         };
-        let plan = match serde_json::from_str::<CampaignPlanPayload>(&plan_fact.content) {
+        let plan = match serde_json::from_str::<CampaignPlanPayload>(&plan_fact.content()) {
             Ok(plan) => plan,
             Err(error) => {
                 return AgentEffect::with_proposal(
@@ -468,7 +472,7 @@ impl Suggestor for BudgetGuardAgent {
                         "diagnostic",
                     )
                     .with_confidence(1.0),
-                    );
+                );
             }
         };
 
@@ -480,13 +484,15 @@ impl Suggestor for BudgetGuardAgent {
             budget_minor: self.campaign_budget_minor,
             approval_required: !within_budget,
         };
-        AgentEffect::with_proposal(ProposedFact::new(
-            ContextKey::Evaluations,
-            BUDGET_STATUS_FACT_ID.to_string(),
-            serde_json::to_string(&payload).unwrap_or_default(),
-            BUDGET_PROVENANCE.to_string(),
+        AgentEffect::with_proposal(
+            ProposedFact::new(
+                ContextKey::Evaluations,
+                BUDGET_STATUS_FACT_ID.to_string(),
+                serde_json::to_string(&payload).unwrap_or_default(),
+                BUDGET_PROVENANCE.to_string(),
             )
-            .with_confidence(1.0))
+            .with_confidence(1.0),
+        )
     }
 }
 

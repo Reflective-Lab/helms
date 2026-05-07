@@ -3,15 +3,16 @@ use std::sync::Arc;
 
 use application_kernel::{Actor as CrmActor, FactRecord};
 use application_storage::{KernelStore, StoreWriteResult};
-use converge_kernel::{Context, ConvergeResult, Engine};
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
 use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
+use converge_provider::{BoxFuture, ChatRequest, ChatResponse, DynChatBackend, LlmError};
 use organism_pack::{
-    BreadthResearchSuggestor, ContradictionFinderSuggestor, DdError, DdLlm, DdSearch,
+    BreadthResearchSuggestor, ContradictionFinderSuggestor, DdError, DdSearch,
     DepthResearchSuggestor, FactExtractorSuggestor, GapDetectorSuggestor, HuddleSeedSuggestor,
     IntentPacket, Plan, PlanStep, ReasoningSystem, SearchHit, SharedBudget, SynthesisSuggestor,
 };
-use truth_catalog::{EvaluateAcquisitionTargetEvaluator, converge_binding_for_truth};
 use tonic::Status;
+use truth_catalog::{EvaluateAcquisitionTargetEvaluator, converge_binding_for_truth};
 
 use super::{
     TruthExecutionArtifacts, TruthProjection,
@@ -70,7 +71,7 @@ pub(super) async fn execute<S: KernelStore>(
     // Option B (production): MCP directory → real provider backends.
     // Option C (governed): Converge capability axioms enforce credentials + budget.
     let search: Arc<dyn DdSearch> = Arc::new(StubDdSearch);
-    let llm: Arc<dyn DdLlm> = Arc::new(StubDdLlm);
+    let llm: Arc<dyn DynChatBackend> = Arc::new(StubChatBackend);
 
     // Build the initial plans (Organism huddle seed pattern)
     let intent = build_dd_intent(&company);
@@ -119,7 +120,8 @@ pub(super) async fn execute<S: KernelStore>(
         seed_ctx,
         &binding.intent,
         std::sync::Arc::new(EvaluateAcquisitionTargetEvaluator),
-    ).await?;
+    )
+    .await?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -151,19 +153,19 @@ impl Suggestor for ContradictionGateAgent {
     fn accepts(&self, ctx: &dyn ContextView) -> bool {
         ctx.get(ContextKey::Evaluations)
             .iter()
-            .any(|f| f.id.starts_with("contradiction-"))
+            .any(|f| f.id().starts_with("contradiction-"))
             && !ctx
                 .get(ContextKey::Evaluations)
                 .iter()
-                .any(|f| f.id == "dd:human-review-required")
+                .any(|f| f.id() == "dd:human-review-required")
     }
 
     async fn execute(&self, ctx: &dyn ContextView) -> AgentEffect {
         let contradictions: Vec<_> = ctx
             .get(ContextKey::Evaluations)
             .iter()
-            .filter(|f| f.id.starts_with("contradiction-"))
-            .map(|f| f.id.clone())
+            .filter(|f| f.id().starts_with("contradiction-"))
+            .map(|f| f.id().clone())
             .collect();
 
         if contradictions.is_empty() {
@@ -274,15 +276,15 @@ fn project<S: KernelStore>(
         .context
         .get(ContextKey::Proposals)
         .iter()
-        .find(|f| f.id.starts_with("synthesis-"))
-        .map(|f| f.content.clone());
+        .find(|f| f.id().starts_with("synthesis-"))
+        .map(|f| f.content().to_string());
 
     let hypothesis_count = result.context.get(ContextKey::Hypotheses).len();
     let contradiction_count = result
         .context
         .get(ContextKey::Evaluations)
         .iter()
-        .filter(|f| f.id.starts_with("contradiction-"))
+        .filter(|f| f.id().starts_with("contradiction-"))
         .count();
 
     let StoreWriteResult {
@@ -353,46 +355,55 @@ impl DdSearch for StubDdSearch {
     }
 }
 
-struct StubDdLlm;
+struct StubChatBackend;
 
-#[async_trait::async_trait]
-impl DdLlm for StubDdLlm {
-    async fn complete(&self, _prompt: &str) -> Result<String, DdError> {
-        Ok(serde_json::json!({
-            "facts": [
-                {
-                    "claim": "Stub company operates in the B2B SaaS market",
-                    "category": "market",
-                    "source_indices": [0],
-                    "confidence": 0.8
-                },
-                {
-                    "claim": "Stub company has approximately 200 employees",
-                    "category": "team",
-                    "source_indices": [0],
-                    "confidence": 0.7
-                },
-                {
-                    "claim": "Stub company uses a cloud-native architecture",
-                    "category": "technology",
-                    "source_indices": [0],
-                    "confidence": 0.75
-                },
-                {
-                    "claim": "Stub company competes with established players in the space",
-                    "category": "competition",
-                    "source_indices": [0],
-                    "confidence": 0.7
-                },
-                {
-                    "claim": "Stub company serves enterprise customers across Europe",
-                    "category": "customers",
-                    "source_indices": [0],
-                    "confidence": 0.8
-                }
-            ]
+impl DynChatBackend for StubChatBackend {
+    fn chat(&self, _req: ChatRequest) -> BoxFuture<'_, Result<ChatResponse, LlmError>> {
+        Box::pin(async {
+            let content = serde_json::json!({
+                "facts": [
+                    {
+                        "claim": "Stub company operates in the B2B SaaS market",
+                        "category": "market",
+                        "source_indices": [0],
+                        "confidence": 0.8
+                    },
+                    {
+                        "claim": "Stub company has approximately 200 employees",
+                        "category": "team",
+                        "source_indices": [0],
+                        "confidence": 0.7
+                    },
+                    {
+                        "claim": "Stub company uses a cloud-native architecture",
+                        "category": "technology",
+                        "source_indices": [0],
+                        "confidence": 0.75
+                    },
+                    {
+                        "claim": "Stub company competes with established players in the space",
+                        "category": "competition",
+                        "source_indices": [0],
+                        "confidence": 0.7
+                    },
+                    {
+                        "claim": "Stub company serves enterprise customers across Europe",
+                        "category": "customers",
+                        "source_indices": [0],
+                        "confidence": 0.8
+                    }
+                ]
+            })
+            .to_string();
+            Ok(ChatResponse {
+                content,
+                tool_calls: Vec::new(),
+                usage: None,
+                model: None,
+                finish_reason: None,
+                metadata: std::collections::HashMap::new(),
+            })
         })
-        .to_string())
     }
 }
 

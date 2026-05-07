@@ -1,9 +1,0 @@
-[package]
-name = "example-extract-ocr"
-version = "0.1.0"
-edition = "2024"
-publish = false
-
-[dependencies]
-organism-intelligence = { workspace = true, features = ["ocr"] }
-serde_json = { workspace = true }

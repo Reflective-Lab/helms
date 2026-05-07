@@ -21,11 +21,6 @@ use application_storage::{
     AppConfig, KernelStore, RecordStoreConfig, SurrealDbKernelStore, SurrealStoreConfig,
 };
 use organism_intelligence::ocr::{OllamaReceiptConfig, TesseractCliConfig};
-use organism_notes::cleanup::NoteCleanupReport;
-use organism_notes::enrichment::NoteValueReport;
-use organism_notes::sources::apple_notes::{AppleNotesImportReport, AppleNotesPublishReport};
-use organism_notes::sources::web::WebSnapshotCaptureReport;
-use organism_notes::vault::{ObsidianVault, VaultImportReport, VaultNote, VaultTreeEntry};
 use prio_expenses::receipt_extractor::{
     ExtractorEngine, FieldComparison, ReceiptSample, benchmark_output,
     discover_receipt_fixture_root, find_sample, load_receipt_samples,
@@ -628,87 +623,6 @@ fn compare_receipt_ocr(sample_id: String) -> Result<Vec<DesktopReceiptExtraction
     ])
 }
 
-fn note_vault() -> Result<ObsidianVault, String> {
-    ObsidianVault::default_in_home().map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn get_note_vault_root() -> Result<String, String> {
-    note_vault().map(|vault| vault.root().display().to_string())
-}
-
-#[tauri::command]
-fn list_notes() -> Result<Vec<VaultTreeEntry>, String> {
-    note_vault()?.list_tree().map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn read_note(path: String) -> Result<VaultNote, String> {
-    note_vault()?
-        .read_note(&path)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn save_note(path: String, body: String) -> Result<VaultNote, String> {
-    note_vault()?
-        .save_note(&path, &body)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn create_note(title: String, parent_dir: Option<String>) -> Result<VaultNote, String> {
-    note_vault()?
-        .create_note(parent_dir.as_deref(), &title)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn move_note(from_path: String, to_path: String) -> Result<VaultNote, String> {
-    note_vault()?
-        .move_note(&from_path, &to_path)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn import_markdown_tree(source_dir: String) -> Result<VaultImportReport, String> {
-    note_vault()?
-        .import_markdown_tree(&source_dir)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn import_apple_notes() -> Result<AppleNotesImportReport, String> {
-    let vault = note_vault()?;
-    organism_notes::sources::apple_notes::import_apple_notes(&vault)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn publish_apple_notes(run_id: Option<String>) -> Result<AppleNotesPublishReport, String> {
-    let vault = note_vault()?;
-    organism_notes::sources::apple_notes::publish_apple_notes(&vault, run_id.as_deref())
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn capture_note_url(url: String) -> Result<WebSnapshotCaptureReport, String> {
-    let vault = note_vault()?;
-    organism_notes::sources::web::capture_url_snapshot(&vault, &url)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn analyze_note_cleanup() -> Result<NoteCleanupReport, String> {
-    let vault = note_vault()?;
-    organism_notes::cleanup::analyze_note_cleanup(&vault).map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-fn analyze_note_value() -> Result<NoteValueReport, String> {
-    let vault = note_vault()?;
-    organism_notes::enrichment::analyze_note_value(&vault).map_err(|error| error.to_string())
-}
 
 #[cfg(feature = "embedded-backend")]
 fn seed_demo_data<S>(operator: &OperatorApp<S>)
@@ -1047,19 +961,7 @@ fn main() {
             list_expense_reports,
             list_expense_items,
             list_receipt_samples,
-            compare_receipt_ocr,
-            get_note_vault_root,
-            list_notes,
-            read_note,
-            save_note,
-            create_note,
-            move_note,
-            import_markdown_tree,
-            import_apple_notes,
-            publish_apple_notes,
-            capture_note_url,
-            analyze_note_cleanup,
-            analyze_note_value
+            compare_receipt_ocr
         ])
         .run(tauri::generate_context!())
         .expect("failed to run outcome workbench");
@@ -1080,11 +982,6 @@ fn main() {
             create_note,
             move_note,
             import_markdown_tree,
-            import_apple_notes,
-            publish_apple_notes,
-            capture_note_url,
-            analyze_note_cleanup,
-            analyze_note_value
         ])
         .run(tauri::generate_context!())
         .expect("failed to run outcome workbench");

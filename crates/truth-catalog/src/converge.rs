@@ -1,3 +1,5 @@
+use capability_core::ModuleSuite;
+use capability_registry::find_module;
 use converge_kernel::{Context, ContextKey, CriterionEvaluator, CriterionResult};
 use converge_model::{
     Criterion, FactId, RiskPosture, TruthCatalog as ConvergeTruthCatalog,
@@ -5,8 +7,6 @@ use converge_model::{
     TypesConstraintSeverity, TypesIntentConstraint, TypesIntentId, TypesIntentKind, TypesObjective,
     TypesRootIntent,
 };
-use capability_core::ModuleSuite;
-use capability_registry::find_module;
 use serde::Serialize;
 
 use crate::{TruthDefinition, TruthKind, all_truths, find_truth};
@@ -66,7 +66,7 @@ impl TruthConvergeBinding {
             .constraints
             .iter()
             .filter(|constraint| constraint.severity == TypesConstraintSeverity::Hard)
-            .map(|constraint| constraint.value.clone())
+            .map(|constraint| constraint.value.to_string())
             .collect()
     }
 }
@@ -86,7 +86,7 @@ impl From<TruthDefinition> for TruthConvergeBinding {
                 .objective(Some(TypesObjective::Custom(truth.display_name.to_string())))
                 .risk_posture(truth_risk_posture(truth))
                 .constraints(truth_constraints(truth))
-                .active_packs(pack_ids.iter().map(ToString::to_string).collect())
+                .active_packs(pack_ids.iter().map(|p| (*p).into()).collect())
                 .success_criteria(truth_success_criteria(truth))
                 .budgets(truth_budgets(truth))
                 .build(),
@@ -114,7 +114,7 @@ impl From<TruthDefinition> for ConvergeTruth {
     fn from(truth: TruthDefinition) -> Self {
         let binding = TruthConvergeBinding::from(truth);
         Self {
-            key: truth.key.to_string(),
+            key: truth.key.into(),
             kind: truth.kind.into(),
             summary: truth.summary.to_string(),
             success_criteria: binding.intent.success_criteria,
@@ -122,12 +122,12 @@ impl From<TruthDefinition> for ConvergeTruth {
             approval_points: truth
                 .approval_points
                 .iter()
-                .map(ToString::to_string)
+                .map(|p| (*p).into())
                 .collect(),
             participating_packs: binding
                 .pack_ids
                 .into_iter()
-                .map(ToString::to_string)
+                .map(Into::into)
                 .collect(),
         }
     }
@@ -144,7 +144,7 @@ impl From<TruthKind> for ConvergeTruthKind {
 }
 
 impl CriterionEvaluator for QualifyInboundLeadEvaluator {
-    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+    fn evaluate(&self, criterion: &Criterion, context: &dyn Context) -> CriterionResult {
         match criterion.id.as_str() {
             "outcome.lead-is-explicitly-qualified-or-disqualified" => {
                 if let Some(fact_id) =
@@ -183,7 +183,7 @@ impl CriterionEvaluator for QualifyInboundLeadEvaluator {
 }
 
 impl CriterionEvaluator for ScoreInboundFitEvaluator {
-    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+    fn evaluate(&self, criterion: &Criterion, context: &dyn Context) -> CriterionResult {
         match criterion.id.as_str() {
             "outcome.a-governed-fit-score-is-recorded-for-the-inbound-lead" => {
                 require_fact(context, ContextKey::Evaluations, "lead:fit-score")
@@ -197,7 +197,7 @@ impl CriterionEvaluator for ScoreInboundFitEvaluator {
 }
 
 impl CriterionEvaluator for ActivateSubscriptionEvaluator {
-    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+    fn evaluate(&self, criterion: &Criterion, context: &dyn Context) -> CriterionResult {
         if let Some(review_fact) = find_fact_id(
             context,
             ContextKey::Evaluations,
@@ -205,7 +205,7 @@ impl CriterionEvaluator for ActivateSubscriptionEvaluator {
         ) {
             return CriterionResult::Blocked {
                 reason: format!("manual review is required before activation ({review_fact})"),
-                approval_ref: Some(review_fact),
+                approval_ref: Some(review_fact.into()),
             };
         }
 
@@ -249,7 +249,7 @@ impl CriterionEvaluator for ActivateSubscriptionEvaluator {
 }
 
 impl CriterionEvaluator for RefillPrepaidAiCreditsEvaluator {
-    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+    fn evaluate(&self, criterion: &Criterion, context: &dyn Context) -> CriterionResult {
         if let Some(review_fact) = find_fact_id(
             context,
             ContextKey::Evaluations,
@@ -257,7 +257,7 @@ impl CriterionEvaluator for RefillPrepaidAiCreditsEvaluator {
         ) {
             return CriterionResult::Blocked {
                 reason: format!("manual review is required before refill ({review_fact})"),
-                approval_ref: Some(review_fact),
+                approval_ref: Some(review_fact.into()),
             };
         }
 
@@ -293,7 +293,7 @@ impl CriterionEvaluator for RefillPrepaidAiCreditsEvaluator {
 }
 
 impl CriterionEvaluator for UpgradeSubscriptionPlanEvaluator {
-    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+    fn evaluate(&self, criterion: &Criterion, context: &dyn Context) -> CriterionResult {
         if let Some(review_fact) = find_fact_id(
             context,
             ContextKey::Evaluations,
@@ -301,7 +301,7 @@ impl CriterionEvaluator for UpgradeSubscriptionPlanEvaluator {
         ) {
             return CriterionResult::Blocked {
                 reason: format!("manual review is required before plan change ({review_fact})"),
-                approval_ref: Some(review_fact),
+                approval_ref: Some(review_fact.into()),
             };
         }
 
@@ -345,7 +345,7 @@ impl CriterionEvaluator for UpgradeSubscriptionPlanEvaluator {
 }
 
 impl CriterionEvaluator for SuspendServiceOnPaymentFailureEvaluator {
-    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+    fn evaluate(&self, criterion: &Criterion, context: &dyn Context) -> CriterionResult {
         if let Some(review_fact) = find_fact_id(
             context,
             ContextKey::Evaluations,
@@ -353,7 +353,7 @@ impl CriterionEvaluator for SuspendServiceOnPaymentFailureEvaluator {
         ) {
             return CriterionResult::Blocked {
                 reason: format!("manual review is required before suspension ({review_fact})"),
-                approval_ref: Some(review_fact),
+                approval_ref: Some(review_fact.into()),
             };
         }
 
@@ -402,7 +402,7 @@ impl CriterionEvaluator for SuspendServiceOnPaymentFailureEvaluator {
 }
 
 impl CriterionEvaluator for ReconcileModelUsageAgainstCustomerLedgerEvaluator {
-    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+    fn evaluate(&self, criterion: &Criterion, context: &dyn Context) -> CriterionResult {
         if let Some(review_fact) = find_fact_id(
             context,
             ContextKey::Evaluations,
@@ -412,7 +412,7 @@ impl CriterionEvaluator for ReconcileModelUsageAgainstCustomerLedgerEvaluator {
                 reason: format!(
                     "manual review is required before reconciliation can be accepted ({review_fact})"
                 ),
-                approval_ref: Some(review_fact),
+                approval_ref: Some(review_fact.into()),
             };
         }
 
@@ -456,7 +456,7 @@ impl CriterionEvaluator for ReconcileModelUsageAgainstCustomerLedgerEvaluator {
 }
 
 impl CriterionEvaluator for PlanOutboundCampaignEvaluator {
-    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+    fn evaluate(&self, criterion: &Criterion, context: &dyn Context) -> CriterionResult {
         match criterion.id.as_str() {
             "outcome.a-governed-outbound-campaign-plan-exists" => {
                 require_fact(context, ContextKey::Strategies, "campaign:plan")
@@ -470,7 +470,7 @@ impl CriterionEvaluator for PlanOutboundCampaignEvaluator {
 }
 
 impl CriterionEvaluator for MatchRenewalContextEvaluator {
-    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+    fn evaluate(&self, criterion: &Criterion, context: &dyn Context) -> CriterionResult {
         match criterion.id.as_str() {
             "outcome.a-renewal-brief-is-attached-to-the-account-or-renewal-motion" => {
                 require_fact(context, ContextKey::Strategies, "renewal:brief")
@@ -484,7 +484,7 @@ impl CriterionEvaluator for MatchRenewalContextEvaluator {
 }
 
 impl CriterionEvaluator for ScheduleStrategicMeetingsEvaluator {
-    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+    fn evaluate(&self, criterion: &Criterion, context: &dyn Context) -> CriterionResult {
         if let Some(review_fact) = find_fact_id(
             context,
             ContextKey::Evaluations,
@@ -494,7 +494,7 @@ impl CriterionEvaluator for ScheduleStrategicMeetingsEvaluator {
                 reason: format!(
                     "human confirmation required before booking meetings ({review_fact})"
                 ),
-                approval_ref: Some(review_fact),
+                approval_ref: Some(review_fact.into()),
             };
         }
 
@@ -511,7 +511,7 @@ impl CriterionEvaluator for ScheduleStrategicMeetingsEvaluator {
 }
 
 impl CriterionEvaluator for MonitorBrandSignalEvaluator {
-    fn evaluate(&self, _criterion: &Criterion, _context: &Context) -> CriterionResult {
+    fn evaluate(&self, _criterion: &Criterion, _context: &dyn Context) -> CriterionResult {
         CriterionResult::Blocked {
             reason: "monitor-brand-signal runtime is not yet implemented".to_string(),
             approval_ref: None,
@@ -520,7 +520,7 @@ impl CriterionEvaluator for MonitorBrandSignalEvaluator {
 }
 
 impl CriterionEvaluator for MatchVisualToTaglineEvaluator {
-    fn evaluate(&self, _criterion: &Criterion, _context: &Context) -> CriterionResult {
+    fn evaluate(&self, _criterion: &Criterion, _context: &dyn Context) -> CriterionResult {
         CriterionResult::Blocked {
             reason: "match-visual-to-tagline runtime is not yet implemented".to_string(),
             approval_ref: None,
@@ -529,7 +529,7 @@ impl CriterionEvaluator for MatchVisualToTaglineEvaluator {
 }
 
 impl CriterionEvaluator for EvaluateAcquisitionTargetEvaluator {
-    fn evaluate(&self, criterion: &Criterion, context: &Context) -> CriterionResult {
+    fn evaluate(&self, criterion: &Criterion, context: &dyn Context) -> CriterionResult {
         // Governance gate: block if contradictions need human review
         if let Some(contradiction_fact) =
             find_fact_id(context, ContextKey::Evaluations, "dd:human-review-required")
@@ -538,7 +538,7 @@ impl CriterionEvaluator for EvaluateAcquisitionTargetEvaluator {
                 reason: format!(
                     "material contradictions require human review before recommendation ({contradiction_fact})"
                 ),
-                approval_ref: Some(contradiction_fact),
+                approval_ref: Some(contradiction_fact.into()),
             };
         }
 
@@ -551,13 +551,13 @@ impl CriterionEvaluator for EvaluateAcquisitionTargetEvaluator {
                 let has_contradictions = context
                     .get(ContextKey::Evaluations)
                     .iter()
-                    .any(|f| f.id.starts_with("contradiction-"));
+                    .any(|f| f.id().starts_with("contradiction-"));
                 if has_contradictions {
                     let evidence = context
                         .get(ContextKey::Evaluations)
                         .iter()
-                        .filter(|f| f.id.starts_with("contradiction-"))
-                        .map(|f| FactId::new(f.id.clone()))
+                        .filter(|f| f.id().starts_with("contradiction-"))
+                        .map(|f| f.id().clone())
                         .collect::<Vec<_>>();
                     CriterionResult::Met { evidence }
                 } else {
@@ -674,15 +674,15 @@ fn slug(value: &str) -> String {
     }
 }
 
-fn find_fact_id(context: &Context, key: ContextKey, fact_id: &str) -> Option<String> {
+fn find_fact_id(context: &dyn Context, key: ContextKey, fact_id: &str) -> Option<String> {
     context
         .get(key)
         .iter()
-        .find(|fact| fact.id == fact_id)
-        .map(|fact| fact.id.clone())
+        .find(|fact| fact.id().as_str() == fact_id)
+        .map(|fact| fact.id().to_string())
 }
 
-fn require_fact(context: &Context, key: ContextKey, fact_id: &str) -> CriterionResult {
+fn require_fact(context: &dyn Context, key: ContextKey, fact_id: &str) -> CriterionResult {
     if let Some(fact_id) = find_fact_id(context, key, fact_id) {
         CriterionResult::Met {
             evidence: vec![FactId::new(fact_id)],
@@ -694,12 +694,12 @@ fn require_fact(context: &Context, key: ContextKey, fact_id: &str) -> CriterionR
     }
 }
 
-fn require_any_fact(context: &Context, key: ContextKey, prefix: &str) -> CriterionResult {
+fn require_any_fact(context: &dyn Context, key: ContextKey, prefix: &str) -> CriterionResult {
     let evidence = context
         .get(key)
         .iter()
-        .filter(|fact| fact.id.starts_with(prefix))
-        .map(|fact| FactId::new(fact.id.clone()))
+        .filter(|fact| fact.id().starts_with(prefix))
+        .map(|fact| fact.id().clone())
         .collect::<Vec<_>>();
     if evidence.is_empty() {
         CriterionResult::Unmet {

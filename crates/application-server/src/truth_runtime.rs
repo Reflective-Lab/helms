@@ -21,8 +21,9 @@ use application_kernel::{
 };
 use application_storage::{AppRuntimeStores, KernelStore, StorageError};
 use converge_kernel::{
-    Context, ConvergeError, ConvergeResult, CriterionEvaluator, Engine, ExperienceEvent,
-    ExperienceEventEnvelope, ExperienceEventObserver, TypesRootIntent, TypesRunHooks,
+    ContextState as Context, ConvergeError, ConvergeResult, CriterionEvaluator, Engine,
+    ExperienceEvent, ExperienceEventEnvelope, ExperienceEventObserver, TypesRootIntent,
+    TypesRunHooks,
 };
 use tonic::Status;
 use uuid::Uuid;
@@ -191,6 +192,15 @@ pub(super) fn status_from_converge(error: ConvergeError) -> Status {
         }
         ConvergeError::Conflict { id, .. } => {
             Status::aborted(format!("converge fact conflict: {id}"))
+        }
+        ConvergeError::InvalidResume { reason } => {
+            Status::failed_precondition(format!("converge invalid resume: {reason}"))
+        }
+        ConvergeError::InvalidAdmission { reason } => {
+            Status::invalid_argument(format!("converge invalid admission: {reason}"))
+        }
+        ConvergeError::InvalidSnapshot { reason } => {
+            Status::data_loss(format!("converge invalid context snapshot: {reason}"))
         }
     }
 }

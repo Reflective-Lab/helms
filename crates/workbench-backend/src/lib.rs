@@ -14,13 +14,13 @@ use application_kernel::{
 use application_storage::{
     AppConfig, InMemoryKernelStore, KernelStore, StorageError, StoreWriteResult,
 };
-use chrono::Utc;
 use capability_registry::all_modules;
+use chrono::Utc;
+use thiserror::Error;
 use truth_catalog::{
     TruthDefinition, all_truths, converge_binding_for_truth, display_pack_names_for_truth,
     find_truth,
 };
-use thiserror::Error;
 use uuid::Uuid;
 
 pub use views::{
@@ -233,7 +233,7 @@ where
                     .map(|level| format!("{level:?}").to_ascii_lowercase())
                     .collect();
                 let completeness_confidence_bps =
-                    (binding.resolution.completeness_confidence * 10_000.0).round() as u16;
+                    (binding.resolution.completeness_confidence.as_f64() * 10_000.0).round() as u16;
 
                 OrganismTruthResolutionView {
                     truth_key: truth_key.to_string(),
@@ -244,7 +244,7 @@ where
                         .map(|pack| OrganismPackRequirementView {
                             pack_name: pack.pack_name,
                             reason: pack.reason,
-                            confidence_bps: (pack.confidence * 10_000.0).round() as u16,
+                            confidence_bps: (pack.confidence.as_f64() * 10_000.0).round() as u16,
                             source: format!("{:?}", pack.source).to_ascii_lowercase(),
                         })
                         .collect(),
@@ -254,7 +254,7 @@ where
                         .map(|capability| OrganismCapabilityRequirementView {
                             capability: capability.capability,
                             reason: capability.reason,
-                            confidence_bps: (capability.confidence * 10_000.0).round() as u16,
+                            confidence_bps: (capability.confidence.as_f64() * 10_000.0).round() as u16,
                             source: format!("{:?}", capability.source).to_ascii_lowercase(),
                         })
                         .collect(),

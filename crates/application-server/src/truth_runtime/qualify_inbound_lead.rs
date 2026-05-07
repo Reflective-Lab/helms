@@ -6,13 +6,11 @@ use application_kernel::{
     RecordKind, RecordRef,
 };
 use application_storage::{KernelStore, StoreWriteResult};
-use converge_kernel::{Context, ConvergeResult, Engine, TypesRunHooks};
-use converge_pack::{
-    AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor,
-};
-use truth_catalog::{QualifyInboundLeadEvaluator, converge_binding_for_truth};
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine, TypesRunHooks};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
+use truth_catalog::{QualifyInboundLeadEvaluator, converge_binding_for_truth};
 
 use super::{
     RecordingObserver, TruthExecutionArtifacts, TruthProjection,
@@ -158,7 +156,8 @@ pub(super) async fn execute<S: KernelStore>(
         seed_context(&inputs)?,
         &binding.intent,
         std::sync::Arc::new(QualifyInboundLeadEvaluator),
-    ).await?;
+    )
+    .await?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -481,8 +480,7 @@ impl Suggestor for LeadRoutingAgent {
             seed_value(ctx, "next_step").unwrap_or_else(|| default_next_step.to_string());
         let confidence_bps = converge_confidence_to_bps(ROUTING_CONFIDENCE);
 
-        AgentEffect {
-            proposals: vec![
+        AgentEffect::with_proposals(vec![
                 ProposedFact::new(
                     ContextKey::Strategies,
                     OWNER_FACT_ID.to_string(),
@@ -492,8 +490,8 @@ impl Suggestor for LeadRoutingAgent {
                         confidence_bps,
                     }),
                     STUB_PROVENANCE.to_string(),
-                    )
-                    .with_confidence(ROUTING_CONFIDENCE),
+                )
+                .with_confidence(ROUTING_CONFIDENCE),
                 ProposedFact::new(
                     ContextKey::Strategies,
                     NEXT_STEP_FACT_ID.to_string(),
@@ -503,10 +501,9 @@ impl Suggestor for LeadRoutingAgent {
                         confidence_bps,
                     }),
                     STUB_PROVENANCE.to_string(),
-                    )
-                    .with_confidence(ROUTING_CONFIDENCE),
-            ],
-        }
+                )
+                .with_confidence(ROUTING_CONFIDENCE),
+            ])
     }
 }
 
@@ -633,11 +630,7 @@ fn seed_context(inputs: &QualifyInboundLeadInput) -> Result<Context, Status> {
 
     for (key, value) in map {
         context
-            .add_input(
-                ContextKey::Seeds,
-                format!("input:{key}"),
-                value,
-            )
+            .add_input(ContextKey::Seeds, format!("input:{key}"), value)
             .map_err(status_from_converge)?;
     }
     Ok(context)
@@ -661,9 +654,7 @@ fn decode_routing_payload(content: &str) -> Result<LeadRoutingPayload, Status> {
         .map_err(|error| Status::internal(format!("invalid routing payload: {error}")))
 }
 
-fn qualification_payload_from_view(
-    ctx: &dyn ContextView,
-) -> Option<LeadQualificationPayload> {
+fn qualification_payload_from_view(ctx: &dyn ContextView) -> Option<LeadQualificationPayload> {
     fact_content_from_view(ctx, ContextKey::Evaluations, QUALIFICATION_FACT_ID)
         .and_then(|content| decode_qualification_payload(&content).ok())
 }
@@ -673,31 +664,27 @@ fn fact_content(result: &ConvergeResult, key: ContextKey, fact_id: &str) -> Opti
         .context
         .get(key)
         .iter()
-        .find(|fact| fact.id == fact_id)
-        .map(|fact| fact.content.clone())
+        .find(|fact| fact.id().as_str() == fact_id)
+        .map(|fact| fact.content().to_string())
 }
 
-fn fact_content_from_view(
-    ctx: &dyn ContextView,
-    key: ContextKey,
-    fact_id: &str,
-) -> Option<String> {
+fn fact_content_from_view(ctx: &dyn ContextView, key: ContextKey, fact_id: &str) -> Option<String> {
     ctx.get(key)
         .iter()
-        .find(|fact| fact.id == fact_id)
-        .map(|fact| fact.content.clone())
+        .find(|fact| fact.id().as_str() == fact_id)
+        .map(|fact| fact.content().to_string())
 }
 
 fn has_fact(ctx: &dyn ContextView, key: ContextKey, fact_id: &str) -> bool {
-    ctx.get(key).iter().any(|fact| fact.id == fact_id)
+    ctx.get(key).iter().any(|fact| fact.id().as_str() == fact_id)
 }
 
 fn seed_value(ctx: &dyn ContextView, key: &str) -> Option<String> {
     let id = format!("input:{key}");
     ctx.get(ContextKey::Seeds)
         .iter()
-        .find(|fact| fact.id == id)
-        .map(|fact| fact.content.clone())
+        .find(|fact| fact.id().as_str() == id)
+        .map(|fact| fact.content().to_string())
 }
 
 fn parsed_score(ctx: &dyn ContextView, key: &str) -> Option<u16> {
@@ -1230,7 +1217,7 @@ mod tests {
 
     /// An agent that produces nothing — simulates an LLM returning empty output.
     struct SilentAgent;
-#[async_trait::async_trait]
+    #[async_trait::async_trait]
     impl Suggestor for SilentAgent {
         fn name(&self) -> &str {
             "prio.silent-agent"
@@ -1248,7 +1235,7 @@ mod tests {
 
     /// An agent that produces a fact with malformed JSON content.
     struct MalformedPayloadAgent;
-#[async_trait::async_trait]
+    #[async_trait::async_trait]
     impl Suggestor for MalformedPayloadAgent {
         fn name(&self) -> &str {
             "prio.malformed-payload"
@@ -1261,19 +1248,21 @@ mod tests {
                 && !super::has_fact(ctx, ContextKey::Evaluations, QUALIFICATION_FACT_ID)
         }
         async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
-            AgentEffect::with_proposal(ProposedFact::new(
-                ContextKey::Evaluations,
-                QUALIFICATION_FACT_ID.to_string(),
-                "NOT VALID JSON {{{".to_string(),
-                "prio.test.malformed".to_string(),
+            AgentEffect::with_proposal(
+                ProposedFact::new(
+                    ContextKey::Evaluations,
+                    QUALIFICATION_FACT_ID.to_string(),
+                    "NOT VALID JSON {{{".to_string(),
+                    "prio.test.malformed".to_string(),
                 )
-                .with_confidence(0.8))
+                .with_confidence(0.8),
+            )
         }
     }
 
     /// An agent that produces extra irrelevant facts alongside its real output.
     struct NoisyQualificationAgent;
-#[async_trait::async_trait]
+    #[async_trait::async_trait]
     impl Suggestor for NoisyQualificationAgent {
         fn name(&self) -> &str {
             "prio.noisy-qualification"
@@ -1299,31 +1288,29 @@ mod tests {
                 })
                 .unwrap(),
                 "prio.test.noisy".to_string(),
-                )
-                .with_confidence(0.92);
+            )
+            .with_confidence(0.92);
             let noise1 = ProposedFact::new(
                 ContextKey::Signals,
                 "irrelevant:weather-forecast".to_string(),
                 r#"{"temperature":22,"conditions":"sunny"}"#.to_string(),
                 "prio.test.noise".to_string(),
-                )
-                .with_confidence(0.5);
+            )
+            .with_confidence(0.5);
             let noise2 = ProposedFact::new(
                 ContextKey::Signals,
                 "irrelevant:stock-price".to_string(),
                 r#"{"ticker":"AAPL","price":185.50}"#.to_string(),
                 "prio.test.noise".to_string(),
-                )
-                .with_confidence(0.3);
-            AgentEffect {
-                proposals: vec![real, noise1, noise2],
-            }
+            )
+            .with_confidence(0.3);
+            AgentEffect::with_proposals(vec![real, noise1, noise2])
         }
     }
 
     /// An agent that produces a very low confidence proposal.
     struct LowConfidenceAgent;
-#[async_trait::async_trait]
+    #[async_trait::async_trait]
     impl Suggestor for LowConfidenceAgent {
         fn name(&self) -> &str {
             "prio.low-confidence"
@@ -1336,21 +1323,23 @@ mod tests {
                 && !super::has_fact(ctx, ContextKey::Evaluations, QUALIFICATION_FACT_ID)
         }
         async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
-            AgentEffect::with_proposal(ProposedFact::new(
-                ContextKey::Evaluations,
-                QUALIFICATION_FACT_ID.to_string(),
-                serde_json::to_string(&LeadQualificationPayload {
-                    status: LeadQualificationStatus::Qualified,
-                    reason: "low-confidence-guess".to_string(),
-                    fit_score: 55,
-                    authority_score: 40,
-                    urgency_score: 45,
-                    confidence_bps: 100,
-                })
-                .unwrap(),
-                "prio.test.low-confidence".to_string(),
+            AgentEffect::with_proposal(
+                ProposedFact::new(
+                    ContextKey::Evaluations,
+                    QUALIFICATION_FACT_ID.to_string(),
+                    serde_json::to_string(&LeadQualificationPayload {
+                        status: LeadQualificationStatus::Qualified,
+                        reason: "low-confidence-guess".to_string(),
+                        fit_score: 55,
+                        authority_score: 40,
+                        urgency_score: 45,
+                        confidence_bps: 100,
+                    })
+                    .unwrap(),
+                    "prio.test.low-confidence".to_string(),
                 )
-                .with_confidence(0.01))
+                .with_confidence(0.01),
+            )
         }
     }
 

@@ -10,14 +10,12 @@ use converge_analytics::batch::{
 };
 use converge_analytics::engine::FeatureVector;
 use converge_analytics::model::{ModelConfig, run_batch_inference};
-use converge_kernel::{Context, ConvergeResult, Engine};
-use converge_pack::{
-    AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor,
-};
-use truth_catalog::{ScoreInboundFitEvaluator, converge_binding_for_truth};
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tempfile::Builder;
 use tonic::Status;
+use truth_catalog::{ScoreInboundFitEvaluator, converge_binding_for_truth};
 use uuid::Uuid;
 
 use super::{
@@ -128,7 +126,8 @@ pub(super) async fn execute<S: KernelStore>(
         seed_context(&organization_name)?,
         &binding.intent,
         std::sync::Arc::new(ScoreInboundFitEvaluator),
-    ).await?;
+    )
+    .await?;
 
     let projection = if persist_projection {
         Some(project(store, &inputs, &result, actor)?)
@@ -310,11 +309,11 @@ impl Suggestor for FitScoringAgent {
         let Some(feature_fact) = ctx
             .get(ContextKey::Signals)
             .iter()
-            .find(|fact| fact.id == FEATURE_FACT_ID)
+            .find(|fact| fact.id() == FEATURE_FACT_ID)
         else {
             return AgentEffect::empty();
         };
-        let payload = match serde_json::from_str::<BehavioralFeaturesPayload>(&feature_fact.content)
+        let payload = match serde_json::from_str::<BehavioralFeaturesPayload>(&feature_fact.content())
         {
             Ok(payload) => payload,
             Err(error) => {
@@ -355,7 +354,8 @@ impl Suggestor for FitScoringAgent {
             burn_signal,
         };
 
-        let mut effect = AgentEffect::with_proposal(
+        let mut builder = AgentEffect::builder();
+        builder.push(
             ProposedFact::new(
                 ContextKey::Evaluations,
                 FIT_SCORE_FACT_ID,
@@ -364,7 +364,7 @@ impl Suggestor for FitScoringAgent {
             )
             .with_confidence(f64::from(confidence_bps) / 10_000.0),
         );
-        effect.proposals.push(
+        builder.push(
             ProposedFact::new(
                 ContextKey::Signals,
                 FIT_EVIDENCE_FACT_ID,
@@ -373,7 +373,7 @@ impl Suggestor for FitScoringAgent {
             )
             .with_confidence(1.0),
         );
-        effect
+        builder.build()
     }
 }
 

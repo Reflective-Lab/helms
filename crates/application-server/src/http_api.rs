@@ -14,8 +14,8 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use capability_core::CapabilityModule;
 use capability_registry::all_modules;
-use truth_catalog::{TruthDefinition, TruthKind, TruthModuleTouch, all_truths, find_truth};
 use serde::{Deserialize, Serialize};
+use truth_catalog::{TruthDefinition, TruthKind, TruthModuleTouch, all_truths, find_truth};
 use uuid::Uuid;
 use workbench_backend::{
     AccountWorkspaceSummary, ApprovalFilter, ApprovalListItem, CatalogItemListItem, OperatorApp,
@@ -423,6 +423,14 @@ where
             "/v1/workbench/approvals",
             get(list_workbench_approvals::<S>),
         )
+        .route(
+            "/v1/workbench/approvals/{id}/approve",
+            post(approve_workbench_approval::<S>),
+        )
+        .route(
+            "/v1/workbench/approvals/{id}/reject",
+            post(reject_workbench_approval::<S>),
+        )
         .route("/v1/organizations", get(list_organizations::<S>))
         .route(
             "/v1/organizations/{id}/summary",
@@ -616,6 +624,93 @@ where
         .map_err(api_error_from_operator)
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct ApprovalDecisionPayload {
+    pub actor: String,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub policy_snapshot_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ApprovalDecisionAck {
+    pub event_id: String,
+    pub gate_request_id: String,
+    pub decision: &'static str,
+}
+
+async fn approve_workbench_approval<S>(
+    State(state): State<HttpState<S>>,
+    Path(id): Path<String>,
+    Json(payload): Json<ApprovalDecisionPayload>,
+) -> Result<Json<ApprovalDecisionAck>, ApiError>
+where
+    S: KernelStore + Clone + Send + Sync + 'static,
+{
+    let event_id = format!("evt-user-{}", Uuid::new_v4().simple());
+    let envelope = converge_core::UserExperienceEventEnvelope::new(
+        event_id.as_str(),
+        converge_core::UserExperienceEvent::UserApprovalGranted {
+            gate_request_id: converge_core::GateId::new(id.clone()),
+            actor: converge_pack::ActorId::new(payload.actor),
+            policy_snapshot_hash: payload
+                .policy_snapshot_hash
+                .as_deref()
+                .map(converge_core::ContentHash::from_hex),
+            reason: payload.reason,
+        },
+    )
+    .with_correlation(id.clone());
+
+    state
+        .runtime_stores
+        .append_user_event(envelope)
+        .map_err(api_error_from_storage)?;
+
+    Ok(Json(ApprovalDecisionAck {
+        event_id,
+        gate_request_id: id,
+        decision: "approved",
+    }))
+}
+
+async fn reject_workbench_approval<S>(
+    State(state): State<HttpState<S>>,
+    Path(id): Path<String>,
+    Json(payload): Json<ApprovalDecisionPayload>,
+) -> Result<Json<ApprovalDecisionAck>, ApiError>
+where
+    S: KernelStore + Clone + Send + Sync + 'static,
+{
+    let event_id = format!("evt-user-{}", Uuid::new_v4().simple());
+    let reason = payload.reason.unwrap_or_else(|| "rejected".to_string());
+    let envelope = converge_core::UserExperienceEventEnvelope::new(
+        event_id.as_str(),
+        converge_core::UserExperienceEvent::UserOverrideIssued {
+            target: converge_core::OverrideTarget::Constraint(id.clone().into()),
+            actor: converge_pack::ActorId::new(payload.actor),
+            policy_snapshot_hash: payload
+                .policy_snapshot_hash
+                .as_deref()
+                .map(converge_core::ContentHash::from_hex),
+            reason,
+        },
+    )
+    .with_correlation(id.clone());
+
+    state
+        .runtime_stores
+        .append_user_event(envelope)
+        .map_err(api_error_from_storage)?;
+
+    Ok(Json(ApprovalDecisionAck {
+        event_id,
+        gate_request_id: id,
+        decision: "rejected",
+    }))
+}
+
 async fn list_organizations<S>(
     State(state): State<HttpState<S>>,
 ) -> Result<Json<Vec<Organization>>, ApiError>
@@ -797,7 +892,9 @@ where
         request.inputs,
         request.actor.unwrap_or_else(Actor::system),
         request.persist_projection.unwrap_or(true),
-    ).await.map_err(api_error_from_tonic)?;
+    )
+    .await
+    .map_err(api_error_from_tonic)?;
 
     Ok(Json(TruthExecutionResponse {
         truth: TruthCatalogItem::from_truth(truth, false),
@@ -1312,7 +1409,7 @@ fn execution_summary(execution: &TruthExecutionArtifacts) -> BillingExecutionSum
             .criteria_outcomes
             .iter()
             .map(|outcome| BillingCriterionSummary {
-                criterion_id: outcome.criterion.id.clone(),
+                criterion_id: outcome.criterion.id.to_string(),
                 description: outcome.criterion.description.clone(),
                 required: outcome.criterion.required,
                 status: criterion_status_name(&outcome.result),
@@ -1330,7 +1427,7 @@ fn execution_summary(execution: &TruthExecutionArtifacts) -> BillingExecutionSum
                 },
                 approval_ref: match &outcome.result {
                     converge_core::CriterionResult::Blocked { approval_ref, .. } => {
-                        approval_ref.clone()
+                        approval_ref.as_ref().map(ToString::to_string)
                     }
                     _ => None,
                 },
@@ -1404,6 +1501,7 @@ fn experience_event_kind_name(event: &converge_core::ExperienceEvent) -> &'stati
         converge_core::ExperienceEventKind::PolicySnapshotCaptured => "policy-snapshot-captured",
         converge_core::ExperienceEventKind::ReplayTraceRecorded => "replay-trace-recorded",
         converge_core::ExperienceEventKind::HypothesisResolved => "hypothesis-resolved",
+        converge_core::ExperienceEventKind::GateDecisionRecorded => "gate-decision-recorded",
     }
 }
 

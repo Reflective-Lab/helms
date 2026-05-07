@@ -11,18 +11,18 @@ use application_kernel::{
     WorkflowCaseAdvance, WorkflowCaseCreate, WorkflowPriority, WorkflowState,
 };
 use application_storage::{AppRuntimeStores, InMemoryKernelStore, KernelStore, StorageError};
-use chrono::{DateTime, Utc};
-use converge_core::CriterionResult;
 use capability_core::{CapabilityModule, ModuleSuite};
 use capability_registry::all_modules;
-use truth_catalog::{
-    TruthDefinition, TruthKind as CatalogTruthKind, all_truths, converge_binding_for_truth,
-    find_truth,
-};
+use chrono::{DateTime, Utc};
+use converge_core::CriterionResult;
 use prost_types::Timestamp;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
+use truth_catalog::{
+    TruthDefinition, TruthKind as CatalogTruthKind, all_truths, converge_binding_for_truth,
+    find_truth,
+};
 use uuid::Uuid;
 
 use crate::proto::{
@@ -822,7 +822,8 @@ where
             request.inputs,
             actor_from_proto(request.actor),
             request.persist_projection,
-        ).await?;
+        )
+        .await?;
 
         Ok(Response::new(proto_execute_truth_response(
             truth, execution,
@@ -1697,7 +1698,7 @@ fn proto_execute_truth_response(
                 .context
                 .get(key)
                 .iter()
-                .map(|fact| fact.id.clone())
+                .map(|fact| fact.id().to_string())
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
@@ -1803,13 +1804,13 @@ fn proto_criterion_outcome(
     };
 
     truths_pb::CriterionOutcome {
-        criterion_id: outcome.criterion.id,
+        criterion_id: outcome.criterion.id.to_string(),
         description: outcome.criterion.description,
         required: outcome.criterion.required,
         status,
         evidence_fact_ids,
         detail,
-        approval_ref,
+        approval_ref: approval_ref.map(|p| p.to_string()),
     }
 }
 

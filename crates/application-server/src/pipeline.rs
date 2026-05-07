@@ -118,14 +118,19 @@ pub async fn run_showcase_pipeline<S: KernelStore>(
         Err(e) => {
             steps.push(PipelineStepResult {
                 truth_key: "score-inbound-fit".into(),
-                status: StepStatus::Failed { error: e.message().to_string() },
+                status: StepStatus::Failed {
+                    error: e.message().to_string(),
+                },
                 cycles: None,
                 stop_reason: None,
                 fact_count: None,
             });
             return PipelineResult {
                 steps,
-                status: PipelineStatus::Failed { step: 0, error: e.message().to_string() },
+                status: PipelineStatus::Failed {
+                    step: 0,
+                    error: e.message().to_string(),
+                },
                 prospect_name,
             };
         }
@@ -170,14 +175,19 @@ pub async fn run_showcase_pipeline<S: KernelStore>(
         Err(e) => {
             steps.push(PipelineStepResult {
                 truth_key: "qualify-inbound-lead".into(),
-                status: StepStatus::Failed { error: e.message().to_string() },
+                status: StepStatus::Failed {
+                    error: e.message().to_string(),
+                },
                 cycles: None,
                 stop_reason: None,
                 fact_count: None,
             });
             return PipelineResult {
                 steps,
-                status: PipelineStatus::Failed { step: 1, error: e.message().to_string() },
+                status: PipelineStatus::Failed {
+                    step: 1,
+                    error: e.message().to_string(),
+                },
                 prospect_name,
             };
         }
@@ -215,14 +225,19 @@ pub async fn run_showcase_pipeline<S: KernelStore>(
         Err(e) => {
             steps.push(PipelineStepResult {
                 truth_key: "schedule-strategic-meetings".into(),
-                status: StepStatus::Failed { error: e.message().to_string() },
+                status: StepStatus::Failed {
+                    error: e.message().to_string(),
+                },
                 cycles: None,
                 stop_reason: None,
                 fact_count: None,
             });
             return PipelineResult {
                 steps,
-                status: PipelineStatus::Failed { step: 2, error: e.message().to_string() },
+                status: PipelineStatus::Failed {
+                    step: 2,
+                    error: e.message().to_string(),
+                },
                 prospect_name,
             };
         }
@@ -306,7 +321,10 @@ fn build_schedule_inputs(
     let mut m = HashMap::new();
     m.insert(
         "intent_text".into(),
-        format!("Book {} meetings with qualified prospects", input.meeting_count),
+        format!(
+            "Book {} meetings with qualified prospects",
+            input.meeting_count
+        ),
     );
     m.insert("requested_count".into(), input.meeting_count.to_string());
     m.insert("window_start".into(), input.window_start.clone());
@@ -340,7 +358,10 @@ fn extract_fit_score(artifacts: &TruthExecutionArtifacts) -> Option<u16> {
     None
 }
 
-fn step_result_from_artifacts(truth_key: &str, artifacts: &TruthExecutionArtifacts) -> PipelineStepResult {
+fn step_result_from_artifacts(
+    truth_key: &str,
+    artifacts: &TruthExecutionArtifacts,
+) -> PipelineStepResult {
     let stop_reason = format!("{:?}", artifacts.result.stop_reason);
     let is_blocked = stop_reason.contains("Blocked") || stop_reason.contains("HumanIntervention");
 
@@ -440,16 +461,22 @@ pub fn load_prospect_context_from_seed(
         .map_err(|e| format!("failed to filter prospect: {e}"))?;
 
     if df.height() == 0 {
-        return Err(format!("prospect '{prospect_id}' not found in account_context"));
+        return Err(format!(
+            "prospect '{prospect_id}' not found in account_context"
+        ));
     }
 
-    let name = df.column("company_name").ok()
+    let name = df
+        .column("company_name")
+        .ok()
         .and_then(|c| c.str().ok())
         .and_then(|s| s.get(0))
         .unwrap_or(prospect_id)
         .to_string();
 
-    let industry = df.column("industry").ok()
+    let industry = df
+        .column("industry")
+        .ok()
         .and_then(|c| c.str().ok())
         .and_then(|s| s.get(0))
         .map(ToString::to_string);

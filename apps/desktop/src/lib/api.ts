@@ -2,12 +2,8 @@ import { invoke } from '@tauri-apps/api/core'
 
 import type {
 	AccountWorkspaceSummary,
-	AppleNotesImportReport,
-	AppleNotesPublishReport,
 	ApprovalListItem,
 	CatalogItemListItem,
-	NoteCleanupReport,
-	NoteValueReport,
 	ExpenseItem,
 	ExpenseOcrRun,
 	ExpenseReport,
@@ -22,10 +18,6 @@ import type {
 	TruthExecutionInputs,
 	TruthExecutionSession,
 	TruthListItem,
-	VaultImportReport,
-	VaultNote,
-	VaultTreeEntry,
-	WebSnapshotCaptureReport,
 	WorkbenchAppManifest,
 	WorkflowCaseListItem
 } from '$lib/types'
@@ -194,54 +186,6 @@ export function compareReceiptOcr(sampleId: string) {
 	return isTauriRuntime()
 		? invoke<ExpenseOcrRun[]>('compare_receipt_ocr', { sampleId })
 		: Promise.resolve<ExpenseOcrRun[]>([])
-}
-
-export function getNoteVaultRoot() {
-	return invoke<string>('get_note_vault_root')
-}
-
-export function listNotes() {
-	return invoke<VaultTreeEntry[]>('list_notes')
-}
-
-export function readNote(path: string) {
-	return invoke<VaultNote>('read_note', { path })
-}
-
-export function saveNote(path: string, body: string) {
-	return invoke<VaultNote>('save_note', { path, body })
-}
-
-export function createNote(title: string, parentDir?: string) {
-	return invoke<VaultNote>('create_note', { title, parentDir })
-}
-
-export function moveNote(fromPath: string, toPath: string) {
-	return invoke<VaultNote>('move_note', { fromPath, toPath })
-}
-
-export function importMarkdownTree(sourceDir: string) {
-	return invoke<VaultImportReport>('import_markdown_tree', { sourceDir })
-}
-
-export function importAppleNotes() {
-	return invoke<AppleNotesImportReport>('import_apple_notes')
-}
-
-export function publishAppleNotes(runId?: string) {
-	return invoke<AppleNotesPublishReport>('publish_apple_notes', { runId })
-}
-
-export function captureNoteUrl(url: string) {
-	return invoke<WebSnapshotCaptureReport>('capture_note_url', { url })
-}
-
-export function analyzeNoteCleanup() {
-	return invoke<NoteCleanupReport>('analyze_note_cleanup')
-}
-
-export function analyzeNoteValue() {
-	return invoke<NoteValueReport>('analyze_note_value')
 }
 
 export async function loadOperatorShell(): Promise<OperatorShellData> {
