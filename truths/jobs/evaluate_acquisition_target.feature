@@ -4,6 +4,9 @@ Feature: Evaluate acquisition target
   I want to converge multi-source evidence into a structured acquisition recommendation
   So that the investment committee can make a go/no-go decision with traceable evidence
 
+  Intent:
+    Outcome: evaluate acquisition target with convergent due diligence research
+
   Scenario: A target company is evaluated with convergent due diligence
     Given a target company has been identified for acquisition
     When due diligence research converges

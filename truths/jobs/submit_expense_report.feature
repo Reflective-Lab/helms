@@ -3,6 +3,9 @@ Feature: Submit expense report
   I want to submit a reimbursable expense report with receipt evidence
   So that finance can review it and export it into bookkeeping
 
+  Intent:
+    Outcome: submit employee expense report for reimbursement
+
   Scenario: Expense report is submitted with review-ready evidence
     Given an employee has one or more reimbursable expenses
     And each claimed amount is attached to receipt evidence

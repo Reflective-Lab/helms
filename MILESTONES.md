@@ -8,11 +8,7 @@
 
 ---
 
-## Current: Stage 1 — Desktop End-to-End Showcase
-**Deadline:** 2026-04-25 | **Epic:** E5
-Governed multi-truth pipeline (score → qualify → schedule) with live convergence visibility and HITL approvals.
-
-## Next: Stage 1.5 — Notes & Intelligence Daily Driver
+## Current: Stage 1.5 — Notes & Intelligence Daily Driver
 **Deadline:** TBD | **Epic:** E5
 Notes app fully implemented: Google import, social capture (LinkedIn/X/Instagram/Facebook), OCR, PDF extraction, object detection. Expenses integrated with OCR pipeline.
 
@@ -31,3 +27,10 @@ Analytics-backed truths, second vertical.
 ## Future: Stage 4 — Creative Convergence
 **Deadline:** TBD | **Epic:** E5
 Convergence loops that generate, verify, and deploy executable code (Wasm via Axiom).
+
+---
+
+## Shipped
+
+### Stage 1 — Desktop End-to-End Showcase (v0.1.1, 2026-04-25)
+Governed multi-truth pipeline (score → qualify → schedule) with live convergence visibility and HITL approvals. SSE endpoint, desktop pipeline page, helm-notes capture, EXP-001/EXP-002 confirmed.

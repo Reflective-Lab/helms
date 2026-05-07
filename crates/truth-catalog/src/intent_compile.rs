@@ -49,6 +49,44 @@ fn truth_overlay(truth: &TruthDefinition, intent: &mut IntentPacket) {
             });
             intent.constraints = vec!["lead_has_source".to_string()];
         }
+        "submit-expense-report" => {
+            intent.context = serde_json::json!({
+                "expense": {
+                    "receipt": "receipt:pending",
+                    "category": "expense:travel",
+                    "approval": "approval:route",
+                    "budget": "budget_envelope:team-travel",
+                },
+                "documents": ["receipt:pending"],
+                "evaluations": "approval review required",
+            });
+            intent.constraints = vec![
+                "approval_has_rationale".to_string(),
+                "no_spend_beyond_envelope".to_string(),
+            ];
+        }
+        "evaluate-acquisition-target" => {
+            intent.context = serde_json::json!({
+                "target": "company:pending",
+                "research": ["market", "competition", "technology", "financials", "team"],
+                "evaluations": "investment committee review required",
+            });
+            intent.constraints = vec![
+                "contradictions_flagged".to_string(),
+                "synthesis_requires_coverage".to_string(),
+                "hypothesis_has_source".to_string(),
+            ];
+            intent.authority = vec!["investment-committee".to_string()];
+        }
+        "plan-outbound-campaign" => {
+            intent.context = serde_json::json!({
+                "campaign": "campaign:q3-pipeline",
+                "audience": "audience:target-accounts",
+                "budget": "budget:quarterly-outbound",
+                "evaluations": "attribution review",
+            });
+            intent.constraints = vec!["budget_guardrails_enforced".to_string()];
+        }
         _ => {
             // Other truths still flow through the legacy `organism_recipe`
             // path; their overlays land here as they migrate.
@@ -64,23 +102,34 @@ mod tests {
     /// Equivalence gate (handoff step 2): the axiom-compiled IntentPacket plus
     /// helms overlay must match the legacy `organism_recipe` output before the
     /// recipe path can be deleted for this truth.
-    #[test]
-    fn qualify_inbound_lead_axiom_matches_legacy_recipe() {
-        let truth = find_truth("qualify-inbound-lead").expect("truth exists");
-
+    fn assert_axiom_matches_legacy(key: &str) {
+        let truth = find_truth(key).unwrap_or_else(|| panic!("truth {key} exists"));
         let mut from_axiom = compile_intent_for_truth(&truth).expect("axiom compiles");
-
         let legacy = crate::organism::organism_recipe_for_test(truth)
             .expect("legacy recipe still produces an intent");
-
-        // Pin expires to the same instant — both sides default to "now + 1h"
-        // and the test runs across two `Utc::now()` calls.
         from_axiom.expires = legacy.expires;
-
         if let Err(diff) = intent_packet_equiv(&from_axiom, &legacy) {
-            panic!(
-                "axiom-compiled intent diverges from organism_recipe for qualify-inbound-lead:\n{diff}"
-            );
+            panic!("axiom-compiled intent diverges from organism_recipe for {key}:\n{diff}");
         }
+    }
+
+    #[test]
+    fn qualify_inbound_lead_axiom_matches_legacy_recipe() {
+        assert_axiom_matches_legacy("qualify-inbound-lead");
+    }
+
+    #[test]
+    fn submit_expense_report_axiom_matches_legacy_recipe() {
+        assert_axiom_matches_legacy("submit-expense-report");
+    }
+
+    #[test]
+    fn evaluate_acquisition_target_axiom_matches_legacy_recipe() {
+        assert_axiom_matches_legacy("evaluate-acquisition-target");
+    }
+
+    #[test]
+    fn plan_outbound_campaign_axiom_matches_legacy_recipe() {
+        assert_axiom_matches_legacy("plan-outbound-campaign");
     }
 }

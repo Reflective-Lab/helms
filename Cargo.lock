@@ -4939,7 +4939,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.6.3",
+ "socket2 0.5.10",
  "system-configuration",
  "tokio",
  "tower-service",
@@ -5002,7 +5002,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.61.2",
 ]
 
 [[package]]
@@ -6471,7 +6471,7 @@ dependencies = [
 
 [[package]]
 name = "organism-adversarial"
-version = "1.8.0"
+version = "1.8.1"
 dependencies = [
  "async-trait",
  "converge-pack",
@@ -6497,7 +6497,7 @@ dependencies = [
 
 [[package]]
 name = "organism-intelligence"
-version = "1.8.0"
+version = "1.8.1"
 dependencies = [
  "base64",
  "pdf-extract",
@@ -6511,7 +6511,7 @@ dependencies = [
 
 [[package]]
 name = "organism-intent"
-version = "1.8.0"
+version = "1.8.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -6524,7 +6524,7 @@ dependencies = [
 
 [[package]]
 name = "organism-learning"
-version = "1.8.0"
+version = "1.8.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -6538,7 +6538,7 @@ dependencies = [
 
 [[package]]
 name = "organism-notes"
-version = "1.8.0"
+version = "1.8.1"
 dependencies = [
  "base64",
  "chrono",
@@ -6551,7 +6551,7 @@ dependencies = [
 
 [[package]]
 name = "organism-pack"
-version = "1.8.0"
+version = "1.8.1"
 dependencies = [
  "converge-pack",
  "organism-adversarial",
@@ -6564,7 +6564,7 @@ dependencies = [
 
 [[package]]
 name = "organism-planning"
-version = "1.8.0"
+version = "1.8.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6581,7 +6581,7 @@ dependencies = [
 
 [[package]]
 name = "organism-runtime"
-version = "1.8.0"
+version = "1.8.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6603,7 +6603,7 @@ dependencies = [
 
 [[package]]
 name = "organism-simulation"
-version = "1.8.0"
+version = "1.8.1"
 dependencies = [
  "async-trait",
  "converge-pack",
@@ -8088,7 +8088,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.2",
  "rustls",
- "socket2 0.6.3",
+ "socket2 0.5.10",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -8126,7 +8126,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.6.3",
+ "socket2 0.5.10",
  "tracing",
  "windows-sys 0.59.0",
 ]

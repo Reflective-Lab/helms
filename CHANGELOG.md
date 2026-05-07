@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-25
+
 ### Added
 - `evaluate-acquisition-target` truth — convergent DD via organism formation (EXP-001 confirmed)
 - Code generation as convergence step — CodeGenSuggestor + CodeVerifierSuggestor (EXP-002 confirmed)
