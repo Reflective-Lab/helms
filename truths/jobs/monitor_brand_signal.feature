@@ -1,4 +1,8 @@
 Feature: Monitor brand signal
+
+  Intent:
+    Outcome: ingest external brand mentions, cluster them into narratives, and keep brand-state current without auto-publishing
+
   Scenario: Governed brand-state update from a monitoring cycle
     Given a BrandWatch exists for a party with configured sources
     And external signal ports have new raw items since the last cycle

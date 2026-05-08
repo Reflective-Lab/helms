@@ -2,6 +2,9 @@
 @truth @job @support
 Feature: Resolve support incident
 
+  Intent:
+    Outcome: drive a customer issue from intake through diagnosis to verified resolution or escalation
+
   Scenario: A customer issue is diagnosed and closed
     Given a customer issue has been captured in a conversation thread
     When support and subject-matter experts work the case

@@ -1,4 +1,3 @@
-use organism_domain::packs;
 use organism_pack::{DeclarativeBinding, IntentBinding, IntentResolver};
 use organism_runtime::{
     BudgetProbe, CredentialProbe, PackProbe, ReadinessProbe, ReadinessReport, Registry,
@@ -29,23 +28,28 @@ impl TruthOrganismBinding {
 }
 
 #[must_use]
-pub fn organism_binding_for_truth(truth_key: &str) -> Option<TruthOrganismBinding> {
-    find_truth(truth_key).and_then(build_binding)
+pub fn organism_binding_for_truth(
+    truth_key: &str,
+    registry: &Registry,
+) -> Option<TruthOrganismBinding> {
+    find_truth(truth_key).and_then(|truth| build_binding(truth, registry))
 }
 
 #[must_use]
-pub fn display_pack_names_for_truth(truth_key: &str) -> Option<Vec<String>> {
-    organism_binding_for_truth(truth_key).map(|binding| binding.pack_names())
+pub fn display_pack_names_for_truth(
+    truth_key: &str,
+    registry: &Registry,
+) -> Option<Vec<String>> {
+    organism_binding_for_truth(truth_key, registry).map(|binding| binding.pack_names())
 }
 
-fn build_binding(truth: TruthDefinition) -> Option<TruthOrganismBinding> {
+fn build_binding(truth: TruthDefinition, registry: &Registry) -> Option<TruthOrganismBinding> {
     let (blueprint, baseline, readiness) = binding_recipe(truth)?;
     let intent = compile_intent_for_truth(&truth)
         .expect("truth has axiom-compilable governance and a known overlay");
-    let registry = organism_registry();
-    let resolver = StructuralResolver::new(&registry);
+    let resolver = StructuralResolver::new(registry);
     let binding = resolver.resolve(&intent, &baseline);
-    let pack_probe = PackProbe::new(&registry);
+    let pack_probe = PackProbe::new(registry);
     let credential_probe = CredentialProbe::new().with_standard_checks();
     let probes: Vec<&dyn ReadinessProbe> = vec![&pack_probe, &credential_probe, &readiness];
     let readiness = check_readiness(&binding, &probes);
@@ -156,104 +160,3 @@ fn binding_recipe(
     }
 }
 
-fn organism_registry() -> Registry {
-    let mut registry = Registry::new();
-    registry.register_pack_with_profile(
-        "customers",
-        packs::customers::AGENTS,
-        packs::customers::INVARIANTS,
-        &packs::customers::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "legal",
-        packs::legal::AGENTS,
-        packs::legal::INVARIANTS,
-        &packs::legal::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "autonomous_org",
-        packs::autonomous_org::AGENTS,
-        packs::autonomous_org::INVARIANTS,
-        &packs::autonomous_org::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "partnerships",
-        packs::partnerships::AGENTS,
-        packs::partnerships::INVARIANTS,
-        &packs::partnerships::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "people",
-        packs::people::AGENTS,
-        packs::people::INVARIANTS,
-        &packs::people::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "procurement",
-        packs::procurement::AGENTS,
-        packs::procurement::INVARIANTS,
-        &packs::procurement::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "linkedin_research",
-        packs::linkedin_research::AGENTS,
-        packs::linkedin_research::INVARIANTS,
-        &packs::linkedin_research::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "knowledge",
-        packs::knowledge::AGENTS,
-        packs::knowledge::INVARIANTS,
-        &packs::knowledge::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "due_diligence",
-        packs::due_diligence::AGENTS,
-        packs::due_diligence::INVARIANTS,
-        &packs::due_diligence::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "growth_marketing",
-        packs::growth_marketing::AGENTS,
-        packs::growth_marketing::INVARIANTS,
-        &packs::growth_marketing::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "ops_support",
-        packs::ops_support::AGENTS,
-        packs::ops_support::INVARIANTS,
-        &packs::ops_support::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "performance",
-        packs::performance::AGENTS,
-        packs::performance::INVARIANTS,
-        &packs::performance::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "product_engineering",
-        packs::product_engineering::AGENTS,
-        packs::product_engineering::INVARIANTS,
-        &packs::product_engineering::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "virtual_teams",
-        packs::virtual_teams::AGENTS,
-        packs::virtual_teams::INVARIANTS,
-        &packs::virtual_teams::PROFILE,
-    );
-    registry.register_pack_with_profile(
-        "reskilling",
-        packs::reskilling::AGENTS,
-        packs::reskilling::INVARIANTS,
-        &packs::reskilling::PROFILE,
-    );
-
-    registry.register_capability("web", "URL capture and metadata extraction");
-    registry.register_capability("ocr", "Document understanding and receipt extraction");
-    registry.register_capability("linkedin", "Professional network research");
-    registry.register_capability("social", "Social profile extraction");
-    registry.register_capability("patent", "Patent and IP search");
-
-    registry
-}

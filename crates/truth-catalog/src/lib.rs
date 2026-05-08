@@ -1,6 +1,5 @@
 pub mod admission;
 mod converge;
-pub mod equiv;
 pub mod intent_compile;
 mod organism;
 
@@ -1100,9 +1099,7 @@ mod tests {
 
     use capability_registry::MODULES;
 
-    use super::{
-        TRUTHS, TruthKind, converge_binding_for_truth, organism_binding_for_truth, truths_by_kind,
-    };
+    use super::{TRUTHS, TruthKind, converge_binding_for_truth, truths_by_kind};
 
     #[test]
     fn starter_catalog_has_eighteen_job_truths() {
@@ -1168,66 +1165,4 @@ mod tests {
         assert_eq!(binding.intent.constraints.len(), 3);
     }
 
-    #[test]
-    fn evaluate_acquisition_target_maps_to_organism_binding() {
-        let binding = organism_binding_for_truth("evaluate-acquisition-target")
-            .expect("organism binding should exist for evaluate-acquisition-target");
-        assert_eq!(binding.blueprint, Some("diligence_to_decision"));
-        assert!(
-            binding
-                .binding
-                .packs
-                .iter()
-                .any(|pack| pack.pack_name == "due_diligence")
-        );
-        assert!(
-            binding
-                .binding
-                .packs
-                .iter()
-                .any(|pack| pack.pack_name == "knowledge")
-        );
-        assert!(
-            binding
-                .binding
-                .capabilities
-                .iter()
-                .any(|capability| capability.capability == "web")
-        );
-        assert!(
-            binding
-                .binding
-                .capabilities
-                .iter()
-                .any(|capability| capability.capability == "llm")
-        );
-    }
-
-    #[test]
-    fn submit_expense_report_maps_to_organism_binding() {
-        let binding = organism_binding_for_truth("submit-expense-report")
-            .expect("organism binding should exist for submit-expense-report");
-        assert_eq!(binding.blueprint, Some("procure_to_pay"));
-        assert!(
-            binding
-                .binding
-                .packs
-                .iter()
-                .any(|pack| pack.pack_name == "procurement")
-        );
-        assert!(
-            binding
-                .binding
-                .packs
-                .iter()
-                .any(|pack| pack.pack_name == "autonomous_org")
-        );
-        assert!(
-            binding
-                .binding
-                .capabilities
-                .iter()
-                .any(|capability| capability.capability == "ocr")
-        );
-    }
 }

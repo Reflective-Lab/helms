@@ -13,7 +13,9 @@ use organism_pack::{
 };
 use tonic::Status;
 use truth_catalog::{
-    EvaluateAcquisitionTargetEvaluator, admission::admit_truth_intent, converge_binding_for_truth,
+    EvaluateAcquisitionTargetEvaluator,
+    admission::{admit_truth_intent, default_helms_capabilities, select_formation_for_intent},
+    converge_binding_for_truth,
 };
 
 use super::{
@@ -112,13 +114,21 @@ pub(super) async fn execute<S: KernelStore>(
     engine.register_suggestor_in_pack(TRUST_PACK_ID, ContradictionGateAgent);
 
     let mut seed_ctx = seed_context(&company)?;
-    admit_truth_intent(
+    let intent = admit_truth_intent(
         "evaluate-acquisition-target",
         &actor.actor_id,
         "truth:evaluate-acquisition-target",
         &mut seed_ctx,
     )
     .map_err(|e| Status::internal(format!("admit intent failed: {e}")))?;
+    let selection = select_formation_for_intent(&intent, &default_helms_capabilities())
+        .map_err(|e| Status::internal(format!("formation selection failed: {e}")))?;
+    tracing::info!(
+        truth = "evaluate-acquisition-target",
+        primary = %selection.primary_template_id,
+        alternates = ?selection.alternate_template_ids,
+        "formation selected"
+    );
 
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,

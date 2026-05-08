@@ -2,6 +2,9 @@
 @truth @job @commercial
 Feature: Upgrade subscription plan
 
+  Intent:
+    Outcome: migrate customer to a better plan while preserving pricing, access, and approval history
+
   Scenario: Customer moves to a better commercial plan
     Given a customer has an active subscription
     When the customer accepts an upgrade

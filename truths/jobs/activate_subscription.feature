@@ -2,6 +2,9 @@
 @truth @job @commercial
 Feature: Activate subscription
 
+  Intent:
+    Outcome: activate subscription and entitlement state from an agreed commercial plan
+
   Scenario: A commercial commitment becomes active
     Given a customer has accepted a valid plan
     When the subscription is activated

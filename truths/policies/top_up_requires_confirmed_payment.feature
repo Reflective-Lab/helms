@@ -2,6 +2,9 @@
 @truth @policy @revenue
 Feature: Top-up requires confirmed payment
 
+  Intent:
+    Outcome: ensure no prepaid balance increase occurs until settlement is confirmed
+
   Scenario: Applying a prepaid credit grant
     Given a top-up purchase exists
     When the system attempts to increase customer balance

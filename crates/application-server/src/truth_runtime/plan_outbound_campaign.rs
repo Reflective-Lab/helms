@@ -17,7 +17,9 @@ use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFac
 use serde::{Deserialize, Serialize};
 use tonic::Status;
 use truth_catalog::{
-    PlanOutboundCampaignEvaluator, admission::admit_truth_intent, converge_binding_for_truth,
+    PlanOutboundCampaignEvaluator,
+    admission::{admit_truth_intent, default_helms_capabilities, select_formation_for_intent},
+    converge_binding_for_truth,
 };
 use uuid::Uuid;
 
@@ -190,13 +192,21 @@ pub(super) async fn execute<S: KernelStore>(
     );
 
     let mut seed_ctx = seed_context()?;
-    admit_truth_intent(
+    let intent = admit_truth_intent(
         "plan-outbound-campaign",
         &actor.actor_id,
         "truth:plan-outbound-campaign",
         &mut seed_ctx,
     )
     .map_err(|e| Status::internal(format!("admit intent failed: {e}")))?;
+    let selection = select_formation_for_intent(&intent, &default_helms_capabilities())
+        .map_err(|e| Status::internal(format!("formation selection failed: {e}")))?;
+    tracing::info!(
+        truth = "plan-outbound-campaign",
+        primary = %selection.primary_template_id,
+        alternates = ?selection.alternate_template_ids,
+        "formation selected"
+    );
 
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,

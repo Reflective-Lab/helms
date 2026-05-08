@@ -2,6 +2,9 @@
 @truth @job @finance
 Feature: Reconcile model usage against customer ledger
 
+  Intent:
+    Outcome: align usage metering, financial balance, and entitlement burn-down without mutating history
+
   Scenario: Usage and financial balance must agree
     Given metered model usage exists for a customer period
     When reconciliation is executed

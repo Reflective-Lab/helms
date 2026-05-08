@@ -16,6 +16,8 @@ use application_storage::{
 };
 use capability_registry::all_modules;
 use chrono::Utc;
+use organism_domain::packs;
+use organism_runtime::Registry;
 use thiserror::Error;
 use truth_catalog::{
     TruthDefinition, all_truths, converge_binding_for_truth, display_pack_names_for_truth,
@@ -67,6 +69,7 @@ pub struct OperatorApp<S = InMemoryKernelStore> {
     config: AppConfig,
     default_actor: Actor,
     metadata: Arc<RwLock<RuntimeMetadata>>,
+    organism_registry: Arc<Registry>,
 }
 
 #[derive(Debug, Default)]
@@ -123,6 +126,108 @@ struct ExpenseReportWriteResult {
     document_ids: Vec<Uuid>,
 }
 
+fn default_organism_registry() -> Registry {
+    let mut registry = Registry::new();
+    registry.register_pack_with_profile(
+        "customers",
+        packs::customers::AGENTS,
+        packs::customers::INVARIANTS,
+        &packs::customers::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "legal",
+        packs::legal::AGENTS,
+        packs::legal::INVARIANTS,
+        &packs::legal::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "autonomous_org",
+        packs::autonomous_org::AGENTS,
+        packs::autonomous_org::INVARIANTS,
+        &packs::autonomous_org::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "partnerships",
+        packs::partnerships::AGENTS,
+        packs::partnerships::INVARIANTS,
+        &packs::partnerships::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "people",
+        packs::people::AGENTS,
+        packs::people::INVARIANTS,
+        &packs::people::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "procurement",
+        packs::procurement::AGENTS,
+        packs::procurement::INVARIANTS,
+        &packs::procurement::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "linkedin_research",
+        packs::linkedin_research::AGENTS,
+        packs::linkedin_research::INVARIANTS,
+        &packs::linkedin_research::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "knowledge",
+        packs::knowledge::AGENTS,
+        packs::knowledge::INVARIANTS,
+        &packs::knowledge::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "due_diligence",
+        packs::due_diligence::AGENTS,
+        packs::due_diligence::INVARIANTS,
+        &packs::due_diligence::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "growth_marketing",
+        packs::growth_marketing::AGENTS,
+        packs::growth_marketing::INVARIANTS,
+        &packs::growth_marketing::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "ops_support",
+        packs::ops_support::AGENTS,
+        packs::ops_support::INVARIANTS,
+        &packs::ops_support::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "performance",
+        packs::performance::AGENTS,
+        packs::performance::INVARIANTS,
+        &packs::performance::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "product_engineering",
+        packs::product_engineering::AGENTS,
+        packs::product_engineering::INVARIANTS,
+        &packs::product_engineering::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "virtual_teams",
+        packs::virtual_teams::AGENTS,
+        packs::virtual_teams::INVARIANTS,
+        &packs::virtual_teams::PROFILE,
+    );
+    registry.register_pack_with_profile(
+        "reskilling",
+        packs::reskilling::AGENTS,
+        packs::reskilling::INVARIANTS,
+        &packs::reskilling::PROFILE,
+    );
+
+    registry.register_capability("web", "URL capture and metadata extraction");
+    registry.register_capability("ocr", "Document understanding and receipt extraction");
+    registry.register_capability("linkedin", "Professional network research");
+    registry.register_capability("social", "Social profile extraction");
+    registry.register_capability("patent", "Patent and IP search");
+
+    registry
+}
+
 impl<S> OperatorApp<S>
 where
     S: KernelStore,
@@ -138,6 +243,7 @@ where
                 kind: ActorKind::Human,
             },
             metadata: Arc::new(RwLock::new(RuntimeMetadata::default())),
+            organism_registry: Arc::new(default_organism_registry()),
         }
     }
 
@@ -186,17 +292,18 @@ where
                 display_name: truth.display_name.to_string(),
                 kind: truth.kind,
                 summary: truth.summary.to_string(),
-                packs: display_pack_names_for_truth(truth.key).unwrap_or_else(|| {
-                    converge_binding_for_truth(truth.key)
-                        .map(|binding| {
-                            binding
-                                .pack_ids
-                                .into_iter()
-                                .map(ToString::to_string)
-                                .collect()
-                        })
-                        .unwrap_or_default()
-                }),
+                packs: display_pack_names_for_truth(truth.key, &self.organism_registry)
+                    .unwrap_or_else(|| {
+                        converge_binding_for_truth(truth.key)
+                            .map(|binding| {
+                                binding
+                                    .pack_ids
+                                    .into_iter()
+                                    .map(ToString::to_string)
+                                    .collect()
+                            })
+                            .unwrap_or_default()
+                    }),
                 executable: is_truth_supported(truth.key),
             })
             .collect::<Vec<_>>();
@@ -213,7 +320,7 @@ where
     pub fn truth_detail(&self, key: &str) -> Option<TruthDetailItem> {
         let truth = find_truth(key)?;
         let organism_resolution =
-            truth_catalog::organism_binding_for_truth(truth.key).map(|binding| {
+            truth_catalog::organism_binding_for_truth(truth.key, &self.organism_registry).map(|binding| {
                 let truth_catalog::TruthOrganismBinding {
                     truth_key,
                     blueprint,
@@ -343,11 +450,13 @@ where
                 })
                 .collect(),
             gherkin: truth.gherkin.to_string(),
-            packs: display_pack_names_for_truth(truth.key).unwrap_or_else(|| {
-                converge_binding_for_truth(truth.key)
-                    .map(|binding| binding.pack_ids.into_iter().map(str::to_string).collect())
-                    .unwrap_or_default()
-            }),
+            packs: display_pack_names_for_truth(truth.key, &self.organism_registry).unwrap_or_else(
+                || {
+                    converge_binding_for_truth(truth.key)
+                        .map(|binding| binding.pack_ids.into_iter().map(str::to_string).collect())
+                        .unwrap_or_default()
+                },
+            ),
             executable: is_truth_supported(truth.key),
             organism_resolution,
             converge_resolution,

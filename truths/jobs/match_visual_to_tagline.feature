@@ -1,4 +1,8 @@
 Feature: Match visual to tagline
+
+  Intent:
+    Outcome: match brand-safe visuals with taglines under typed multi-role approval
+
   Scenario: Governed pairing slate from a campaign brief
     Given a CampaignBrief with audience, channels, and constraints
     And a brand-safe asset library is reachable via the DAM port

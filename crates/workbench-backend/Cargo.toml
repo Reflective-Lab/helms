@@ -11,6 +11,8 @@ application-kernel = { path = "../application-kernel" }
 application-storage = { path = "../application-storage" }
 capability-core = { path = "../capability-core" }
 capability-registry = { path = "../capability-registry" }
+organism-domain.workspace = true
+organism-runtime.workspace = true
 truth-catalog = { path = "../truth-catalog" }
 serde.workspace = true
 thiserror.workspace = true

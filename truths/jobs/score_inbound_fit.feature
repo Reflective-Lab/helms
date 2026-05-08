@@ -1,4 +1,8 @@
 Feature: Score inbound fit
+
+  Intent:
+    Outcome: score inbound lead fit using website behavior and inbound context
+
   Scenario: Score a new inbound lead from website behavior
     Given a lead has attributable website usage events
     And the inbound account context is known

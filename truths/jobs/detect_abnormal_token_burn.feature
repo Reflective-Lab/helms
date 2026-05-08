@@ -2,6 +2,9 @@
 @truth @job @monitoring
 Feature: Detect abnormal token burn
 
+  Intent:
+    Outcome: detect unusual usage patterns early and route a controlled mitigation path
+
   Scenario: Unexpected usage surge requires intervention
     Given recent token usage materially exceeds expected patterns
     When the anomaly job evaluates the customer context

@@ -2,6 +2,9 @@
 @truth @policy @trust
 Feature: Promoted fact requires traceable evidence
 
+  Intent:
+    Outcome: ensure durable business truth remains backed by evidence and provenance
+
   Scenario: A proposed fact is promoted to durable truth
     Given a proposed fact exists in customer context
     When the system attempts to promote it

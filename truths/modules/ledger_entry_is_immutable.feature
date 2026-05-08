@@ -2,6 +2,9 @@
 @truth @module @ledger
 Feature: Ledger entry is immutable
 
+  Intent:
+    Outcome: preserve posted balance movements as append-only; express corrections as new adjusting entries
+
   Scenario: A posted balance movement needs correction
     Given a ledger entry has been committed
     When an operator corrects the balance

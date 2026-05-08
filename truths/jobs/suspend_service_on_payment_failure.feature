@@ -2,6 +2,9 @@
 @truth @job @revenue
 Feature: Suspend service on payment failure
 
+  Intent:
+    Outcome: apply suspension policy on payment failure while preserving controlled recovery paths
+
   Scenario: Failed payment triggers controlled service suspension
     Given a customer payment is failed or overdue beyond policy
     When the suspension job is evaluated

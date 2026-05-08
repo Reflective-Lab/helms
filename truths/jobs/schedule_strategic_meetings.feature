@@ -1,4 +1,8 @@
 Feature: Schedule strategic meetings
+
+  Intent:
+    Outcome: rank prospects by strategy alignment, resolve availability, and propose a concrete meeting slate with reasoning
+
   Scenario: Book meetings with highest-value prospects from free-text intent
     Given a free-text scheduling intent and a time window
     And the scored pipeline of qualified leads

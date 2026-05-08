@@ -2,6 +2,9 @@
 @truth @job @commercial
 Feature: Renew contract
 
+  Intent:
+    Outcome: move a renewal from account context to approved commercial terms and current documents
+
   Scenario: A customer is brought to a new commercial term
     Given a customer has an active commercial relationship nearing renewal
     When the renewal job is executed

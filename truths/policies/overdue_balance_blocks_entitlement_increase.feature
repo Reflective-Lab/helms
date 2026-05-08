@@ -2,6 +2,9 @@
 @truth @policy @revenue
 Feature: Overdue balance blocks entitlement increase
 
+  Intent:
+    Outcome: block entitlement expansion while customer obligations are overdue
+
   Scenario: Customer asks for more access while overdue
     Given a customer has overdue financial obligations
     When the system evaluates an entitlement increase

@@ -2,6 +2,9 @@
 @truth @module @subscriptions
 Feature: Active subscription requires plan
 
+  Intent:
+    Outcome: ensure an active subscription resolves to a valid plan and entitlement source
+
   Scenario: Activating a subscription
     Given a subscription is about to move to active state
     When activation is attempted

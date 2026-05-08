@@ -2,6 +2,9 @@
 @truth @job @provisioning
 Feature: Create customer workspace
 
+  Intent:
+    Outcome: provision a customer workspace with commercial and access context
+
   Scenario: A sold customer needs an operational workspace
     Given a customer account has an active commercial commitment
     When the system provisions a new workspace
