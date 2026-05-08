@@ -213,7 +213,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "application-contracts"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "serde",
@@ -223,7 +223,7 @@ dependencies = [
 
 [[package]]
 name = "application-kernel"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "proptest",
@@ -234,7 +234,7 @@ dependencies = [
 
 [[package]]
 name = "application-server"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "application-kernel",
@@ -276,7 +276,7 @@ dependencies = [
 
 [[package]]
 name = "application-storage"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "application-kernel",
  "converge-core",
@@ -1613,14 +1613,14 @@ dependencies = [
 
 [[package]]
 name = "capability-core"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "capability-registry"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
  "prio-agent-ops",
@@ -6105,7 +6105,7 @@ checksum = "0676bb32a98c1a483ce53e500a81ad9c3d5b3f7c920c28c24e9cb0980d0b5bc8"
 
 [[package]]
 name = "notes"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "organism-intelligence",
@@ -7647,14 +7647,14 @@ dependencies = [
 
 [[package]]
 name = "prio-agent-ops"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-apple-notes-cli"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "organism-notes",
  "serde_json",
@@ -7662,49 +7662,49 @@ dependencies = [
 
 [[package]]
 name = "prio-approvals"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-audit"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-catalog"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-conversations"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-documents"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-entitlements"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-expenses"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
  "chrono",
@@ -7719,91 +7719,91 @@ dependencies = [
 
 [[package]]
 name = "prio-facts"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-identity"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-intents"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-ledger"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-memory"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-metering"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-opportunities"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-parties"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-payments"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-policies"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-subscriptions"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-tasks"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
 
 [[package]]
 name = "prio-workflow"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "capability-core",
 ]
@@ -9275,7 +9275,7 @@ dependencies = [
 
 [[package]]
 name = "seed-gen"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -11116,7 +11116,7 @@ dependencies = [
 
 [[package]]
 name = "truth-catalog"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "axiom-truth",
  "capability-core",
@@ -12421,7 +12421,7 @@ dependencies = [
 
 [[package]]
 name = "workbench-backend"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "application-kernel",
  "application-storage",
