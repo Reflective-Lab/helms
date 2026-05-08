@@ -10,7 +10,11 @@ use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
 use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
-use truth_catalog::{RefillPrepaidAiCreditsEvaluator, converge_binding_for_truth};
+use truth_catalog::{
+    RefillPrepaidAiCreditsEvaluator,
+    admission::{admit_truth_intent, default_helms_capabilities, select_formation_for_intent},
+    converge_binding_for_truth,
+};
 use uuid::Uuid;
 
 use super::{
@@ -145,13 +149,30 @@ pub(super) async fn execute<S: KernelStore>(
         EntitlementAdjustmentAgent { seed: seed.clone() },
     );
 
+    let mut seed_ctx = seed_context(seed.subscription.id)?;
+    let intent = admit_truth_intent(
+        "refill-prepaid-ai-credits",
+        &actor.actor_id,
+        "truth:refill-prepaid-ai-credits",
+        &mut seed_ctx,
+    )
+    .map_err(|e| Status::internal(format!("admit intent failed: {e}")))?;
+    let selection = select_formation_for_intent(&intent, &default_helms_capabilities())
+        .map_err(|e| Status::internal(format!("formation selection failed: {e}")))?;
+    tracing::info!(
+        truth = "refill-prepaid-ai-credits",
+        primary = %selection.primary_template_id,
+        alternates = ?selection.alternate_template_ids,
+        "formation selected"
+    );
+
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
         &super::RuntimeContext {
             scope_id: inputs.subscription_id.to_string(),
         },
-        seed_context(seed.subscription.id)?,
+        seed_ctx,
         &binding.intent,
         std::sync::Arc::new(RefillPrepaidAiCreditsEvaluator),
     )

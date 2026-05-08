@@ -11,7 +11,11 @@ use converge_knowledge::{KnowledgeBase, KnowledgeEntry, SearchOptions};
 use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
-use truth_catalog::{MatchRenewalContextEvaluator, converge_binding_for_truth};
+use truth_catalog::{
+    MatchRenewalContextEvaluator,
+    admission::{admit_truth_intent, default_helms_capabilities, select_formation_for_intent},
+    converge_binding_for_truth,
+};
 use uuid::Uuid;
 
 use super::{
@@ -135,13 +139,30 @@ pub(super) async fn execute<S: KernelStore>(
     engine.register_suggestor_in_pack(WORK_PACK_ID, NegotiationBriefAgent);
     engine.register_suggestor_in_pack(COMMERCIAL_PACK_ID, RenewalTermsAgent);
 
+    let mut seed_ctx = seed_context(organization_id)?;
+    let intent = admit_truth_intent(
+        "match-renewal-context",
+        &actor.actor_id,
+        "truth:match-renewal-context",
+        &mut seed_ctx,
+    )
+    .map_err(|e| Status::internal(format!("admit intent failed: {e}")))?;
+    let selection = select_formation_for_intent(&intent, &default_helms_capabilities())
+        .map_err(|e| Status::internal(format!("formation selection failed: {e}")))?;
+    tracing::info!(
+        truth = "match-renewal-context",
+        primary = %selection.primary_template_id,
+        alternates = ?selection.alternate_template_ids,
+        "formation selected"
+    );
+
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
         &super::RuntimeContext {
             scope_id: inputs.organization_id.to_string(),
         },
-        seed_context(organization_id)?,
+        seed_ctx,
         &binding.intent,
         std::sync::Arc::new(MatchRenewalContextEvaluator),
     )

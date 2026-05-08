@@ -15,7 +15,11 @@ use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFac
 use serde::{Deserialize, Serialize};
 use tempfile::Builder;
 use tonic::Status;
-use truth_catalog::{ScoreInboundFitEvaluator, converge_binding_for_truth};
+use truth_catalog::{
+    ScoreInboundFitEvaluator,
+    admission::{admit_truth_intent, default_helms_capabilities, select_formation_for_intent},
+    converge_binding_for_truth,
+};
 use uuid::Uuid;
 
 use super::{
@@ -114,6 +118,23 @@ pub(super) async fn execute<S: KernelStore>(
     );
     engine.register_suggestor_in_pack(COMMERCIAL_PACK_ID, FitScoringAgent);
 
+    let mut seed_ctx = seed_context(&organization_name)?;
+    let intent = admit_truth_intent(
+        "score-inbound-fit",
+        &actor.actor_id,
+        "truth:score-inbound-fit",
+        &mut seed_ctx,
+    )
+    .map_err(|e| Status::internal(format!("admit intent failed: {e}")))?;
+    let selection = select_formation_for_intent(&intent, &default_helms_capabilities())
+        .map_err(|e| Status::internal(format!("formation selection failed: {e}")))?;
+    tracing::info!(
+        truth = "score-inbound-fit",
+        primary = %selection.primary_template_id,
+        alternates = ?selection.alternate_template_ids,
+        "formation selected"
+    );
+
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
@@ -123,7 +144,7 @@ pub(super) async fn execute<S: KernelStore>(
                 .map(|id| id.to_string())
                 .unwrap_or_else(|| "inbound".to_string()),
         },
-        seed_context(&organization_name)?,
+        seed_ctx,
         &binding.intent,
         std::sync::Arc::new(ScoreInboundFitEvaluator),
     )

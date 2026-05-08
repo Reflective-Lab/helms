@@ -9,7 +9,11 @@ use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
 use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
-use truth_catalog::{ScheduleStrategicMeetingsEvaluator, converge_binding_for_truth};
+use truth_catalog::{
+    ScheduleStrategicMeetingsEvaluator,
+    admission::{admit_truth_intent, default_helms_capabilities, select_formation_for_intent},
+    converge_binding_for_truth,
+};
 use uuid::Uuid;
 
 use super::{
@@ -195,11 +199,28 @@ pub(super) async fn execute<S: KernelStore>(
     );
 
     let scope_id = format!("meeting-schedule-{}", Uuid::new_v4().simple());
+    let mut seed_ctx = seed_context(&inputs)?;
+    let intent = admit_truth_intent(
+        "schedule-strategic-meetings",
+        &actor.actor_id,
+        "truth:schedule-strategic-meetings",
+        &mut seed_ctx,
+    )
+    .map_err(|e| Status::internal(format!("admit intent failed: {e}")))?;
+    let selection = select_formation_for_intent(&intent, &default_helms_capabilities())
+        .map_err(|e| Status::internal(format!("formation selection failed: {e}")))?;
+    tracing::info!(
+        truth = "schedule-strategic-meetings",
+        primary = %selection.primary_template_id,
+        alternates = ?selection.alternate_template_ids,
+        "formation selected"
+    );
+
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
         &super::RuntimeContext { scope_id },
-        seed_context(&inputs)?,
+        seed_ctx,
         &binding.intent,
         std::sync::Arc::new(ScheduleStrategicMeetingsEvaluator),
     )

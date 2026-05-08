@@ -11,7 +11,11 @@ use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
 use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
-use truth_catalog::{SuspendServiceOnPaymentFailureEvaluator, converge_binding_for_truth};
+use truth_catalog::{
+    SuspendServiceOnPaymentFailureEvaluator,
+    admission::{admit_truth_intent, default_helms_capabilities, select_formation_for_intent},
+    converge_binding_for_truth,
+};
 use uuid::Uuid;
 
 use super::{
@@ -150,13 +154,30 @@ pub(super) async fn execute<S: KernelStore>(
     engine.register_suggestor_in_pack(REVENUE_PACK_ID, EntitlementImpactAgent);
     engine.register_suggestor_in_pack(WORK_PACK_ID, RecoveryPathAgent { seed: seed.clone() });
 
+    let mut seed_ctx = seed_context(&seed)?;
+    let intent = admit_truth_intent(
+        "suspend-service-on-payment-failure",
+        &actor.actor_id,
+        "truth:suspend-service-on-payment-failure",
+        &mut seed_ctx,
+    )
+    .map_err(|e| Status::internal(format!("admit intent failed: {e}")))?;
+    let selection = select_formation_for_intent(&intent, &default_helms_capabilities())
+        .map_err(|e| Status::internal(format!("formation selection failed: {e}")))?;
+    tracing::info!(
+        truth = "suspend-service-on-payment-failure",
+        primary = %selection.primary_template_id,
+        alternates = ?selection.alternate_template_ids,
+        "formation selected"
+    );
+
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
         &super::RuntimeContext {
             scope_id: inputs.subscription_id.to_string(),
         },
-        seed_context(&seed)?,
+        seed_ctx,
         &binding.intent,
         std::sync::Arc::new(SuspendServiceOnPaymentFailureEvaluator),
     )

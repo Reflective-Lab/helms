@@ -10,7 +10,11 @@ use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
 use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
-use truth_catalog::{ActivateSubscriptionEvaluator, converge_binding_for_truth};
+use truth_catalog::{
+    ActivateSubscriptionEvaluator,
+    admission::{admit_truth_intent, default_helms_capabilities, select_formation_for_intent},
+    converge_binding_for_truth,
+};
 use uuid::Uuid;
 
 use super::{
@@ -161,13 +165,30 @@ pub(super) async fn execute<S: KernelStore>(
         engine.register_suggestor_in_pack(WORK_PACK_ID, ManualReviewAgent { reason });
     }
 
+    let mut seed_ctx = seed_context(seed.subscription.id)?;
+    let intent = admit_truth_intent(
+        "activate-subscription",
+        &actor.actor_id,
+        "truth:activate-subscription",
+        &mut seed_ctx,
+    )
+    .map_err(|e| Status::internal(format!("admit intent failed: {e}")))?;
+    let selection = select_formation_for_intent(&intent, &default_helms_capabilities())
+        .map_err(|e| Status::internal(format!("formation selection failed: {e}")))?;
+    tracing::info!(
+        truth = "activate-subscription",
+        primary = %selection.primary_template_id,
+        alternates = ?selection.alternate_template_ids,
+        "formation selected"
+    );
+
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
         &super::RuntimeContext {
             scope_id: inputs.subscription_id.to_string(),
         },
-        seed_context(seed.subscription.id)?,
+        seed_ctx,
         &binding.intent,
         std::sync::Arc::new(ActivateSubscriptionEvaluator),
     )
