@@ -2,6 +2,7 @@ pub mod admission;
 mod converge;
 pub mod intent_compile;
 mod organism;
+pub mod orchestration;
 
 use serde::Serialize;
 
