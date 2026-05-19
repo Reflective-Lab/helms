@@ -36,10 +36,7 @@ pub fn organism_binding_for_truth(
 }
 
 #[must_use]
-pub fn display_pack_names_for_truth(
-    truth_key: &str,
-    registry: &Registry,
-) -> Option<Vec<String>> {
+pub fn display_pack_names_for_truth(truth_key: &str, registry: &Registry) -> Option<Vec<String>> {
     organism_binding_for_truth(truth_key, registry).map(|binding| binding.pack_names())
 }
 
@@ -159,4 +156,3 @@ fn binding_recipe(
         _ => None,
     }
 }
-

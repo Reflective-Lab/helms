@@ -11,10 +11,9 @@
 //! 4. On failure: error fact triggers gap detector → refined retry
 //! 5. On success: verified artifact promoted as a Proposals fact
 
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
-use converge_kernel::{ContextState as Context, Engine};
-use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, Suggestor};
 use sha2::{Digest, Sha256};
 
 // ── Code Generation Suggestor ───────────────────────────────────────
@@ -49,7 +48,7 @@ impl Suggestor for CodeGenSuggestor {
         let needs_codegen = ctx
             .get(ContextKey::Strategies)
             .iter()
-            .any(|f| f.content().contains("[codegen]"));
+            .any(|f| f.text().unwrap_or_default().contains("[codegen]"));
         let has_artifact = ctx
             .get(ContextKey::Hypotheses)
             .iter()
@@ -67,8 +66,8 @@ impl Suggestor for CodeGenSuggestor {
         let strategy = ctx
             .get(ContextKey::Strategies)
             .iter()
-            .find(|f| f.content().contains("[codegen]"))
-            .map(|f| f.content().to_string())
+            .find(|f| f.text().unwrap_or_default().contains("[codegen]"))
+            .map(|f| f.text().unwrap_or_default().to_string())
             .unwrap_or_default();
 
         let source = if self.llm_stub {
@@ -92,7 +91,7 @@ impl Suggestor for CodeGenSuggestor {
         .to_string();
 
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Hypotheses,
                 "artifact:generated-source:transformer",
                 content,
@@ -153,15 +152,16 @@ impl Suggestor for CodeVerifierSuggestor {
             return AgentEffect::empty();
         };
 
-        let parsed: serde_json::Value = match serde_json::from_str(&source_fact.content()) {
-            Ok(v) => v,
-            Err(e) => {
-                return verification_failure(
-                    "parse-error",
-                    &format!("could not parse source artifact: {e}"),
-                );
-            }
-        };
+        let parsed: serde_json::Value =
+            match serde_json::from_str(&source_fact.text().unwrap_or_default()) {
+                Ok(v) => v,
+                Err(e) => {
+                    return verification_failure(
+                        "parse-error",
+                        &format!("could not parse source artifact: {e}"),
+                    );
+                }
+            };
 
         let source = parsed["source"].as_str().unwrap_or("");
         let source_hash = parsed["source_hash"].as_str().unwrap_or("");
@@ -223,7 +223,7 @@ impl Suggestor for CodeVerifierSuggestor {
 
         AgentEffect::with_proposals(vec![
             // Verification result as evaluation
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Evaluations,
                 "artifact:verification:transformer",
                 serde_json::json!({
@@ -236,7 +236,7 @@ impl Suggestor for CodeVerifierSuggestor {
             )
             .with_confidence(0.95),
             // Verified artifact promoted to proposals
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Proposals,
                 "artifact:verified:transformer",
                 verified_content,
@@ -283,7 +283,7 @@ impl Suggestor for CodegenGapSuggestor {
         *self.seeded.lock().unwrap() = true;
 
         AgentEffect::with_proposals(vec![
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Seeds,
                 "codegen:need",
                 serde_json::json!({
@@ -293,7 +293,7 @@ impl Suggestor for CodegenGapSuggestor {
                 .to_string(),
                 "codegen-gap",
             ),
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Strategies,
                 "codegen:strategy:initial",
                 format!(
@@ -366,7 +366,7 @@ fn verification_failure(kind: &str, detail: &str) -> AgentEffect {
     .to_string();
 
     AgentEffect::with_proposal(
-        ProposedFact::new(
+        crate::truth_runtime::common::proposed_text_fact(
             ContextKey::Evaluations,
             format!("artifact:verification-failure:{kind}"),
             content,
@@ -380,7 +380,7 @@ fn verification_failure(kind: &str, detail: &str) -> AgentEffect {
 
 #[cfg(test)]
 mod tests {
-    use converge_kernel::Engine;
+    use converge_kernel::{ContextState as Context, Engine};
     use converge_pack::ContextKey;
 
     use super::*;
@@ -401,7 +401,7 @@ mod tests {
         // Should have the seed
         let seeds = result.context.get(ContextKey::Seeds);
         assert!(
-            seeds.iter().any(|f| f.id == "codegen:need"),
+            seeds.iter().any(|f| f.id() == "codegen:need"),
             "should have codegen need seed"
         );
 
@@ -410,7 +410,7 @@ mod tests {
         assert!(
             hypotheses
                 .iter()
-                .any(|f| f.id.starts_with("artifact:generated-source:")),
+                .any(|f| f.id().starts_with("artifact:generated-source:")),
             "should have generated source artifact"
         );
 
@@ -419,16 +419,17 @@ mod tests {
         assert!(
             evaluations
                 .iter()
-                .any(|f| f.id == "artifact:verification:transformer"),
+                .any(|f| f.id() == "artifact:verification:transformer"),
             "should have verification result"
         );
 
         // Check verification passed
         let verification = evaluations
             .iter()
-            .find(|f| f.id == "artifact:verification:transformer")
+            .find(|f| f.id() == "artifact:verification:transformer")
             .unwrap();
-        let v: serde_json::Value = serde_json::from_str(&verification.content).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&verification.text().unwrap_or_default()).unwrap();
         assert_eq!(v["verdict"], "pass");
 
         // Should have promoted verified artifact
@@ -436,16 +437,17 @@ mod tests {
         assert!(
             proposals
                 .iter()
-                .any(|f| f.id == "artifact:verified:transformer"),
+                .any(|f| f.id() == "artifact:verified:transformer"),
             "should have verified artifact in proposals"
         );
 
         // Verify provenance chain
         let artifact = proposals
             .iter()
-            .find(|f| f.id == "artifact:verified:transformer")
+            .find(|f| f.id() == "artifact:verified:transformer")
             .unwrap();
-        let a: serde_json::Value = serde_json::from_str(&artifact.content).unwrap();
+        let a: serde_json::Value =
+            serde_json::from_str(&artifact.text().unwrap_or_default()).unwrap();
         assert_eq!(a["provenance"]["generated_by"], "codegen");
         assert_eq!(a["provenance"]["verified_by"], "code-verifier");
         assert!(

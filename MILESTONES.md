@@ -4,7 +4,7 @@
 > Every session starts by reading this file. Scope work to the current milestone.
 > Detailed deliverables live in `kb/Planning/Milestones.md`.
 >
-> See `~/dev/work/EPIC.md` for the coarse-grained outcomes these milestones advance.
+> See `~/dev/reflective/stack/bedrock-platform/EPIC.md` for the coarse-grained outcomes these milestones advance.
 
 ---
 

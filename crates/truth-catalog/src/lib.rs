@@ -1,8 +1,8 @@
 pub mod admission;
 mod converge;
 pub mod intent_compile;
-mod organism;
 pub mod orchestration;
+mod organism;
 
 use serde::Serialize;
 
@@ -1165,5 +1165,4 @@ mod tests {
         assert_eq!(binding.intent.success_criteria.len(), 2);
         assert_eq!(binding.intent.constraints.len(), 3);
     }
-
 }

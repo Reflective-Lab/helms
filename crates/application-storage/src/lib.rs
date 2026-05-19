@@ -1,18 +1,31 @@
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex, RwLock};
+#[cfg(feature = "surrealdb")]
+use std::sync::Mutex;
+use std::sync::{Arc, RwLock};
 
 use application_kernel::{CrmKernel, DomainEvent, KernelError, KernelResult};
 use converge_core::experience_store::{EventQuery, ExperienceEventEnvelope};
 use converge_core::traits::{ContextStore, StoreError};
-use converge_core::{ContextSnapshot, ContextState as Context, UserExperienceEventEnvelope};
+#[cfg(feature = "surrealdb")]
+use converge_core::{ContextSnapshot, WireContextSnapshot};
+use converge_core::{ContextState as Context, ExperienceRecord, UserExperienceEventEnvelope};
+#[cfg(feature = "surrealdb")]
+use converge_pack::PayloadRegistry;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "surrealdb")]
 use serde_json::Value as JsonValue;
+#[cfg(feature = "surrealdb")]
 use surrealdb::Surreal;
+#[cfg(feature = "surrealdb")]
 use surrealdb::engine::any::{self, Any};
+#[cfg(feature = "surrealdb")]
 use surrealdb::opt::auth::Root;
 use thiserror::Error;
-use tokio::runtime::{Builder as RuntimeBuilder, Handle, Runtime};
+#[cfg(feature = "surrealdb")]
+use tokio::runtime::Runtime;
+#[cfg(feature = "surrealdb")]
+use tokio::runtime::{Builder as RuntimeBuilder, Handle};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SurrealStoreConfig {
@@ -218,12 +231,14 @@ pub trait KernelStore: Clone + Send + Sync + 'static {
 #[derive(Debug, Clone)]
 pub enum AppKernelStore {
     Memory(InMemoryKernelStore),
+    #[cfg(feature = "surrealdb")]
     Surreal(SurrealDbKernelStore),
 }
 
 #[derive(Debug, Clone)]
 pub enum AppContextStore {
     Memory(InMemoryContextStore),
+    #[cfg(feature = "surrealdb")]
     Surreal(SurrealDbContextStore),
 }
 
@@ -243,6 +258,7 @@ pub struct InMemoryContextStore {
     contexts: Arc<RwLock<std::collections::HashMap<String, Context>>>,
 }
 
+#[cfg(feature = "surrealdb")]
 #[derive(Clone)]
 pub struct SurrealDbContextStore {
     db: Arc<Surreal<Any>>,
@@ -276,6 +292,7 @@ pub struct InMemoryExperienceStoreAdapter {
     inner: Arc<converge_experience::InMemoryExperienceStore>,
 }
 
+#[cfg(feature = "surrealdb")]
 #[derive(Clone)]
 pub struct SurrealDbKernelStore {
     db: Arc<Surreal<Any>>,
@@ -284,15 +301,17 @@ pub struct SurrealDbKernelStore {
     pub config: AppConfig,
 }
 
+#[cfg(feature = "surrealdb")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct KernelSnapshotDocument {
     kernel: CrmKernel,
 }
 
+#[cfg(feature = "surrealdb")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ContextSnapshotDocument {
     #[serde(default)]
-    snapshot: Option<ContextSnapshot>,
+    snapshot: Option<WireContextSnapshot>,
     // Earlier local builds persisted either an opaque JSON context blob or a
     // hand-rolled fact snapshot. Keep the legacy field for tolerant reads, but
     // only restore from Converge-owned ContextSnapshot envelopes.
@@ -300,25 +319,44 @@ struct ContextSnapshotDocument {
     legacy_context_json: Option<JsonValue>,
 }
 
+#[cfg(feature = "surrealdb")]
 const KERNEL_SNAPSHOT_TABLE: &str = "crm_kernel";
+#[cfg(feature = "surrealdb")]
 const KERNEL_SNAPSHOT_ID: &str = "default";
+#[cfg(feature = "surrealdb")]
 const CONTEXT_SNAPSHOT_TABLE: &str = "converge_context";
 
+#[cfg(feature = "surrealdb")]
 impl ContextSnapshotDocument {
-    fn from_runtime(context: &Context) -> Self {
-        Self {
-            snapshot: Some(context.snapshot()),
+    fn from_runtime(context: &Context) -> StorageResult<Self> {
+        let snapshot =
+            context
+                .snapshot()
+                .to_wire()
+                .map_err(|error| StorageError::SerializationFailed {
+                    message: format!("could not encode Converge context snapshot: {error}"),
+                })?;
+        Ok(Self {
+            snapshot: Some(snapshot),
             legacy_context_json: None,
-        }
+        })
     }
 
     fn into_runtime(self) -> StorageResult<Option<Context>> {
         match self.snapshot {
-            Some(snapshot) => Context::from_snapshot(snapshot).map(Some).map_err(|error| {
-                StorageError::SerializationFailed {
-                    message: format!("invalid Converge context snapshot: {error}"),
-                }
-            }),
+            Some(snapshot) => {
+                let registry = PayloadRegistry::with_pack_payloads();
+                let snapshot = ContextSnapshot::from_wire(snapshot, &registry).map_err(|error| {
+                    StorageError::SerializationFailed {
+                        message: format!("invalid Converge context snapshot payload: {error}"),
+                    }
+                })?;
+                Context::from_snapshot(snapshot)
+                    .map(Some)
+                    .map_err(|error| StorageError::SerializationFailed {
+                        message: format!("invalid Converge context snapshot: {error}"),
+                    })
+            }
             None if self.legacy_context_json.is_some() => Err(StorageError::SerializationFailed {
                 message: "legacy context document cannot be safely restored after Converge v3.8; persist a Converge ContextSnapshot instead".to_string(),
             }),
@@ -458,6 +496,11 @@ impl InMemoryExperienceStoreAdapter {
             .map_err(map_legacy_experience_error)
     }
 
+    fn query_records_sync(&self, query: &EventQuery) -> Result<Vec<ExperienceRecord>, StoreError> {
+        <dyn converge_core::ExperienceStore>::query_records(self.inner.as_ref(), query)
+            .map_err(map_legacy_experience_error)
+    }
+
     fn append_user_sync(&self, event: UserExperienceEventEnvelope) -> Result<(), StoreError> {
         <dyn converge_core::ExperienceStore>::append_user_event(self.inner.as_ref(), event)
             .map_err(map_legacy_experience_error)
@@ -478,23 +521,7 @@ impl Default for InMemoryExperienceStoreAdapter {
     }
 }
 
-impl InMemoryExperienceStoreAdapter {
-    fn append<'a>(
-        &'a self,
-        events: &'a [ExperienceEventEnvelope],
-    ) -> Pin<Box<dyn Future<Output = Result<(), StoreError>> + Send + 'a>> {
-        Box::pin(async move { self.append_sync(events) })
-    }
-
-    fn query<'a>(
-        &'a self,
-        query: &'a EventQuery,
-    ) -> Pin<Box<dyn Future<Output = Result<Vec<ExperienceEventEnvelope>, StoreError>> + Send + 'a>>
-    {
-        Box::pin(async move { self.query_sync(query) })
-    }
-}
-
+#[cfg(feature = "surrealdb")]
 impl SurrealDbContextStore {
     pub async fn connect(config: &ContextSnapshotStoreConfig) -> StorageResult<Self> {
         let record_store = match config {
@@ -589,7 +616,7 @@ impl SurrealDbContextStore {
             .write_lock
             .lock()
             .map_err(|_| StorageError::LockPoisoned)?;
-        let document = serde_json::to_value(ContextSnapshotDocument::from_runtime(context))
+        let document = serde_json::to_value(ContextSnapshotDocument::from_runtime(context)?)
             .map_err(|error| StorageError::SerializationFailed {
                 message: error.to_string(),
             })?;
@@ -614,6 +641,7 @@ impl SurrealDbContextStore {
     }
 }
 
+#[cfg(feature = "surrealdb")]
 impl ContextStore for SurrealDbContextStore {
     type LoadFut<'a>
         = Pin<Box<dyn Future<Output = Result<Option<Context>, StoreError>> + Send + 'a>>
@@ -633,6 +661,7 @@ impl ContextStore for SurrealDbContextStore {
     }
 }
 
+#[cfg(feature = "surrealdb")]
 impl std::fmt::Debug for SurrealDbKernelStore {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
@@ -642,6 +671,7 @@ impl std::fmt::Debug for SurrealDbKernelStore {
     }
 }
 
+#[cfg(feature = "surrealdb")]
 impl std::fmt::Debug for SurrealDbContextStore {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
@@ -650,6 +680,7 @@ impl std::fmt::Debug for SurrealDbContextStore {
     }
 }
 
+#[cfg(feature = "surrealdb")]
 impl SurrealDbKernelStore {
     pub async fn connect(config: AppConfig) -> StorageResult<Self> {
         let record_store = match &config.record_store {
@@ -804,6 +835,7 @@ impl SurrealDbKernelStore {
     }
 }
 
+#[cfg(feature = "surrealdb")]
 impl KernelStore for SurrealDbKernelStore {
     fn read<R, F>(&self, f: F) -> StorageResult<R>
     where
@@ -827,6 +859,7 @@ impl KernelStore for AppKernelStore {
     {
         match self {
             Self::Memory(store) => store.read(f),
+            #[cfg(feature = "surrealdb")]
             Self::Surreal(store) => store.read(f),
         }
     }
@@ -837,6 +870,7 @@ impl KernelStore for AppKernelStore {
     {
         match self {
             Self::Memory(store) => store.write_with_events(f),
+            #[cfg(feature = "surrealdb")]
             Self::Surreal(store) => store.write_with_events(f),
         }
     }
@@ -848,6 +882,7 @@ impl AppContextStore {
             Self::Memory(store) => store
                 .load_sync(scope_id)
                 .map_err(map_store_to_storage_error),
+            #[cfg(feature = "surrealdb")]
             Self::Surreal(store) => store
                 .load_sync(scope_id)
                 .map_err(map_store_to_storage_error),
@@ -859,6 +894,7 @@ impl AppContextStore {
             Self::Memory(store) => store
                 .save_sync(scope_id, context)
                 .map_err(map_store_to_storage_error),
+            #[cfg(feature = "surrealdb")]
             Self::Surreal(store) => store
                 .save_sync(scope_id, context)
                 .map_err(map_store_to_storage_error),
@@ -868,20 +904,31 @@ impl AppContextStore {
 
 impl AppExperienceStore {
     pub fn append_blocking(&self, events: &[ExperienceEventEnvelope]) -> StorageResult<()> {
-        let future = match self {
-            Self::Memory(store) => store.append(events),
-        };
-        block_on_store(future).map_err(map_store_to_storage_error)
+        match self {
+            Self::Memory(store) => store
+                .append_sync(events)
+                .map_err(map_store_to_storage_error),
+        }
     }
 
     pub fn query_blocking(
         &self,
         query: &EventQuery,
     ) -> StorageResult<Vec<ExperienceEventEnvelope>> {
-        let future = match self {
-            Self::Memory(store) => store.query(query),
-        };
-        block_on_store(future).map_err(map_store_to_storage_error)
+        match self {
+            Self::Memory(store) => store.query_sync(query).map_err(map_store_to_storage_error),
+        }
+    }
+
+    pub fn query_records_blocking(
+        &self,
+        query: &EventQuery,
+    ) -> StorageResult<Vec<ExperienceRecord>> {
+        match self {
+            Self::Memory(store) => store
+                .query_records_sync(query)
+                .map_err(map_store_to_storage_error),
+        }
     }
 
     pub fn append_user_blocking(&self, event: UserExperienceEventEnvelope) -> StorageResult<()> {
@@ -924,6 +971,13 @@ impl AppRuntimeStores {
         self.experience.append_user_blocking(event)
     }
 
+    pub fn query_experience_records(
+        &self,
+        query: &EventQuery,
+    ) -> StorageResult<Vec<ExperienceRecord>> {
+        self.experience.query_records_blocking(query)
+    }
+
     #[must_use]
     pub fn experience_handle(&self) -> Arc<converge_experience::InMemoryExperienceStore> {
         self.experience.experience_handle()
@@ -933,9 +987,7 @@ impl AppRuntimeStores {
 pub async fn open_kernel_store(config: AppConfig) -> StorageResult<AppKernelStore> {
     match config.record_store {
         RecordStoreConfig::Memory => Ok(AppKernelStore::Memory(InMemoryKernelStore::new(config))),
-        RecordStoreConfig::Surreal(_) => SurrealDbKernelStore::connect(config)
-            .await
-            .map(AppKernelStore::Surreal),
+        RecordStoreConfig::Surreal(_) => open_surreal_kernel_store(config).await,
     }
 }
 
@@ -943,7 +995,7 @@ pub async fn open_runtime_stores(config: &AppConfig) -> StorageResult<AppRuntime
     let context = match &config.context_store {
         ContextSnapshotStoreConfig::Memory => AppContextStore::Memory(InMemoryContextStore::new()),
         ContextSnapshotStoreConfig::Surreal(_) => {
-            AppContextStore::Surreal(SurrealDbContextStore::connect(&config.context_store).await?)
+            open_surreal_context_store(&config.context_store).await?
         }
     };
 
@@ -965,6 +1017,43 @@ pub async fn open_runtime_stores(config: &AppConfig) -> StorageResult<AppRuntime
     })
 }
 
+#[cfg(feature = "surrealdb")]
+async fn open_surreal_kernel_store(config: AppConfig) -> StorageResult<AppKernelStore> {
+    SurrealDbKernelStore::connect(config)
+        .await
+        .map(AppKernelStore::Surreal)
+}
+
+#[cfg(not(feature = "surrealdb"))]
+async fn open_surreal_kernel_store(_config: AppConfig) -> StorageResult<AppKernelStore> {
+    Err(surrealdb_feature_disabled("surrealdb"))
+}
+
+#[cfg(feature = "surrealdb")]
+async fn open_surreal_context_store(
+    config: &ContextSnapshotStoreConfig,
+) -> StorageResult<AppContextStore> {
+    SurrealDbContextStore::connect(config)
+        .await
+        .map(AppContextStore::Surreal)
+}
+
+#[cfg(not(feature = "surrealdb"))]
+async fn open_surreal_context_store(
+    _config: &ContextSnapshotStoreConfig,
+) -> StorageResult<AppContextStore> {
+    Err(surrealdb_feature_disabled("surrealdb-context"))
+}
+
+#[cfg(not(feature = "surrealdb"))]
+fn surrealdb_feature_disabled(backend: &str) -> StorageError {
+    StorageError::ConnectionFailed {
+        backend: backend.to_string(),
+        message: "application-storage was built without the `surrealdb` feature".to_string(),
+    }
+}
+
+#[cfg(feature = "surrealdb")]
 fn block_on_storage<T>(future: impl Future<Output = StorageResult<T>>) -> StorageResult<T> {
     match Handle::try_current() {
         Ok(handle) => tokio::task::block_in_place(|| handle.block_on(future)),
@@ -978,20 +1067,7 @@ fn block_on_storage<T>(future: impl Future<Output = StorageResult<T>>) -> Storag
     }
 }
 
-fn block_on_store<T>(future: impl Future<Output = Result<T, StoreError>>) -> Result<T, StoreError> {
-    match Handle::try_current() {
-        Ok(handle) => tokio::task::block_in_place(|| handle.block_on(future)),
-        Err(_) => RuntimeBuilder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|_error| StoreError::Timeout {
-                elapsed: std::time::Duration::from_secs(0),
-                deadline: std::time::Duration::from_secs(0),
-            })?
-            .block_on(future),
-    }
-}
-
+#[cfg(feature = "surrealdb")]
 fn map_storage_to_store_error(error: StorageError) -> StoreError {
     match error {
         StorageError::LockPoisoned => StoreError::Internal {
@@ -1123,15 +1199,16 @@ pub fn runtime_modules_for_local_crm() -> Vec<RuntimeModuleConfig> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "surrealdb")]
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use application_kernel::{
         Actor, ActorKind, DomainEvent, OrganizationLifecycle, OrganizationUpsert,
     };
 
-    use super::{
-        AppConfig, InMemoryKernelStore, RecordStoreConfig, SurrealDbKernelStore, SurrealStoreConfig,
-    };
+    use super::InMemoryKernelStore;
+    #[cfg(feature = "surrealdb")]
+    use super::{AppConfig, RecordStoreConfig, SurrealDbKernelStore, SurrealStoreConfig};
 
     fn human() -> Actor {
         Actor {
@@ -1141,6 +1218,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "surrealdb")]
     fn surreal_test_config() -> AppConfig {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1233,6 +1311,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "surrealdb")]
     #[test]
     fn surreal_store_supports_read_write_and_events() {
         let store =
@@ -1266,6 +1345,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "surrealdb")]
     #[test]
     fn surreal_store_failed_write_does_not_commit_partial_state() {
         let store =

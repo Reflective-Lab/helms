@@ -57,8 +57,36 @@ pub struct TruthDetailItem {
     pub gherkin: String,
     pub packs: Vec<String>,
     pub executable: bool,
+    pub axiom_intent: Option<AxiomIntentView>,
+    pub formation_selection: Option<FormationSelectionView>,
     pub organism_resolution: Option<OrganismTruthResolutionView>,
     pub converge_resolution: Option<ConvergeTruthResolutionView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AxiomIntentView {
+    pub intent_id: String,
+    pub outcome: String,
+    pub context: serde_json::Value,
+    pub constraints: Vec<String>,
+    pub authority: Vec<String>,
+    pub forbidden_count: usize,
+    pub reversibility: String,
+    pub expires_at: String,
+    pub expiry_action: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FormationSelectionView {
+    pub primary_template_id: String,
+    pub alternate_template_ids: Vec<String>,
+    pub problem_class: String,
+    pub matched_keywords: Vec<String>,
+    pub defaulted: bool,
+    pub query_keywords: Vec<String>,
+    pub query_capabilities: Vec<String>,
+    pub considered_template_ids: Vec<String>,
+    pub primary_reason: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

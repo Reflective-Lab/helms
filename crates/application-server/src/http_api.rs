@@ -447,6 +447,7 @@ where
             post(handle_billing_event::<S>),
         )
         .merge(crate::sse::pipeline_routes::<S>())
+        .merge(crate::job_stream::job_stream_routes::<S>())
         .with_state(state)
 }
 

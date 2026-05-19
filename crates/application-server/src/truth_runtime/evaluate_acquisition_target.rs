@@ -4,7 +4,7 @@ use std::sync::Arc;
 use application_kernel::{Actor as CrmActor, FactRecord};
 use application_storage::{KernelStore, StoreWriteResult};
 use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
-use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, Suggestor};
 use converge_provider::{BoxFuture, ChatRequest, ChatResponse, DynChatBackend, LlmError};
 use organism_pack::{
     BreadthResearchSuggestor, ContradictionFinderSuggestor, DdError, DdSearch,
@@ -61,6 +61,7 @@ pub(super) async fn execute<S: KernelStore>(
         .ok_or_else(|| Status::not_found("truth not found: evaluate-acquisition-target"))?;
 
     let company = inputs.target_company.clone();
+    let focus_areas = inputs.focus_areas.clone();
     let max_searches = inputs.max_searches.unwrap_or(10);
     let max_llm_calls = inputs.max_llm_calls.unwrap_or(8);
 
@@ -78,8 +79,8 @@ pub(super) async fn execute<S: KernelStore>(
     let llm: Arc<dyn DynChatBackend> = Arc::new(StubChatBackend);
 
     // Build the initial plans (Organism huddle seed pattern)
-    let intent = build_dd_intent(&company);
-    let plans = build_dd_plans(&company);
+    let intent = build_dd_intent(&company, focus_areas.as_deref());
+    let plans = build_dd_plans(&company, focus_areas.as_deref());
     let huddle_seed = HuddleSeedSuggestor::from_plans(intent, plans);
 
     let mut engine = Engine::new();
@@ -130,12 +131,13 @@ pub(super) async fn execute<S: KernelStore>(
         "formation selected"
     );
 
+    let runtime_ctx = super::RuntimeContext {
+        scope_id: format!("dd:{}", company.to_lowercase().replace(' ', "-")),
+    };
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext {
-            scope_id: format!("dd:{}", company.to_lowercase().replace(' ', "-")),
-        },
+        &runtime_ctx,
         seed_ctx,
         &binding.intent,
         std::sync::Arc::new(EvaluateAcquisitionTargetEvaluator),
@@ -152,6 +154,7 @@ pub(super) async fn execute<S: KernelStore>(
         result,
         experience_events,
         projection,
+        runtime_scope_id: runtime_ctx.scope_id,
     })
 }
 
@@ -201,7 +204,7 @@ impl Suggestor for ContradictionGateAgent {
         .to_string();
 
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Evaluations,
                 "dd:human-review-required",
                 content,
@@ -214,7 +217,7 @@ impl Suggestor for ContradictionGateAgent {
 
 // ── Intent & Plans ──────────────────────────────────────────────────
 
-fn build_dd_intent(company: &str) -> IntentPacket {
+fn build_dd_intent(company: &str, focus_areas: Option<&str>) -> IntentPacket {
     let expires = chrono::Utc::now() + chrono::Duration::hours(1);
     let mut intent = IntentPacket::new(
         format!("Build a due diligence brief for {company}"),
@@ -223,14 +226,18 @@ fn build_dd_intent(company: &str) -> IntentPacket {
     .with_context(serde_json::json!({
         "company": company,
         "goal": "research breadth, depth, and investment risks",
+        "focus_areas": focus_areas,
     }));
     intent.authority = vec!["research".to_string()];
     intent
 }
 
-fn build_dd_plans(company: &str) -> Vec<Plan> {
+fn build_dd_plans(company: &str, focus_areas: Option<&str>) -> Vec<Plan> {
     let expires = chrono::Utc::now() + chrono::Duration::hours(1);
     let intent = IntentPacket::new(format!("DD for {company}"), expires);
+    let focus_suffix = focus_areas
+        .map(|focus| format!(" with focus on {focus}"))
+        .unwrap_or_default();
 
     let mut breadth1 = Plan::new(
         &intent,
@@ -238,7 +245,9 @@ fn build_dd_plans(company: &str) -> Vec<Plan> {
     );
     breadth1.contributor = ReasoningSystem::DomainModel;
     breadth1.steps = vec![PlanStep {
-        action: format!("[breadth] {company} products customers market position overview"),
+        action: format!(
+            "[breadth] {company} products customers market position overview{focus_suffix}"
+        ),
         expected_effect: "discover product scope, customer segments, and market presence".into(),
     }];
 
@@ -248,7 +257,9 @@ fn build_dd_plans(company: &str) -> Vec<Plan> {
     );
     breadth2.contributor = ReasoningSystem::CausalAnalysis;
     breadth2.steps = vec![PlanStep {
-        action: format!("[breadth] {company} competitors trends growth tech stack USP"),
+        action: format!(
+            "[breadth] {company} competitors trends growth tech stack USP{focus_suffix}"
+        ),
         expected_effect: "map competitive landscape and growth trajectory".into(),
     }];
 
@@ -258,14 +269,18 @@ fn build_dd_plans(company: &str) -> Vec<Plan> {
     );
     depth1.contributor = ReasoningSystem::ConstraintSolver;
     depth1.steps = vec![PlanStep {
-        action: format!("[depth] {company} technology architecture platform integrations API"),
+        action: format!(
+            "[depth] {company} technology architecture platform integrations API{focus_suffix}"
+        ),
         expected_effect: "understand technical moat and integration surface".into(),
     }];
 
     let mut depth2 = Plan::new(&intent, "Search deep for financial and ownership evidence");
     depth2.contributor = ReasoningSystem::CostEstimation;
     depth2.steps = vec![PlanStep {
-        action: format!("[depth] {company} revenue ARR funding investors ownership financials"),
+        action: format!(
+            "[depth] {company} revenue ARR funding investors ownership financials{focus_suffix}"
+        ),
         expected_effect: "find financial metrics and ownership structure".into(),
     }];
 
@@ -296,7 +311,7 @@ fn project<S: KernelStore>(
         .get(ContextKey::Proposals)
         .iter()
         .find(|f| f.id().starts_with("synthesis-"))
-        .map(|f| f.content().to_string());
+        .map(|f| f.text().unwrap_or_default().to_string());
 
     let hypothesis_count = result.context.get(ContextKey::Hypotheses).len();
     let contradiction_count = result
@@ -450,7 +465,7 @@ mod tests {
 
     #[test]
     fn dd_plans_cover_four_research_vectors() {
-        let plans = build_dd_plans("TestCo");
+        let plans = build_dd_plans("TestCo", None);
         assert_eq!(plans.len(), 4);
         assert_eq!(plans[0].contributor, ReasoningSystem::DomainModel);
         assert_eq!(plans[1].contributor, ReasoningSystem::CausalAnalysis);

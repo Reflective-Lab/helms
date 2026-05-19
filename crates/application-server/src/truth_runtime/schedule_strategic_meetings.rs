@@ -6,7 +6,7 @@ use application_kernel::{
 };
 use application_storage::{KernelStore, StoreWriteResult};
 use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
-use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
 use truth_catalog::{
@@ -216,10 +216,11 @@ pub(super) async fn execute<S: KernelStore>(
         "formation selected"
     );
 
+    let runtime_ctx = super::RuntimeContext { scope_id };
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext { scope_id },
+        &runtime_ctx,
         seed_ctx,
         &binding.intent,
         std::sync::Arc::new(ScheduleStrategicMeetingsEvaluator),
@@ -236,6 +237,7 @@ pub(super) async fn execute<S: KernelStore>(
         result,
         experience_events,
         projection,
+        runtime_scope_id: runtime_ctx.scope_id,
     })
 }
 
@@ -294,7 +296,7 @@ impl Suggestor for CandidateRankerAgent {
 
         let mut builder = AgentEffect::builder();
         builder.push(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Proposals,
                 RANKED_CANDIDATES_FACT_ID,
                 content,
@@ -305,7 +307,7 @@ impl Suggestor for CandidateRankerAgent {
 
         for candidate in &ranked {
             builder.push(
-                ProposedFact::new(
+                crate::truth_runtime::common::proposed_text_fact(
                     ContextKey::Signals,
                     format!("meeting:alignment:{}", slug(&candidate.prospect.name)),
                     serde_json::to_string(&AlignmentEvidence {
@@ -347,7 +349,7 @@ impl Suggestor for AvailabilityResolverAgent {
         let content = serde_json::to_string(&self.calendar_slots).unwrap_or_default();
 
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Signals,
                 AVAILABILITY_FACT_ID,
                 content,
@@ -394,10 +396,10 @@ impl Suggestor for SlateProposerAgent {
             .cloned();
 
         let candidates: Vec<RankedCandidate> = candidates_fact
-            .and_then(|f| serde_json::from_str(&f.content()).ok())
+            .and_then(|f| serde_json::from_str(&f.text().unwrap_or_default()).ok())
             .unwrap_or_default();
         let slots: Vec<CalendarSlot> = availability_fact
-            .and_then(|f| serde_json::from_str(&f.content()).ok())
+            .and_then(|f| serde_json::from_str(&f.text().unwrap_or_default()).ok())
             .unwrap_or_default();
 
         let candidates_considered = candidates.len() as u32;
@@ -445,7 +447,7 @@ impl Suggestor for SlateProposerAgent {
 
         let mut builder = AgentEffect::builder();
         builder.push(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Strategies,
                 SLATE_FACT_ID,
                 serde_json::to_string(&slate).unwrap_or_default(),
@@ -455,7 +457,7 @@ impl Suggestor for SlateProposerAgent {
         );
 
         builder.push(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Evaluations,
                 CONFIRMATION_FACT_ID,
                 serde_json::to_string(&serde_json::json!({
@@ -615,6 +617,15 @@ fn seed_context(inputs: &ScheduleStrategicMeetingsInput) -> Result<Context, Stat
             &inputs.intent_text,
         )
         .map_err(|error| Status::failed_precondition(error.to_string()))?;
+    if let Some(actor_name) = &inputs.actor_name {
+        context
+            .add_input(
+                ContextKey::Seeds,
+                "schedule-strategic-meetings:actor",
+                actor_name,
+            )
+            .map_err(|error| Status::failed_precondition(error.to_string()))?;
+    }
     Ok(context)
 }
 
@@ -651,7 +662,7 @@ fn parse_calendar_slots(
 
 fn project<S: KernelStore>(
     store: &S,
-    inputs: &ScheduleStrategicMeetingsInput,
+    _inputs: &ScheduleStrategicMeetingsInput,
     result: &ConvergeResult,
     actor: CrmActor,
 ) -> Result<TruthProjection, Status> {
@@ -901,7 +912,7 @@ mod tests {
             .context
             .get(ContextKey::Strategies)
             .iter()
-            .any(|f| f.id == SLATE_FACT_ID);
+            .any(|f| f.id() == SLATE_FACT_ID);
         assert!(has_slate, "meeting slate should exist in context");
 
         let has_confirmation = execution
@@ -909,7 +920,7 @@ mod tests {
             .context
             .get(ContextKey::Evaluations)
             .iter()
-            .any(|f| f.id == CONFIRMATION_FACT_ID);
+            .any(|f| f.id() == CONFIRMATION_FACT_ID);
         assert!(has_confirmation, "human confirmation fact should exist");
 
         let alignment_count = execution
@@ -917,7 +928,7 @@ mod tests {
             .context
             .get(ContextKey::Signals)
             .iter()
-            .filter(|f| f.id.starts_with("meeting:alignment:"))
+            .filter(|f| f.id().starts_with("meeting:alignment:"))
             .count();
         assert!(
             alignment_count >= 3,
@@ -929,10 +940,11 @@ mod tests {
             .context
             .get(ContextKey::Strategies)
             .iter()
-            .find(|f| f.id == SLATE_FACT_ID)
+            .find(|f| f.id() == SLATE_FACT_ID)
             .expect("slate fact should exist");
         let slate: MeetingSlatePayload =
-            serde_json::from_str(&slate_fact.content).expect("slate should deserialize");
+            serde_json::from_str(&slate_fact.text().unwrap_or_default())
+                .expect("slate should deserialize");
         assert_eq!(slate.proposals.len(), 3);
         assert_eq!(slate.proposals[0].rank, 1);
 

@@ -7,7 +7,7 @@ use application_kernel::{
 };
 use application_storage::{KernelStore, StoreWriteResult};
 use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
-use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
 use truth_catalog::{
@@ -182,12 +182,13 @@ pub(super) async fn execute<S: KernelStore>(
         "formation selected"
     );
 
+    let runtime_ctx = super::RuntimeContext {
+        scope_id: inputs.subscription_id.to_string(),
+    };
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext {
-            scope_id: inputs.subscription_id.to_string(),
-        },
+        &runtime_ctx,
         seed_ctx,
         &binding.intent,
         std::sync::Arc::new(ActivateSubscriptionEvaluator),
@@ -204,6 +205,7 @@ pub(super) async fn execute<S: KernelStore>(
         result,
         experience_events,
         projection,
+        runtime_scope_id: runtime_ctx.scope_id,
     })
 }
 
@@ -418,7 +420,7 @@ impl Suggestor for ActivationPlanAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Strategies,
                 ACTIVATION_READY_FACT_ID,
                 serde_json::to_string(&ActivationReadyPayload {
@@ -454,7 +456,7 @@ impl Suggestor for EntitlementPreviewAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Signals,
                 ENTITLEMENT_PREVIEW_FACT_ID,
                 serde_json::to_string(&EntitlementPreviewPayload {
@@ -485,7 +487,7 @@ impl Suggestor for OpeningBalanceAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Evaluations,
                 OPENING_BALANCE_FACT_ID,
                 serde_json::to_string(&self.payload)
@@ -514,7 +516,7 @@ impl Suggestor for ManualReviewAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Evaluations,
                 MANUAL_REVIEW_FACT_ID,
                 serde_json::to_string(&ManualReviewPayload {
@@ -597,7 +599,7 @@ fn manual_review_from_result(
         .iter()
         .find(|fact| fact.id() == MANUAL_REVIEW_FACT_ID)
         .map(|fact| {
-            serde_json::from_str(&fact.content()).map_err(|error| {
+            serde_json::from_str(&fact.text().unwrap_or_default()).map_err(|error| {
                 Status::internal(format!("invalid manual review payload: {error}"))
             })
         })

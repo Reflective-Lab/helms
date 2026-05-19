@@ -8,7 +8,7 @@ use application_kernel::{
 use application_storage::{KernelStore, StorageError, StoreWriteResult};
 use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
 use converge_knowledge::{KnowledgeBase, KnowledgeEntry, SearchOptions};
-use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
 use truth_catalog::{
@@ -156,12 +156,13 @@ pub(super) async fn execute<S: KernelStore>(
         "formation selected"
     );
 
+    let runtime_ctx = super::RuntimeContext {
+        scope_id: inputs.organization_id.to_string(),
+    };
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext {
-            scope_id: inputs.organization_id.to_string(),
-        },
+        &runtime_ctx,
         seed_ctx,
         &binding.intent,
         std::sync::Arc::new(MatchRenewalContextEvaluator),
@@ -178,6 +179,7 @@ pub(super) async fn execute<S: KernelStore>(
         result,
         experience_events,
         projection,
+        runtime_scope_id: runtime_ctx.scope_id,
     })
 }
 
@@ -200,7 +202,7 @@ impl<S: KernelStore> Suggestor for ContextGathererAgent<S> {
             Ok(summary) => summary,
             Err(error) => {
                 return AgentEffect::with_proposal(
-                    ProposedFact::new(
+                    crate::truth_runtime::common::proposed_text_fact(
                         ContextKey::Diagnostic,
                         "renewal:context:error",
                         error,
@@ -218,7 +220,7 @@ impl<S: KernelStore> Suggestor for ContextGathererAgent<S> {
             block_on_async(async move { knowledge_base.add_entries(entries_for_ingest).await })
         {
             return AgentEffect::with_proposal(
-                ProposedFact::new(
+                crate::truth_runtime::common::proposed_text_fact(
                     ContextKey::Diagnostic,
                     "renewal:context:error",
                     error.to_string(),
@@ -229,7 +231,7 @@ impl<S: KernelStore> Suggestor for ContextGathererAgent<S> {
         }
 
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Signals,
                 CONTEXT_INDEX_FACT_ID,
                 serde_json::to_string(&RenewalIndexPayload {
@@ -294,7 +296,7 @@ impl Suggestor for RenewalSignalAgent {
                 Ok(results) => results,
                 Err(error) => {
                     builder.push(
-                        ProposedFact::new(
+                        crate::truth_runtime::common::proposed_text_fact(
                             ContextKey::Diagnostic,
                             format!("renewal:signal:error:{signal_id}"),
                             error.to_string(),
@@ -317,7 +319,7 @@ impl Suggestor for RenewalSignalAgent {
                 similarity_bps: (result.similarity.clamp(0.0, 1.0) * 10_000.0).round() as u16,
             };
             builder.push(
-                ProposedFact::new(
+                crate::truth_runtime::common::proposed_text_fact(
                     ContextKey::Signals,
                     format!("renewal:signal:{signal_id}"),
                     serde_json::to_string(&payload).unwrap_or_default(),
@@ -399,7 +401,7 @@ impl Suggestor for NegotiationBriefAgent {
         };
 
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Strategies,
                 RENEWAL_BRIEF_FACT_ID,
                 serde_json::to_string(&payload).unwrap_or_default(),
@@ -433,11 +435,13 @@ impl Suggestor for RenewalTermsAgent {
         else {
             return AgentEffect::empty();
         };
-        let brief = match serde_json::from_str::<RenewalBriefPayload>(&brief_fact.content()) {
+        let brief = match serde_json::from_str::<RenewalBriefPayload>(
+            &brief_fact.text().unwrap_or_default(),
+        ) {
             Ok(brief) => brief,
             Err(error) => {
                 return AgentEffect::with_proposal(
-                    ProposedFact::new(
+                    crate::truth_runtime::common::proposed_text_fact(
                         ContextKey::Diagnostic,
                         "renewal:terms:error",
                         error.to_string(),
@@ -467,7 +471,7 @@ impl Suggestor for RenewalTermsAgent {
         };
 
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Strategies,
                 RENEWAL_TERMS_FACT_ID,
                 serde_json::to_string(&payload).unwrap_or_default(),
@@ -670,12 +674,14 @@ fn renewal_signals_from_result(
         .iter()
         .filter(|fact| fact.id().starts_with("renewal:signal:"))
         .map(|fact| {
-            serde_json::from_str::<RenewalSignalPayload>(&fact.content()).map_err(|error| {
-                Status::internal(format!(
-                    "invalid renewal signal payload {}: {error}",
-                    fact.id()
-                ))
-            })
+            serde_json::from_str::<RenewalSignalPayload>(&fact.text().unwrap_or_default()).map_err(
+                |error| {
+                    Status::internal(format!(
+                        "invalid renewal signal payload {}: {error}",
+                        fact.id()
+                    ))
+                },
+            )
         })
         .collect::<Result<Vec<_>, _>>()?;
     Ok(signals)
@@ -685,7 +691,9 @@ fn renewal_signals_from_context(ctx: &dyn ContextView) -> Vec<RenewalSignalPaylo
     ctx.get(ContextKey::Signals)
         .iter()
         .filter(|fact| fact.id().starts_with("renewal:signal:"))
-        .filter_map(|fact| serde_json::from_str::<RenewalSignalPayload>(&fact.content()).ok())
+        .filter_map(|fact| {
+            serde_json::from_str::<RenewalSignalPayload>(&fact.text().unwrap_or_default()).ok()
+        })
         .collect()
 }
 

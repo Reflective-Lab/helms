@@ -13,7 +13,7 @@ use converge_optimization::packs::lead_routing::{
     SalesRep,
 };
 use converge_pack::gate::{ObjectiveSpec, ProblemSpec};
-use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
 use truth_catalog::{
@@ -208,12 +208,13 @@ pub(super) async fn execute<S: KernelStore>(
         "formation selected"
     );
 
+    let runtime_ctx = super::RuntimeContext {
+        scope_id: slug(&inputs.campaign_name),
+    };
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext {
-            scope_id: slug(&inputs.campaign_name),
-        },
+        &runtime_ctx,
         seed_ctx,
         &binding.intent,
         std::sync::Arc::new(PlanOutboundCampaignEvaluator),
@@ -230,6 +231,7 @@ pub(super) async fn execute<S: KernelStore>(
         result,
         experience_events,
         projection,
+        runtime_scope_id: runtime_ctx.scope_id,
     })
 }
 
@@ -281,7 +283,7 @@ impl Suggestor for ProspectPoolAgent {
         };
 
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Proposals,
                 ROUTING_INPUT_FACT_ID.to_string(),
                 serde_json::to_string(&routing_input).unwrap_or_default(),
@@ -318,7 +320,7 @@ impl Suggestor for RepCapacityAgent {
             rep_count: self.reps.len(),
         };
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Signals,
                 CAPACITY_STATUS_FACT_ID.to_string(),
                 serde_json::to_string(&payload).unwrap_or_default(),
@@ -353,11 +355,13 @@ impl Suggestor for CampaignSolverAgent {
         else {
             return AgentEffect::empty();
         };
-        let routing_input = match serde_json::from_str::<LeadRoutingInput>(&input_fact.content()) {
+        let routing_input = match serde_json::from_str::<LeadRoutingInput>(
+            &input_fact.text().unwrap_or_default(),
+        ) {
             Ok(input) => input,
             Err(error) => {
                 return AgentEffect::with_proposal(
-                    ProposedFact::new(
+                    crate::truth_runtime::common::proposed_text_fact(
                         ContextKey::Diagnostic,
                         "campaign:plan:error",
                         error.to_string(),
@@ -379,7 +383,7 @@ impl Suggestor for CampaignSolverAgent {
             Ok(spec) => spec,
             Err(error) => {
                 return AgentEffect::with_proposal(
-                    ProposedFact::new(
+                    crate::truth_runtime::common::proposed_text_fact(
                         ContextKey::Diagnostic,
                         "campaign:plan:error",
                         error.to_string(),
@@ -395,7 +399,7 @@ impl Suggestor for CampaignSolverAgent {
             Ok(result) => result,
             Err(error) => {
                 return AgentEffect::with_proposal(
-                    ProposedFact::new(
+                    crate::truth_runtime::common::proposed_text_fact(
                         ContextKey::Diagnostic,
                         "campaign:plan:error",
                         error.to_string(),
@@ -409,7 +413,7 @@ impl Suggestor for CampaignSolverAgent {
             Ok(output) => output,
             Err(error) => {
                 return AgentEffect::with_proposal(
-                    ProposedFact::new(
+                    crate::truth_runtime::common::proposed_text_fact(
                         ContextKey::Diagnostic,
                         "campaign:plan:error",
                         error.to_string(),
@@ -448,7 +452,7 @@ impl Suggestor for CampaignSolverAgent {
         };
 
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Strategies,
                 CAMPAIGN_PLAN_FACT_ID.to_string(),
                 serde_json::to_string(&plan_payload).unwrap_or_default(),
@@ -482,11 +486,13 @@ impl Suggestor for BudgetGuardAgent {
         else {
             return AgentEffect::empty();
         };
-        let plan = match serde_json::from_str::<CampaignPlanPayload>(&plan_fact.content()) {
+        let plan = match serde_json::from_str::<CampaignPlanPayload>(
+            &plan_fact.text().unwrap_or_default(),
+        ) {
             Ok(plan) => plan,
             Err(error) => {
                 return AgentEffect::with_proposal(
-                    ProposedFact::new(
+                    crate::truth_runtime::common::proposed_text_fact(
                         ContextKey::Diagnostic,
                         "campaign:plan:error",
                         error.to_string(),
@@ -506,7 +512,7 @@ impl Suggestor for BudgetGuardAgent {
             approval_required: !within_budget,
         };
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Evaluations,
                 BUDGET_STATUS_FACT_ID.to_string(),
                 serde_json::to_string(&payload).unwrap_or_default(),

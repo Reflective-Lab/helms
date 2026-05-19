@@ -8,7 +8,7 @@ use application_kernel::{
 use application_storage::{KernelStore, StoreWriteResult};
 use chrono::{DateTime, Utc};
 use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
-use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
 use truth_catalog::{
@@ -170,12 +170,13 @@ pub(super) async fn execute<S: KernelStore>(
         "formation selected"
     );
 
+    let runtime_ctx = super::RuntimeContext {
+        scope_id: inputs.subscription_id.to_string(),
+    };
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext {
-            scope_id: inputs.subscription_id.to_string(),
-        },
+        &runtime_ctx,
         seed_ctx,
         &binding.intent,
         std::sync::Arc::new(UpgradeSubscriptionPlanEvaluator),
@@ -192,6 +193,7 @@ pub(super) async fn execute<S: KernelStore>(
         result,
         experience_events,
         projection,
+        runtime_scope_id: runtime_ctx.scope_id,
     })
 }
 
@@ -499,7 +501,7 @@ impl Suggestor for PlanChangeValidationAgent {
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         if let Some(reason) = &self.seed.manual_review_reason {
             return AgentEffect::with_proposal(
-                ProposedFact::new(
+                crate::truth_runtime::common::proposed_text_fact(
                     ContextKey::Evaluations,
                     MANUAL_REVIEW_FACT_ID.to_string(),
                     serde_json::to_string(&ManualReviewPayload {
@@ -513,7 +515,7 @@ impl Suggestor for PlanChangeValidationAgent {
         }
 
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Strategies,
                 PLAN_CHANGE_READY_FACT_ID.to_string(),
                 serde_json::to_string(&PlanChangeReadyPayload {
@@ -555,7 +557,7 @@ impl Suggestor for EntitlementPreviewAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Signals,
                 ENTITLEMENT_PREVIEW_FACT_ID.to_string(),
                 serde_json::to_string(&EntitlementPreviewPayload {
@@ -586,7 +588,7 @@ impl Suggestor for CommercialDeltaAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Evaluations,
                 COMMERCIAL_DELTA_FACT_ID.to_string(),
                 serde_json::to_string(&CommercialDeltaPayload {
@@ -706,7 +708,7 @@ fn manual_review_from_result(
         .iter()
         .find(|fact| fact.id() == MANUAL_REVIEW_FACT_ID)
         .map(|fact| {
-            serde_json::from_str(&fact.content()).map_err(|error| {
+            serde_json::from_str(&fact.text().unwrap_or_default()).map_err(|error| {
                 Status::internal(format!(
                     "invalid plan-change manual review payload: {error}"
                 ))

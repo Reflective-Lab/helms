@@ -6,12 +6,12 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check-native --tsconfig ./tsconfig.json"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
     "svelte": "^5.0.0",
-    "svelte-check": "^4.0.0",
+    "svelte-check-native": "^0.8.5",
     "typescript": "^5.7.0",
     "vite": "^6.0.0"
   }

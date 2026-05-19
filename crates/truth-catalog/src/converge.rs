@@ -119,16 +119,8 @@ impl From<TruthDefinition> for ConvergeTruth {
             summary: truth.summary.to_string(),
             success_criteria: binding.intent.success_criteria,
             constraints: binding.intent.constraints,
-            approval_points: truth
-                .approval_points
-                .iter()
-                .map(|p| (*p).into())
-                .collect(),
-            participating_packs: binding
-                .pack_ids
-                .into_iter()
-                .map(Into::into)
-                .collect(),
+            approval_points: truth.approval_points.iter().map(|p| (*p).into()).collect(),
+            participating_packs: binding.pack_ids.into_iter().map(Into::into).collect(),
         }
     }
 }

@@ -15,9 +15,8 @@ use std::path::Path;
 use application_kernel::Actor as CrmActor;
 use application_storage::{AppRuntimeStores, KernelStore};
 use serde::{Deserialize, Serialize};
-use tonic::Status;
 
-use crate::truth_runtime::{TruthExecutionArtifacts, TruthProjection, execute_truth};
+use crate::truth_runtime::{TruthExecutionArtifacts, execute_truth};
 
 // ── Pipeline Types ──────────────────────────────────────────────────
 
@@ -155,7 +154,7 @@ pub async fn run_showcase_pipeline<S: KernelStore>(
     )
     .await;
 
-    let qualify_artifacts = match qualify_result {
+    let _qualify_artifacts = match qualify_result {
         Ok(artifacts) => {
             let step = step_result_from_artifacts("qualify-inbound-lead", &artifacts);
             let blocked = matches!(step.status, StepStatus::Blocked { .. });

@@ -1,6 +1,7 @@
 mod activate_subscription;
 mod common;
 mod evaluate_acquisition_target;
+#[cfg(test)]
 mod generate_data_transformer;
 mod match_renewal_context;
 mod plan_outbound_campaign;
@@ -20,10 +21,12 @@ use application_kernel::{
     OrderSubscription, Organization, Person, WorkflowCase,
 };
 use application_storage::{AppRuntimeStores, KernelStore, StorageError};
+use converge_core::FactId;
 use converge_kernel::{
-    ContextState as Context, ConvergeError, ConvergeResult, CriterionEvaluator, Engine,
-    ExperienceEvent, ExperienceEventEnvelope, ExperienceEventObserver, TypesRootIntent,
-    TypesRunHooks,
+    ContextState as Context, ConvergeError, ConvergeResult, Criterion, CriterionEvaluator,
+    CriterionResult, Engine, EventQuery, ExperienceEvent, ExperienceEventEnvelope,
+    ExperienceEventObserver, ExperienceRecord, OverrideTarget, TypesRootIntent, TypesRunHooks,
+    UserExperienceEvent,
 };
 use tonic::Status;
 use uuid::Uuid;
@@ -33,6 +36,7 @@ pub struct TruthExecutionArtifacts {
     pub result: ConvergeResult,
     pub experience_events: Vec<ExperienceEvent>,
     pub projection: Option<TruthProjection>,
+    pub runtime_scope_id: String,
 }
 
 #[derive(Debug)]
@@ -83,7 +87,8 @@ pub async fn execute_truth<S: KernelStore>(
     match truth_key {
         "activate-subscription" => {
             let parsed = activate_subscription::ActivateSubscriptionInput::from_map(&inputs)?;
-            activate_subscription::execute(store, runtime_stores, parsed, actor, persist_projection).await
+            activate_subscription::execute(store, runtime_stores, parsed, actor, persist_projection)
+                .await
         }
         "upgrade-subscription-plan" => {
             let parsed =
@@ -94,7 +99,8 @@ pub async fn execute_truth<S: KernelStore>(
                 parsed,
                 actor,
                 persist_projection,
-            ).await
+            )
+            .await
         }
         "suspend-service-on-payment-failure" => {
             let parsed =
@@ -107,7 +113,8 @@ pub async fn execute_truth<S: KernelStore>(
                 parsed,
                 actor,
                 persist_projection,
-            ).await
+            )
+            .await
         }
         "reconcile-model-usage-against-customer-ledger" => {
             let parsed = reconcile_model_usage_against_customer_ledger::ReconcileModelUsageAgainstCustomerLedgerInput::from_map(&inputs)?;
@@ -117,7 +124,8 @@ pub async fn execute_truth<S: KernelStore>(
                 parsed,
                 actor,
                 persist_projection,
-            ).await
+            )
+            .await
         }
         "refill-prepaid-ai-credits" => {
             let parsed = refill_prepaid_ai_credits::RefillPrepaidAiCreditsInput::from_map(&inputs)?;
@@ -127,15 +135,18 @@ pub async fn execute_truth<S: KernelStore>(
                 parsed,
                 actor,
                 persist_projection,
-            ).await
+            )
+            .await
         }
         "qualify-inbound-lead" => {
             let parsed = qualify_inbound_lead::QualifyInboundLeadInput::from_map(&inputs)?;
-            qualify_inbound_lead::execute(store, runtime_stores, parsed, actor, persist_projection).await
+            qualify_inbound_lead::execute(store, runtime_stores, parsed, actor, persist_projection)
+                .await
         }
         "score-inbound-fit" => {
             let parsed = score_inbound_fit::ScoreInboundFitInput::from_map(&inputs)?;
-            score_inbound_fit::execute(store, runtime_stores, parsed, actor, persist_projection).await
+            score_inbound_fit::execute(store, runtime_stores, parsed, actor, persist_projection)
+                .await
         }
         "plan-outbound-campaign" => {
             let parsed = plan_outbound_campaign::PlanOutboundCampaignInput::from_map(&inputs)?;
@@ -145,11 +156,13 @@ pub async fn execute_truth<S: KernelStore>(
                 parsed,
                 actor,
                 persist_projection,
-            ).await
+            )
+            .await
         }
         "match-renewal-context" => {
             let parsed = match_renewal_context::MatchRenewalContextInput::from_map(&inputs)?;
-            match_renewal_context::execute(store, runtime_stores, parsed, actor, persist_projection).await
+            match_renewal_context::execute(store, runtime_stores, parsed, actor, persist_projection)
+                .await
         }
         "schedule-strategic-meetings" => {
             let parsed =
@@ -160,7 +173,8 @@ pub async fn execute_truth<S: KernelStore>(
                 parsed,
                 actor,
                 persist_projection,
-            ).await
+            )
+            .await
         }
         "evaluate-acquisition-target" => {
             let parsed =
@@ -171,12 +185,30 @@ pub async fn execute_truth<S: KernelStore>(
                 parsed,
                 actor,
                 persist_projection,
-            ).await
+            )
+            .await
         }
         _ => Err(Status::unimplemented(format!(
             "truth execution is not implemented yet for {truth_key}"
         ))),
     }
+}
+
+pub fn supports_truth_execution(truth_key: &str) -> bool {
+    matches!(
+        truth_key,
+        "activate-subscription"
+            | "upgrade-subscription-plan"
+            | "suspend-service-on-payment-failure"
+            | "reconcile-model-usage-against-customer-ledger"
+            | "refill-prepaid-ai-credits"
+            | "qualify-inbound-lead"
+            | "score-inbound-fit"
+            | "plan-outbound-campaign"
+            | "match-renewal-context"
+            | "schedule-strategic-meetings"
+            | "evaluate-acquisition-target"
+    )
 }
 
 pub(super) fn status_from_converge(error: ConvergeError) -> Status {
@@ -190,6 +222,9 @@ pub(super) fn status_from_converge(error: ConvergeError) -> Status {
         ConvergeError::AgentFailed { agent_id } => {
             Status::internal(format!("converge agent failed: {agent_id}"))
         }
+        ConvergeError::EmptyProvenance { suggestor } => Status::failed_precondition(format!(
+            "converge suggestor emitted empty provenance: {suggestor}"
+        )),
         ConvergeError::Conflict { id, .. } => {
             Status::aborted(format!("converge fact conflict: {id}"))
         }
@@ -275,6 +310,111 @@ pub(super) struct RuntimeContext {
     pub scope_id: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RuntimeGateDecision {
+    Approved,
+    Rejected,
+}
+
+#[derive(Debug, Default)]
+struct RuntimeGateDecisions {
+    decisions: HashMap<String, RuntimeGateDecision>,
+}
+
+impl RuntimeGateDecisions {
+    fn load(
+        runtime_stores: &AppRuntimeStores,
+        runtime_ctx: &RuntimeContext,
+    ) -> Result<Self, Status> {
+        let records = runtime_stores
+            .query_experience_records(&EventQuery {
+                correlation_id: Some(runtime_ctx.scope_id.clone().into()),
+                ..EventQuery::default()
+            })
+            .map_err(status_from_storage)?;
+        let mut decisions = HashMap::new();
+
+        for record in records {
+            let ExperienceRecord::User(envelope) = record else {
+                continue;
+            };
+
+            match envelope.event {
+                UserExperienceEvent::UserApprovalGranted {
+                    gate_request_id, ..
+                } => {
+                    decisions.insert(gate_request_id.to_string(), RuntimeGateDecision::Approved);
+                }
+                UserExperienceEvent::UserApprovalRejected {
+                    gate_request_id, ..
+                } => {
+                    decisions.insert(gate_request_id.to_string(), RuntimeGateDecision::Rejected);
+                }
+                UserExperienceEvent::UserOverrideIssued {
+                    target: OverrideTarget::Constraint(constraint),
+                    ..
+                } => {
+                    decisions.insert(constraint.to_string(), RuntimeGateDecision::Rejected);
+                }
+                _ => {}
+            }
+        }
+
+        Ok(Self { decisions })
+    }
+
+    fn decision_for(
+        &self,
+        runtime_scope_id: &str,
+        approval_ref: &str,
+    ) -> Option<RuntimeGateDecision> {
+        self.decisions
+            .get(&runtime_gate_request_id(runtime_scope_id, approval_ref))
+            .copied()
+            .or_else(|| self.decisions.get(approval_ref).copied())
+    }
+}
+
+struct ApprovalAwareCriterionEvaluator {
+    inner: std::sync::Arc<dyn CriterionEvaluator>,
+    runtime_scope_id: String,
+    decisions: RuntimeGateDecisions,
+}
+
+impl CriterionEvaluator for ApprovalAwareCriterionEvaluator {
+    fn evaluate(
+        &self,
+        criterion: &Criterion,
+        context: &dyn converge_kernel::Context,
+    ) -> CriterionResult {
+        match self.inner.evaluate(criterion, context) {
+            CriterionResult::Blocked {
+                reason,
+                approval_ref: Some(approval_ref),
+            } => match self
+                .decisions
+                .decision_for(&self.runtime_scope_id, approval_ref.as_str())
+            {
+                Some(RuntimeGateDecision::Approved) => CriterionResult::Met {
+                    evidence: vec![FactId::new(approval_ref.to_string())],
+                },
+                Some(RuntimeGateDecision::Rejected) => CriterionResult::Unmet {
+                    reason: format!("approval rejected for {approval_ref}: {reason}"),
+                },
+                None => CriterionResult::Blocked {
+                    reason,
+                    approval_ref: Some(approval_ref),
+                },
+            },
+            result => result,
+        }
+    }
+}
+
+pub fn runtime_gate_request_id(runtime_scope_id: &str, approval_ref: &str) -> String {
+    format!("{runtime_scope_id}:{approval_ref}")
+}
+
 pub(super) async fn run_engine_with_runtime(
     runtime_stores: &AppRuntimeStores,
     engine: &mut Engine,
@@ -284,6 +424,12 @@ pub(super) async fn run_engine_with_runtime(
     criterion_evaluator: std::sync::Arc<dyn CriterionEvaluator>,
 ) -> Result<(ConvergeResult, Vec<ExperienceEvent>), Status> {
     let observer = std::sync::Arc::new(RecordingObserver::default());
+    let decisions = RuntimeGateDecisions::load(runtime_stores, runtime_ctx)?;
+    let criterion_evaluator = std::sync::Arc::new(ApprovalAwareCriterionEvaluator {
+        inner: criterion_evaluator,
+        runtime_scope_id: runtime_ctx.scope_id.clone(),
+        decisions,
+    });
     let result = engine
         .run_with_types_intent_and_hooks(
             seed_context,

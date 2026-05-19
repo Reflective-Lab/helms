@@ -11,7 +11,7 @@
     "build": "tauri build",
     "build:remote": "PUBLIC_DESKTOP_BACKEND_MODE=remote tauri build -- --no-default-features",
     "build:web": "vite build",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-kit sync && svelte-check-native --tsconfig ./tsconfig.json"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.8",
@@ -19,7 +19,7 @@
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
     "@tauri-apps/cli": "^2.0.0",
     "svelte": "^5.0.0",
-    "svelte-check": "^4.0.0",
+    "svelte-check-native": "^0.8.5",
     "typescript": "^5.7.0",
     "vite": "^6.0.0"
   },

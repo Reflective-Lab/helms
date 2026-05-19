@@ -111,7 +111,7 @@ interface DemoRun { stage, result, compressed_delay_ms, original_elapsed_ms? }
 interface ReplayAdapter { loadSession(), saveSession(), runStage() }
 ```
 
-## Usage in Hackathon (Phase 1)
+## Usage in Vendor-Selection Apps (Phase 1)
 
 1. **Import types** — Remove vendor-selection type definitions from AIProviderEvaluation.svelte
 2. **Use FlowPlayer** — Replace pushStep, completeThrough, scheduleAnalysisSteps, clearRunTimers

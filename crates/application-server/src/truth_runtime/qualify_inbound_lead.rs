@@ -6,8 +6,8 @@ use application_kernel::{
     RecordKind, RecordRef,
 };
 use application_storage::{KernelStore, StoreWriteResult};
-use converge_kernel::{ContextState as Context, ConvergeResult, Engine, TypesRunHooks};
-use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
+use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
 use truth_catalog::{
@@ -17,7 +17,7 @@ use truth_catalog::{
 };
 
 use super::{
-    RecordingObserver, TruthExecutionArtifacts, TruthProjection,
+    TruthExecutionArtifacts, TruthProjection,
     common::{converge_confidence_to_bps, optional_input, optional_uuid, required_input},
     domain_event_kind_name, status_from_converge, status_from_storage,
 };
@@ -165,15 +165,16 @@ pub(super) async fn execute<S: KernelStore>(
         "formation selected"
     );
 
+    let runtime_ctx = super::RuntimeContext {
+        scope_id: inputs
+            .organization_id
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "inbound".to_string()),
+    };
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext {
-            scope_id: inputs
-                .organization_id
-                .map(|id| id.to_string())
-                .unwrap_or_else(|| "inbound".to_string()),
-        },
+        &runtime_ctx,
         seed_ctx,
         &binding.intent,
         std::sync::Arc::new(QualifyInboundLeadEvaluator),
@@ -190,6 +191,7 @@ pub(super) async fn execute<S: KernelStore>(
         result,
         experience_events,
         projection,
+        runtime_scope_id: runtime_ctx.scope_id,
     })
 }
 
@@ -433,7 +435,7 @@ impl Suggestor for LeadQualificationAgent {
         };
 
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 key,
                 id,
                 encode_qualification_payload(&payload),
@@ -502,29 +504,29 @@ impl Suggestor for LeadRoutingAgent {
         let confidence_bps = converge_confidence_to_bps(ROUTING_CONFIDENCE);
 
         AgentEffect::with_proposals(vec![
-                ProposedFact::new(
-                    ContextKey::Strategies,
-                    OWNER_FACT_ID.to_string(),
-                    encode_routing_payload(&LeadRoutingPayload {
-                        value: owner,
-                        rationale: rationale.to_string(),
-                        confidence_bps,
-                    }),
-                    STUB_PROVENANCE.to_string(),
-                )
-                .with_confidence(ROUTING_CONFIDENCE),
-                ProposedFact::new(
-                    ContextKey::Strategies,
-                    NEXT_STEP_FACT_ID.to_string(),
-                    encode_routing_payload(&LeadRoutingPayload {
-                        value: next_step,
-                        rationale: rationale.to_string(),
-                        confidence_bps,
-                    }),
-                    STUB_PROVENANCE.to_string(),
-                )
-                .with_confidence(ROUTING_CONFIDENCE),
-            ])
+            crate::truth_runtime::common::proposed_text_fact(
+                ContextKey::Strategies,
+                OWNER_FACT_ID.to_string(),
+                encode_routing_payload(&LeadRoutingPayload {
+                    value: owner,
+                    rationale: rationale.to_string(),
+                    confidence_bps,
+                }),
+                STUB_PROVENANCE.to_string(),
+            )
+            .with_confidence(ROUTING_CONFIDENCE),
+            crate::truth_runtime::common::proposed_text_fact(
+                ContextKey::Strategies,
+                NEXT_STEP_FACT_ID.to_string(),
+                encode_routing_payload(&LeadRoutingPayload {
+                    value: next_step,
+                    rationale: rationale.to_string(),
+                    confidence_bps,
+                }),
+                STUB_PROVENANCE.to_string(),
+            )
+            .with_confidence(ROUTING_CONFIDENCE),
+        ])
     }
 }
 
@@ -686,18 +688,20 @@ fn fact_content(result: &ConvergeResult, key: ContextKey, fact_id: &str) -> Opti
         .get(key)
         .iter()
         .find(|fact| fact.id().as_str() == fact_id)
-        .map(|fact| fact.content().to_string())
+        .map(|fact| fact.text().unwrap_or_default().to_string())
 }
 
 fn fact_content_from_view(ctx: &dyn ContextView, key: ContextKey, fact_id: &str) -> Option<String> {
     ctx.get(key)
         .iter()
         .find(|fact| fact.id().as_str() == fact_id)
-        .map(|fact| fact.content().to_string())
+        .map(|fact| fact.text().unwrap_or_default().to_string())
 }
 
 fn has_fact(ctx: &dyn ContextView, key: ContextKey, fact_id: &str) -> bool {
-    ctx.get(key).iter().any(|fact| fact.id().as_str() == fact_id)
+    ctx.get(key)
+        .iter()
+        .any(|fact| fact.id().as_str() == fact_id)
 }
 
 fn seed_value(ctx: &dyn ContextView, key: &str) -> Option<String> {
@@ -705,7 +709,7 @@ fn seed_value(ctx: &dyn ContextView, key: &str) -> Option<String> {
     ctx.get(ContextKey::Seeds)
         .iter()
         .find(|fact| fact.id().as_str() == id)
-        .map(|fact| fact.content().to_string())
+        .map(|fact| fact.text().unwrap_or_default().to_string())
 }
 
 fn parsed_score(ctx: &dyn ContextView, key: &str) -> Option<u16> {
@@ -797,10 +801,11 @@ fn confidence_bps_for_projection(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::truth_runtime::RecordingObserver;
     use application_kernel::ActorKind;
     use application_storage::InMemoryKernelStore;
     use converge_core::StopReason;
-    use converge_kernel::ExperienceEvent;
+    use converge_kernel::{ExperienceEvent, TypesRunHooks};
 
     fn human() -> CrmActor {
         CrmActor {
@@ -965,14 +970,20 @@ mod tests {
             .context
             .get(converge_pack::ContextKey::Diagnostic)
             .iter()
-            .any(|fact| fact.id == MANUAL_REVIEW_FACT_ID);
+            .any(|fact| fact.id() == MANUAL_REVIEW_FACT_ID);
 
         let has_manual_review_routing = execution
             .result
             .context
             .get(converge_pack::ContextKey::Strategies)
             .iter()
-            .any(|fact| fact.id == OWNER_FACT_ID && fact.content.contains("manual-review-queue"));
+            .any(|fact| {
+                fact.id() == OWNER_FACT_ID
+                    && fact
+                        .text()
+                        .unwrap_or_default()
+                        .contains("manual-review-queue")
+            });
 
         assert!(
             has_diagnostic || has_manual_review_routing,
@@ -1270,7 +1281,7 @@ mod tests {
         }
         async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
             AgentEffect::with_proposal(
-                ProposedFact::new(
+                crate::truth_runtime::common::proposed_text_fact(
                     ContextKey::Evaluations,
                     QUALIFICATION_FACT_ID.to_string(),
                     "NOT VALID JSON {{{".to_string(),
@@ -1296,7 +1307,7 @@ mod tests {
                 && !super::has_fact(ctx, ContextKey::Evaluations, QUALIFICATION_FACT_ID)
         }
         async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
-            let real = ProposedFact::new(
+            let real = crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Evaluations,
                 QUALIFICATION_FACT_ID.to_string(),
                 serde_json::to_string(&LeadQualificationPayload {
@@ -1311,14 +1322,14 @@ mod tests {
                 "prio.test.noisy".to_string(),
             )
             .with_confidence(0.92);
-            let noise1 = ProposedFact::new(
+            let noise1 = crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Signals,
                 "irrelevant:weather-forecast".to_string(),
                 r#"{"temperature":22,"conditions":"sunny"}"#.to_string(),
                 "prio.test.noise".to_string(),
             )
             .with_confidence(0.5);
-            let noise2 = ProposedFact::new(
+            let noise2 = crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Signals,
                 "irrelevant:stock-price".to_string(),
                 r#"{"ticker":"AAPL","price":185.50}"#.to_string(),
@@ -1345,7 +1356,7 @@ mod tests {
         }
         async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
             AgentEffect::with_proposal(
-                ProposedFact::new(
+                crate::truth_runtime::common::proposed_text_fact(
                     ContextKey::Evaluations,
                     QUALIFICATION_FACT_ID.to_string(),
                     serde_json::to_string(&LeadQualificationPayload {
@@ -1417,7 +1428,7 @@ mod tests {
             .context
             .get(ContextKey::Evaluations)
             .iter()
-            .any(|fact| fact.id == QUALIFICATION_FACT_ID);
+            .any(|fact| fact.id() == QUALIFICATION_FACT_ID);
         assert!(
             !has_qualification,
             "no qualification fact should exist from silent agent"
@@ -1442,7 +1453,7 @@ mod tests {
             .context
             .get(ContextKey::Evaluations)
             .iter()
-            .any(|fact| fact.id == QUALIFICATION_FACT_ID);
+            .any(|fact| fact.id() == QUALIFICATION_FACT_ID);
         assert!(has_qualification, "malformed fact should exist in context");
 
         // Attempting to decode should fail
@@ -1450,8 +1461,8 @@ mod tests {
             .context
             .get(ContextKey::Evaluations)
             .iter()
-            .find(|fact| fact.id == QUALIFICATION_FACT_ID)
-            .map(|fact| serde_json::from_str(&fact.content))
+            .find(|fact| fact.id() == QUALIFICATION_FACT_ID)
+            .map(|fact| serde_json::from_str(&fact.text().unwrap_or_default()))
             .unwrap();
         assert!(
             decode_result.is_err(),
@@ -1481,7 +1492,7 @@ mod tests {
             .context
             .get(ContextKey::Signals)
             .iter()
-            .filter(|fact| fact.id.starts_with("irrelevant:"))
+            .filter(|fact| fact.id().starts_with("irrelevant:"))
             .collect();
         assert!(
             !noise_facts.is_empty(),
@@ -1493,7 +1504,7 @@ mod tests {
             .context
             .get(ContextKey::Evaluations)
             .iter()
-            .any(|fact| fact.id == QUALIFICATION_FACT_ID);
+            .any(|fact| fact.id() == QUALIFICATION_FACT_ID);
         assert!(has_qualification, "real qualification fact should exist");
     }
 
@@ -1515,11 +1526,12 @@ mod tests {
             .context
             .get(ContextKey::Evaluations)
             .iter()
-            .find(|fact| fact.id == QUALIFICATION_FACT_ID)
+            .find(|fact| fact.id() == QUALIFICATION_FACT_ID)
             .expect("qualification fact should exist");
 
         let payload: LeadQualificationPayload =
-            serde_json::from_str(&qualification_fact.content).expect("should decode");
+            serde_json::from_str(&qualification_fact.text().unwrap_or_default())
+                .expect("should decode");
         assert_eq!(
             payload.confidence_bps, 100,
             "confidence should reflect the low-confidence agent's output"

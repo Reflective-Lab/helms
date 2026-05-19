@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state'
 
+	import TruthEditor from '$lib/components/TruthEditor.svelte'
 	import { executeTruth, getTruthDetail } from '$lib/api'
 	import type {
 		TruthDetailItem,
@@ -55,7 +56,7 @@
 		error = ''
 		execution = null
 
-	try {
+		try {
 			truth = await getTruthDetail(key)
 			inputs = schemaDefaults(schema)
 		} catch (cause) {
@@ -196,6 +197,8 @@
 					</div>
 				</div>
 			</section>
+
+			<TruthEditor source={truth.gherkin} path={truth.feature_path} />
 
 			{#if truth.organism_resolution}
 				<section class="panel">

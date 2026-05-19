@@ -20,22 +20,24 @@ use organism_domain::packs;
 use organism_runtime::Registry;
 use thiserror::Error;
 use truth_catalog::{
-    TruthDefinition, all_truths, converge_binding_for_truth, display_pack_names_for_truth,
-    find_truth,
+    TruthDefinition,
+    admission::{TruthFormationSelection, default_helms_capabilities, select_formation_for_intent},
+    all_truths, converge_binding_for_truth, display_pack_names_for_truth, find_truth,
+    intent_compile::compile_intent_for_truth,
 };
 use uuid::Uuid;
 
 pub use views::{
-    AccountWorkspaceSummary, ApprovalFilter, ApprovalListItem, CatalogItemListItem,
-    ConvergeTruthResolutionView, CriteriaOutcomeItem, CriterionStatus, EntitlementListItem,
-    ExecutionState, FeatureToggles, OperatorDashboard, OpportunityListItem,
-    OrganismCapabilityRequirementView, OrganismPackRequirementView, OrganismTruthResolutionView,
-    OrganizationListItem, OrganizationWorkspaceItem, PersonWorkspaceItem, RecordReferenceItem,
-    SubscriptionListItem, SystemProfile, TimelineEventItem, TruthDetailItem,
-    TruthExecutionProjection, TruthExecutionResult, TruthExecutionSession, TruthListItem,
-    TruthModuleTouchItem, TruthReadinessConfirmationView, TruthReadinessGapView,
-    TruthReadinessView, WorkbenchAppKind, WorkbenchAppManifest, WorkbenchAppStatus,
-    WorkflowCaseFilter, WorkflowCaseListItem,
+    AccountWorkspaceSummary, ApprovalFilter, ApprovalListItem, AxiomIntentView,
+    CatalogItemListItem, ConvergeTruthResolutionView, CriteriaOutcomeItem, CriterionStatus,
+    EntitlementListItem, ExecutionState, FeatureToggles, FormationSelectionView, OperatorDashboard,
+    OpportunityListItem, OrganismCapabilityRequirementView, OrganismPackRequirementView,
+    OrganismTruthResolutionView, OrganizationListItem, OrganizationWorkspaceItem,
+    PersonWorkspaceItem, RecordReferenceItem, SubscriptionListItem, SystemProfile,
+    TimelineEventItem, TruthDetailItem, TruthExecutionProjection, TruthExecutionResult,
+    TruthExecutionSession, TruthListItem, TruthModuleTouchItem, TruthReadinessConfirmationView,
+    TruthReadinessGapView, TruthReadinessView, WorkbenchAppKind, WorkbenchAppManifest,
+    WorkbenchAppStatus, WorkflowCaseFilter, WorkflowCaseListItem,
 };
 
 const QUALIFY_INBOUND_LEAD: &str = "qualify-inbound-lead";
@@ -228,6 +230,25 @@ fn default_organism_registry() -> Registry {
     registry
 }
 
+fn formation_selection_view(selection: &TruthFormationSelection) -> FormationSelectionView {
+    FormationSelectionView {
+        primary_template_id: selection.primary_template_id.clone(),
+        alternate_template_ids: selection.alternate_template_ids.clone(),
+        problem_class: format!("{:?}", selection.trace.problem_class).to_ascii_lowercase(),
+        matched_keywords: selection.trace.matched_keywords.clone(),
+        defaulted: selection.trace.defaulted,
+        query_keywords: selection.trace.query_keywords.clone(),
+        query_capabilities: selection
+            .trace
+            .query_capabilities
+            .iter()
+            .map(|capability| format!("{capability:?}").to_ascii_lowercase())
+            .collect(),
+        considered_template_ids: selection.trace.considered.clone(),
+        primary_reason: selection.trace.primary_reason.clone(),
+    }
+}
+
 impl<S> OperatorApp<S>
 where
     S: KernelStore,
@@ -319,81 +340,101 @@ where
     #[must_use]
     pub fn truth_detail(&self, key: &str) -> Option<TruthDetailItem> {
         let truth = find_truth(key)?;
-        let organism_resolution =
-            truth_catalog::organism_binding_for_truth(truth.key, &self.organism_registry).map(|binding| {
-                let truth_catalog::TruthOrganismBinding {
-                    truth_key,
-                    blueprint,
-                    binding,
-                    readiness,
-                } = binding;
-                let levels_attempted = binding
-                    .resolution
-                    .levels_attempted
-                    .iter()
-                    .map(|level| format!("{level:?}").to_ascii_lowercase())
-                    .collect();
-                let levels_contributed = binding
-                    .resolution
-                    .levels_contributed
-                    .iter()
-                    .map(|level| format!("{level:?}").to_ascii_lowercase())
-                    .collect();
-                let completeness_confidence_bps =
-                    (binding.resolution.completeness_confidence.as_f64() * 10_000.0).round() as u16;
+        let compiled_intent = compile_intent_for_truth(&truth).ok();
+        let axiom_intent = compiled_intent.as_ref().map(|intent| AxiomIntentView {
+            intent_id: intent.id.to_string(),
+            outcome: intent.outcome.clone(),
+            context: intent.context.clone(),
+            constraints: intent.constraints.clone(),
+            authority: intent.authority.clone(),
+            forbidden_count: intent.forbidden.len(),
+            reversibility: format!("{:?}", intent.reversibility).to_ascii_lowercase(),
+            expires_at: intent.expires.to_rfc3339(),
+            expiry_action: format!("{:?}", intent.expiry_action).to_ascii_lowercase(),
+        });
+        let formation_selection = compiled_intent.as_ref().and_then(|intent| {
+            select_formation_for_intent(intent, &default_helms_capabilities())
+                .ok()
+                .map(|selection| formation_selection_view(&selection))
+        });
+        let organism_resolution = truth_catalog::organism_binding_for_truth(
+            truth.key,
+            &self.organism_registry,
+        )
+        .map(|binding| {
+            let truth_catalog::TruthOrganismBinding {
+                truth_key,
+                blueprint,
+                binding,
+                readiness,
+            } = binding;
+            let levels_attempted = binding
+                .resolution
+                .levels_attempted
+                .iter()
+                .map(|level| format!("{level:?}").to_ascii_lowercase())
+                .collect();
+            let levels_contributed = binding
+                .resolution
+                .levels_contributed
+                .iter()
+                .map(|level| format!("{level:?}").to_ascii_lowercase())
+                .collect();
+            let completeness_confidence_bps =
+                (binding.resolution.completeness_confidence.as_f64() * 10_000.0).round() as u16;
 
-                OrganismTruthResolutionView {
-                    truth_key: truth_key.to_string(),
-                    blueprint: blueprint.map(str::to_string),
-                    packs: binding
-                        .packs
+            OrganismTruthResolutionView {
+                truth_key: truth_key.to_string(),
+                blueprint: blueprint.map(str::to_string),
+                packs: binding
+                    .packs
+                    .into_iter()
+                    .map(|pack| OrganismPackRequirementView {
+                        pack_name: pack.pack_name,
+                        reason: pack.reason,
+                        confidence_bps: (pack.confidence.as_f64() * 10_000.0).round() as u16,
+                        source: format!("{:?}", pack.source).to_ascii_lowercase(),
+                    })
+                    .collect(),
+                capabilities: binding
+                    .capabilities
+                    .into_iter()
+                    .map(|capability| OrganismCapabilityRequirementView {
+                        capability: capability.capability.into_inner(),
+                        reason: capability.reason,
+                        confidence_bps: (capability.confidence.as_f64() * 10_000.0).round() as u16,
+                        source: format!("{:?}", capability.source).to_ascii_lowercase(),
+                    })
+                    .collect(),
+                invariants: binding.invariants.into_iter().map(Into::into).collect(),
+                levels_attempted,
+                levels_contributed,
+                completeness_confidence_bps,
+                readiness: TruthReadinessView {
+                    ready: readiness.ready,
+                    confirmed: readiness
+                        .confirmed
                         .into_iter()
-                        .map(|pack| OrganismPackRequirementView {
-                            pack_name: pack.pack_name,
-                            reason: pack.reason,
-                            confidence_bps: (pack.confidence.as_f64() * 10_000.0).round() as u16,
-                            source: format!("{:?}", pack.source).to_ascii_lowercase(),
+                        .map(|item| TruthReadinessConfirmationView {
+                            resource: item.resource,
+                            kind: format!("{:?}", item.kind).to_ascii_lowercase(),
+                            detail: item.detail,
                         })
                         .collect(),
-                    capabilities: binding
-                        .capabilities
+                    gaps: readiness
+                        .gaps
                         .into_iter()
-                        .map(|capability| OrganismCapabilityRequirementView {
-                            capability: capability.capability,
-                            reason: capability.reason,
-                            confidence_bps: (capability.confidence.as_f64() * 10_000.0).round() as u16,
-                            source: format!("{:?}", capability.source).to_ascii_lowercase(),
+                        .map(|gap| TruthReadinessGapView {
+                            resource: gap.resource,
+                            kind: format!("{:?}", gap.kind).to_ascii_lowercase(),
+                            severity: format!("{:?}", gap.severity).to_ascii_lowercase(),
+                            reason: gap.reason,
+                            suggestion: gap.suggestion,
                         })
                         .collect(),
-                    invariants: binding.invariants,
-                    levels_attempted,
-                    levels_contributed,
-                    completeness_confidence_bps,
-                    readiness: TruthReadinessView {
-                        ready: readiness.ready,
-                        confirmed: readiness
-                            .confirmed
-                            .into_iter()
-                            .map(|item| TruthReadinessConfirmationView {
-                                resource: item.resource,
-                                kind: format!("{:?}", item.kind).to_ascii_lowercase(),
-                                detail: item.detail,
-                            })
-                            .collect(),
-                        gaps: readiness
-                            .gaps
-                            .into_iter()
-                            .map(|gap| TruthReadinessGapView {
-                                resource: gap.resource,
-                                kind: format!("{:?}", gap.kind).to_ascii_lowercase(),
-                                severity: format!("{:?}", gap.severity).to_ascii_lowercase(),
-                                reason: gap.reason,
-                                suggestion: gap.suggestion,
-                            })
-                            .collect(),
-                    },
-                }
-            });
+                },
+            }
+        });
         let converge_resolution =
             truth_catalog::converge_binding_for_truth(truth.key).map(|binding| {
                 let intent_kind = binding.intent_kind_name().to_string();
@@ -458,6 +499,8 @@ where
                 },
             ),
             executable: is_truth_supported(truth.key),
+            axiom_intent,
+            formation_selection,
             organism_resolution,
             converge_resolution,
         })
@@ -2710,6 +2753,18 @@ mod tests {
         let lead_truth = app
             .truth_detail("qualify-inbound-lead")
             .expect("lead truth detail");
+        assert!(
+            lead_truth
+                .axiom_intent
+                .as_ref()
+                .is_some_and(|intent| !intent.outcome.trim().is_empty())
+        );
+        assert!(
+            lead_truth
+                .formation_selection
+                .as_ref()
+                .is_some_and(|selection| !selection.primary_template_id.trim().is_empty())
+        );
         assert!(
             lead_truth
                 .converge_resolution

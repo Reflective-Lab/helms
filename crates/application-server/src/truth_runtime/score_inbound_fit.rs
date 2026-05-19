@@ -11,7 +11,7 @@ use converge_analytics::batch::{
 use converge_analytics::engine::FeatureVector;
 use converge_analytics::model::{ModelConfig, run_batch_inference};
 use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
-use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, Suggestor};
 use serde::{Deserialize, Serialize};
 use tempfile::Builder;
 use tonic::Status;
@@ -135,15 +135,16 @@ pub(super) async fn execute<S: KernelStore>(
         "formation selected"
     );
 
+    let runtime_ctx = super::RuntimeContext {
+        scope_id: inputs
+            .organization_id
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "inbound".to_string()),
+    };
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext {
-            scope_id: inputs
-                .organization_id
-                .map(|id| id.to_string())
-                .unwrap_or_else(|| "inbound".to_string()),
-        },
+        &runtime_ctx,
         seed_ctx,
         &binding.intent,
         std::sync::Arc::new(ScoreInboundFitEvaluator),
@@ -160,6 +161,7 @@ pub(super) async fn execute<S: KernelStore>(
         result,
         experience_events,
         projection,
+        runtime_scope_id: runtime_ctx.scope_id,
     })
 }
 
@@ -272,7 +274,7 @@ impl Suggestor for BehavioralFeatureAgent {
             Ok(payload) => payload,
             Err(error) => {
                 return AgentEffect::with_proposal(
-                    ProposedFact::new(
+                    crate::truth_runtime::common::proposed_text_fact(
                         ContextKey::Diagnostic,
                         "lead:fit-score:error",
                         error.to_string(),
@@ -286,7 +288,7 @@ impl Suggestor for BehavioralFeatureAgent {
             Ok(content) => content,
             Err(error) => {
                 return AgentEffect::with_proposal(
-                    ProposedFact::new(
+                    crate::truth_runtime::common::proposed_text_fact(
                         ContextKey::Diagnostic,
                         "lead:fit-score:error",
                         error.to_string(),
@@ -298,7 +300,7 @@ impl Suggestor for BehavioralFeatureAgent {
         };
 
         AgentEffect::with_proposal(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Signals,
                 FEATURE_FACT_ID,
                 content,
@@ -334,12 +336,13 @@ impl Suggestor for FitScoringAgent {
         else {
             return AgentEffect::empty();
         };
-        let payload = match serde_json::from_str::<BehavioralFeaturesPayload>(&feature_fact.content())
-        {
+        let payload = match serde_json::from_str::<BehavioralFeaturesPayload>(
+            &feature_fact.text().unwrap_or_default(),
+        ) {
             Ok(payload) => payload,
             Err(error) => {
                 return AgentEffect::with_proposal(
-                    ProposedFact::new(
+                    crate::truth_runtime::common::proposed_text_fact(
                         ContextKey::Diagnostic,
                         "lead:fit-score:error",
                         error.to_string(),
@@ -377,7 +380,7 @@ impl Suggestor for FitScoringAgent {
 
         let mut builder = AgentEffect::builder();
         builder.push(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Evaluations,
                 FIT_SCORE_FACT_ID,
                 serde_json::to_string(&score_payload).unwrap_or_default(),
@@ -386,7 +389,7 @@ impl Suggestor for FitScoringAgent {
             .with_confidence(f64::from(confidence_bps) / 10_000.0),
         );
         builder.push(
-            ProposedFact::new(
+            crate::truth_runtime::common::proposed_text_fact(
                 ContextKey::Signals,
                 FIT_EVIDENCE_FACT_ID,
                 serde_json::to_string(&evidence_payload).unwrap_or_default(),

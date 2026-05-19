@@ -1,6 +1,8 @@
 mod http_api;
+pub mod job_stream;
 pub mod pipeline;
 mod proto;
+pub mod realtime;
 mod service;
 pub mod sse;
 mod truth_runtime;
@@ -58,9 +60,13 @@ async fn main() -> Result<()> {
         std::env::var("CRM_BILLING_INGRESS_TOKEN").ok(),
     );
 
-    let pipeline_state = crate::sse::PipelineState::new();
+    let realtime_hub = crate::realtime::RealtimeHub::new(512);
+    let pipeline_state = crate::sse::PipelineState::with_hub(realtime_hub.clone());
+    let job_stream_state = crate::job_stream::JobStreamState::new();
     let http_app = app_router(http_state)
         .layer(axum::Extension(pipeline_state))
+        .layer(axum::Extension(realtime_hub))
+        .layer(axum::Extension(job_stream_state))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 

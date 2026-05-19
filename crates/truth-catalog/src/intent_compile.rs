@@ -21,14 +21,14 @@ pub enum CompileTruthError {
     Axiom(#[from] axiom_truth::CompileFromSourceError),
 }
 
-
-
 /// Compile a `TruthDefinition` into an `IntentPacket` via axiom + helms overlay.
 ///
 /// The overlay (per-truth `with_context`, `expires`, supplementary constraints
 /// or authority) lives in [`truth_overlay`] until the corresponding governance
 /// gets pushed into the source schema.
-pub fn compile_intent_for_truth(truth: &TruthDefinition) -> Result<IntentPacket, CompileTruthError> {
+pub fn compile_intent_for_truth(
+    truth: &TruthDefinition,
+) -> Result<IntentPacket, CompileTruthError> {
     let mut intent = axiom_truth::compile_intent_from_source(truth.gherkin)?;
     truth_overlay(truth, &mut intent);
     Ok(intent)

@@ -18,6 +18,7 @@
     delegateToPolicy?: boolean
     policyPreview?: string
     onApprove?: () => void
+    onReject?: () => void
     disabled?: boolean
   }
 
@@ -28,16 +29,21 @@
     delegateToPolicy = $bindable(false),
     policyPreview = '',
     onApprove = () => {},
+    onReject = () => {},
     disabled = false,
   }: Props = $props()
 
-  function handleSubmit(event: SubmitEvent) {
+  function handleApprove(event: SubmitEvent) {
     event.preventDefault()
     onApprove()
   }
+
+  function handleReject() {
+    onReject()
+  }
 </script>
 
-<form class="rounded-2xl border border-warn/30 bg-warn/5 p-4" onsubmit={handleSubmit}>
+<form class="rounded-2xl border border-warn/30 bg-warn/5 p-4" onsubmit={handleApprove}>
   <span class="block text-xs font-semibold uppercase tracking-widest text-muted">HITL Gate</span>
   <h2 class="mt-1 font-display text-xl font-semibold text-bright">Human approval required.</h2>
   <p class="mt-2 text-sm text-subtle">The governed process requires human review before promoting this decision.</p>
@@ -98,7 +104,12 @@
     <pre class="mt-4 overflow-auto rounded-xl border border-border bg-deep p-3 font-mono text-xs leading-relaxed text-subtle">{policyPreview}</pre>
   {/if}
 
-  <button class="btn-lime mt-4 w-full justify-center" type="submit" {disabled}>
-    Approve And Promote
-  </button>
+  <div class="mt-4 flex flex-col gap-2 sm:flex-row">
+    <button class="btn-lime flex-1 justify-center" type="submit" {disabled}>
+      Approve And Promote
+    </button>
+    <button class="flex-1 rounded-xl border border-warn/40 px-4 py-2 text-sm font-semibold text-warn transition hover:bg-warn/10 disabled:cursor-not-allowed disabled:opacity-60" type="button" onclick={handleReject} {disabled}>
+      Reject
+    </button>
+  </div>
 </form>

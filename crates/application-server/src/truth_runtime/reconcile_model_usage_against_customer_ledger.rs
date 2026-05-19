@@ -8,7 +8,7 @@ use application_kernel::{
 use application_storage::{KernelStore, StoreWriteResult};
 use converge_domain::packs::ReconciliationMatcherAgent;
 use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
-use converge_pack::{AgentEffect, Context as ContextView, ContextKey, ProposedFact, Suggestor};
+use converge_pack::{AgentEffect, Context as ContextView, ContextKey, Suggestor};
 use serde::{Deserialize, Serialize};
 use tonic::Status;
 use truth_catalog::{
@@ -409,12 +409,13 @@ pub(super) async fn execute<S: KernelStore>(
         "formation selected"
     );
 
+    let runtime_ctx = super::RuntimeContext {
+        scope_id: inputs.subscription_id.to_string(),
+    };
     let (result, experience_events) = super::run_engine_with_runtime(
         runtime_stores,
         &mut engine,
-        &super::RuntimeContext {
-            scope_id: inputs.subscription_id.to_string(),
-        },
+        &runtime_ctx,
         seed_ctx,
         &binding.intent,
         std::sync::Arc::new(ReconcileModelUsageAgainstCustomerLedgerEvaluator),
@@ -431,6 +432,7 @@ pub(super) async fn execute<S: KernelStore>(
         result,
         experience_events,
         projection,
+        runtime_scope_id: runtime_ctx.scope_id,
     })
 }
 
@@ -672,20 +674,20 @@ impl Suggestor for UsageSummaryAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         AgentEffect::with_proposals(vec![
-                ProposedFact::new(
-                    ContextKey::Signals,
-                    USAGE_SUMMARY_FACT_ID.to_string(),
-                    serde_json::to_string(&UsageSummaryPayload {
-                        subscription_id: self.seed.subscription.id,
-                        burn_minor: self.seed.usage.burn_minor,
-                        meter_name: self.seed.usage.meter_name.clone(),
-                        period_label: self.seed.usage.period_label.clone(),
-                    })
-                    .expect("usage summary should serialize"),
-                    USAGE_PROVENANCE.to_string(),
-                )
-                .with_confidence(0.99),
-            ])
+            crate::truth_runtime::common::proposed_text_fact(
+                ContextKey::Signals,
+                USAGE_SUMMARY_FACT_ID.to_string(),
+                serde_json::to_string(&UsageSummaryPayload {
+                    subscription_id: self.seed.subscription.id,
+                    burn_minor: self.seed.usage.burn_minor,
+                    meter_name: self.seed.usage.meter_name.clone(),
+                    period_label: self.seed.usage.period_label.clone(),
+                })
+                .expect("usage summary should serialize"),
+                USAGE_PROVENANCE.to_string(),
+            )
+            .with_confidence(0.99),
+        ])
     }
 }
 
@@ -706,37 +708,37 @@ impl Suggestor for ProviderBillingSummaryAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         AgentEffect::with_proposals(vec![
-                ProposedFact::new(
-                    ContextKey::Signals,
-                    PROVIDER_SUMMARY_FACT_ID.to_string(),
-                    serde_json::to_string(&ProviderSummaryPayload {
-                        subscription_id: self.seed.subscription.id,
-                        settled_minor: self.seed.provider.settled_minor,
-                        provider_reference: self.seed.provider.provider_reference.clone(),
-                        provider_name: self.seed.provider.provider_name.clone(),
-                        status: self.seed.provider.status.clone(),
-                    })
-                    .expect("provider summary should serialize"),
-                    PROVIDER_PROVENANCE.to_string(),
-                )
-                .with_confidence(0.99),
-                ProposedFact::new(
-                    ContextKey::Signals,
-                    format!(
-                        "reconciliation:bank_txn:{}",
-                        self.seed.provider.provider_reference
-                    ),
-                    serde_json::json!({
-                        "type": "bank_txn",
-                        "subscription_id": self.seed.subscription.id,
-                        "amount_minor": self.seed.provider.settled_minor,
-                        "provider_reference": self.seed.provider.provider_reference,
-                    })
-                    .to_string(),
-                    PROVIDER_PROVENANCE.to_string(),
-                )
-                .with_confidence(0.95),
-            ])
+            crate::truth_runtime::common::proposed_text_fact(
+                ContextKey::Signals,
+                PROVIDER_SUMMARY_FACT_ID.to_string(),
+                serde_json::to_string(&ProviderSummaryPayload {
+                    subscription_id: self.seed.subscription.id,
+                    settled_minor: self.seed.provider.settled_minor,
+                    provider_reference: self.seed.provider.provider_reference.clone(),
+                    provider_name: self.seed.provider.provider_name.clone(),
+                    status: self.seed.provider.status.clone(),
+                })
+                .expect("provider summary should serialize"),
+                PROVIDER_PROVENANCE.to_string(),
+            )
+            .with_confidence(0.99),
+            crate::truth_runtime::common::proposed_text_fact(
+                ContextKey::Signals,
+                format!(
+                    "reconciliation:bank_txn:{}",
+                    self.seed.provider.provider_reference
+                ),
+                serde_json::json!({
+                    "type": "bank_txn",
+                    "subscription_id": self.seed.subscription.id,
+                    "amount_minor": self.seed.provider.settled_minor,
+                    "provider_reference": self.seed.provider.provider_reference,
+                })
+                .to_string(),
+                PROVIDER_PROVENANCE.to_string(),
+            )
+            .with_confidence(0.95),
+        ])
     }
 }
 
@@ -757,35 +759,35 @@ impl Suggestor for LedgerSummaryAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         AgentEffect::with_proposals(vec![
-                ProposedFact::new(
-                    ContextKey::Proposals,
-                    LEDGER_SUMMARY_FACT_ID.to_string(),
-                    serde_json::to_string(&LedgerSummaryPayload {
-                        subscription_id: self.seed.subscription.id,
-                        opening_balance_minor: self.seed.ledger.opening_balance_minor,
-                        credit_grants_minor: self.seed.ledger.credit_grants_minor,
-                        debits_minor: self.seed.ledger.debits_minor,
-                        adjustments_minor: self.seed.ledger.adjustments_minor,
-                    })
-                    .expect("ledger summary should serialize"),
-                    LEDGER_PROVENANCE.to_string(),
-                )
-                .with_confidence(0.99),
-                ProposedFact::new(
-                    ContextKey::Proposals,
-                    format!("invoice:reconciliation:{}", self.seed.subscription.id),
-                    serde_json::json!({
-                        "type": "invoice",
-                        "state": "open",
-                        "subscription_id": self.seed.subscription.id,
-                        "amount_minor": self.seed.ledger.credit_grants_minor,
-                        "currency": self.seed.subscription.value.currency_code,
-                    })
-                    .to_string(),
-                    LEDGER_PROVENANCE.to_string(),
-                )
-                .with_confidence(0.95),
-            ])
+            crate::truth_runtime::common::proposed_text_fact(
+                ContextKey::Proposals,
+                LEDGER_SUMMARY_FACT_ID.to_string(),
+                serde_json::to_string(&LedgerSummaryPayload {
+                    subscription_id: self.seed.subscription.id,
+                    opening_balance_minor: self.seed.ledger.opening_balance_minor,
+                    credit_grants_minor: self.seed.ledger.credit_grants_minor,
+                    debits_minor: self.seed.ledger.debits_minor,
+                    adjustments_minor: self.seed.ledger.adjustments_minor,
+                })
+                .expect("ledger summary should serialize"),
+                LEDGER_PROVENANCE.to_string(),
+            )
+            .with_confidence(0.99),
+            crate::truth_runtime::common::proposed_text_fact(
+                ContextKey::Proposals,
+                format!("invoice:reconciliation:{}", self.seed.subscription.id),
+                serde_json::json!({
+                    "type": "invoice",
+                    "state": "open",
+                    "subscription_id": self.seed.subscription.id,
+                    "amount_minor": self.seed.ledger.credit_grants_minor,
+                    "currency": self.seed.subscription.value.currency_code,
+                })
+                .to_string(),
+                LEDGER_PROVENANCE.to_string(),
+            )
+            .with_confidence(0.95),
+        ])
     }
 }
 
@@ -806,19 +808,19 @@ impl Suggestor for EntitlementSummaryAgent {
 
     async fn execute(&self, _ctx: &dyn ContextView) -> AgentEffect {
         AgentEffect::with_proposals(vec![
-                ProposedFact::new(
-                    ContextKey::Signals,
-                    ENTITLEMENT_SUMMARY_FACT_ID.to_string(),
-                    serde_json::to_string(&EntitlementSummaryPayload {
-                        subscription_id: self.seed.subscription.id,
-                        current_credit_balance_minor: self.seed.entitlements.credit_balance_minor,
-                        service_access_state: self.seed.entitlements.service_access_state.clone(),
-                    })
-                    .expect("entitlement summary should serialize"),
-                    ENTITLEMENT_PROVENANCE.to_string(),
-                )
-                .with_confidence(0.99),
-            ])
+            crate::truth_runtime::common::proposed_text_fact(
+                ContextKey::Signals,
+                ENTITLEMENT_SUMMARY_FACT_ID.to_string(),
+                serde_json::to_string(&EntitlementSummaryPayload {
+                    subscription_id: self.seed.subscription.id,
+                    current_credit_balance_minor: self.seed.entitlements.credit_balance_minor,
+                    service_access_state: self.seed.entitlements.service_access_state.clone(),
+                })
+                .expect("entitlement summary should serialize"),
+                ENTITLEMENT_PROVENANCE.to_string(),
+            )
+            .with_confidence(0.99),
+        ])
     }
 }
 
@@ -884,15 +886,15 @@ impl Suggestor for ReconciliationAssessmentAgent {
 
         if matched_provider_to_ledger && max_delta_minor == 0 {
             return AgentEffect::with_proposals(vec![
-                    ProposedFact::new(
-                        ContextKey::Evaluations,
-                        CLEAN_FACT_ID.to_string(),
-                        serde_json::to_string(&assessment)
-                            .expect("clean reconciliation payload should serialize"),
-                        ASSESSMENT_PROVENANCE.to_string(),
-                    )
-                    .with_confidence(0.99),
-                ]);
+                crate::truth_runtime::common::proposed_text_fact(
+                    ContextKey::Evaluations,
+                    CLEAN_FACT_ID.to_string(),
+                    serde_json::to_string(&assessment)
+                        .expect("clean reconciliation payload should serialize"),
+                    ASSESSMENT_PROVENANCE.to_string(),
+                )
+                .with_confidence(0.99),
+            ]);
         }
 
         let target_id = if max_delta_minor > self.seed.threshold_minor {
@@ -901,15 +903,15 @@ impl Suggestor for ReconciliationAssessmentAgent {
             EXCEPTION_FACT_ID
         };
         AgentEffect::with_proposals(vec![
-                ProposedFact::new(
-                    ContextKey::Evaluations,
-                    target_id.to_string(),
-                    serde_json::to_string(&assessment)
-                        .expect("reconciliation exception payload should serialize"),
-                    ASSESSMENT_PROVENANCE.to_string(),
-                )
-                .with_confidence(0.99),
-            ])
+            crate::truth_runtime::common::proposed_text_fact(
+                ContextKey::Evaluations,
+                target_id.to_string(),
+                serde_json::to_string(&assessment)
+                    .expect("reconciliation exception payload should serialize"),
+                ASSESSMENT_PROVENANCE.to_string(),
+            )
+            .with_confidence(0.99),
+        ])
     }
 }
 
@@ -935,24 +937,25 @@ impl Suggestor for ExceptionRoutingAgent {
             .find(|fact| fact.id() == EXCEPTION_FACT_ID)
             .expect("exception fact should exist before routing");
         let assessment: ReconciliationAssessmentPayload =
-            serde_json::from_str(&exception.content()).expect("exception payload should deserialize");
+            serde_json::from_str(&exception.text().unwrap_or_default())
+                .expect("exception payload should deserialize");
         AgentEffect::with_proposals(vec![
-                ProposedFact::new(
-                    ContextKey::Strategies,
-                    ROUTE_FACT_ID.to_string(),
-                    serde_json::to_string(&ReconciliationRoutePayload {
-                        severity: "warning".to_string(),
-                        workflow_state: "blocked".to_string(),
-                        summary: format!(
-                            "reconciliation drift routed for investigation: {}",
-                            assessment.summary
-                        ),
-                    })
-                    .expect("route payload should serialize"),
-                    ROUTING_PROVENANCE.to_string(),
-                )
-                .with_confidence(0.98),
-            ])
+            crate::truth_runtime::common::proposed_text_fact(
+                ContextKey::Strategies,
+                ROUTE_FACT_ID.to_string(),
+                serde_json::to_string(&ReconciliationRoutePayload {
+                    severity: "warning".to_string(),
+                    workflow_state: "blocked".to_string(),
+                    summary: format!(
+                        "reconciliation drift routed for investigation: {}",
+                        assessment.summary
+                    ),
+                })
+                .expect("route payload should serialize"),
+                ROUTING_PROVENANCE.to_string(),
+            )
+            .with_confidence(0.98),
+        ])
     }
 }
 
@@ -979,7 +982,7 @@ fn manual_review_from_result(
         .iter()
         .find(|fact| fact.id() == MANUAL_REVIEW_FACT_ID)
         .map(|fact| {
-            serde_json::from_str(&fact.content()).map_err(|error| {
+            serde_json::from_str(&fact.text().unwrap_or_default()).map_err(|error| {
                 Status::internal(format!(
                     "invalid reconciliation manual review payload: {error}"
                 ))

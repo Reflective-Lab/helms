@@ -3,13 +3,22 @@ use std::future::Future;
 
 use chrono::{DateTime, Utc};
 use converge_kernel::{ContextKey, ConvergeResult};
-use converge_pack::Context as ContextView;
+use converge_pack::{Context as ContextView, ProposalId, ProposedFact, Provenance, TextPayload};
 use serde::de::DeserializeOwned;
 use tonic::Status;
 use uuid::Uuid;
 
 pub(super) fn has_fact_id(ctx: &dyn ContextView, key: ContextKey, fact_id: &str) -> bool {
     ctx.get(key).iter().any(|fact| fact.id() == fact_id)
+}
+
+pub(crate) fn proposed_text_fact(
+    key: ContextKey,
+    id: impl Into<ProposalId>,
+    text: impl Into<String>,
+    provenance: impl Into<Provenance>,
+) -> ProposedFact {
+    ProposedFact::new(key, id, TextPayload::new(text), provenance)
 }
 
 pub(super) fn payload_from_result<T: DeserializeOwned>(
@@ -25,7 +34,7 @@ pub(super) fn payload_from_result<T: DeserializeOwned>(
         .ok_or_else(|| {
             Status::failed_precondition(format!("missing fact in converge context: {fact_id}"))
         })?;
-    serde_json::from_str(&fact.content())
+    serde_json::from_str(&fact.text().unwrap_or_default())
         .map_err(|error| Status::internal(format!("invalid {fact_id} payload: {error}")))
 }
 

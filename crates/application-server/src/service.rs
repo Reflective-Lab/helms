@@ -1688,6 +1688,7 @@ fn proto_execute_truth_response(
         result,
         experience_events,
         projection,
+        runtime_scope_id: _,
     } = execution;
     let context_fact_ids = result
         .context

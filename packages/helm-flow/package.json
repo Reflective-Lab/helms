@@ -16,6 +16,11 @@
     "./replay": {
       "types": "./dist/replay.d.ts"
     },
+    "./realtime": {
+      "types": "./dist/realtime.d.ts",
+      "svelte": "./src/realtime.ts",
+      "import": "./dist/realtime.js"
+    },
     "./src/HitlGate.svelte": "./src/HitlGate.svelte",
     "./src/DocumentIntake.svelte": "./src/DocumentIntake.svelte"
   },

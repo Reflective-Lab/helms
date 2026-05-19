@@ -15,5 +15,6 @@ organism-domain.workspace = true
 organism-runtime.workspace = true
 truth-catalog = { path = "../truth-catalog" }
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 uuid.workspace = true

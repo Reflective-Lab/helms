@@ -583,6 +583,7 @@ dependencies = [
  "clap",
  "colored",
  "converge-manifold-adapters",
+ "converge-pack",
  "converge-provider",
  "dotenvy",
  "futures",
@@ -598,6 +599,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tree-sitter",
+ "uuid",
 ]
 
 [[package]]
