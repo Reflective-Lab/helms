@@ -12,6 +12,32 @@ redefine them.
 | Governed execution out-of-process | `converge-client` | `converge-protocol` for typed wire access | runtime internals |
 | Capability contracts for chat and routing | `converge-provider-api` | `converge-provider` for ready-made adapters | direct vendor HTTP spread across product code |
 | Reusable reasoning and planning | `organism-pack`, `organism-runtime` | `organism-domain`, `organism-intelligence`, `organism-notes` | Organism phase crates |
+| Application plugin execution | `helm-plugin-runtime` | Axiom-produced WASM/manifests and Converge contracts | embedding plugin machinery in Converge |
+
+## WASM Plugin Boundary
+
+WASM is an artifact format, not a reason for Helm, Axiom, and Converge to blur
+ownership. The shared contract is:
+
+| Layer | Owns | Must not own |
+|---|---|---|
+| Axiom | Predicate extraction, Rust source generation, WASM compilation, manifest generation, hashes, lineage, replay metadata, and proof obligations. | Plugin hosting, tenant runtime policy, authority recompute, fact promotion, or specialist execution. |
+| Helm | Plugin install/upgrade/revoke, signing policy, sandbox host policy, quotas, tenant configuration, app-facing lifecycle, and adapters that map sandbox output into Converge-facing contracts. | Truth semantics, Axiom compilation rules, Converge promotion gates, or lower-layer specialist cores. |
+| Converge | Kernel execution, proposal promotion, stop reasons, invariant decision semantics, HITL pauses, evidence refs, trace links, and integrity proof. | Wasmtime/Cranelift embedding, application plugin lifecycle, tenant plugin policy, or Axiom parser internals. |
+
+Flow:
+
+```text
+JTBD or .truths source
+  -> Axiom validates, extracts predicates, and compiles WASM + manifest
+  -> Helm installs and runs the artifact in `helm-plugin-runtime`
+  -> Helm adapts sandbox output into Converge proposals or invariant verdicts
+  -> Converge recomputes authority, checks promotion gates, and records integrity
+```
+
+Helm must not treat a successful plugin execution as a promoted fact. Plugin
+output is evidence, a proposal, or an invariant verdict until Converge accepts
+it through public kernel/pack contracts.
 
 ## Extension Locations
 
@@ -19,13 +45,68 @@ Converge v3.8 extracts implementation-heavy capabilities out of the foundation
 repository. Helm should resolve those capabilities from extension repositories
 and keep the foundation dependencies focused on contracts.
 
+Local own-stack dependencies use the checked-out path as the version source of
+truth. Do not add stale `version = ...` gates to Axiom, Converge, Organism,
+Atelier, or Mosaic path dependencies inside Helm; release compatibility belongs
+to tagged release branches, not day-to-day local composition.
+
 | Capability | Current location | Helm dependency rule |
 |---|---|---|
-| Policy gates / Cedar PDP | `/Users/kpernyer/dev/extensions/arbiter` | Import through the `arbiter` package; alias to `converge-policy` only for transitional code that still uses `converge_policy`. |
-| Native optimization solvers | `/Users/kpernyer/dev/extensions/ferrox` | Treat as an optional solver extension; do not reintroduce OR-Tools into Helm or Converge foundation crates. |
-| Provider adapters / external tools | `/Users/kpernyer/dev/extensions/manifold` | Planned home for concrete adapters; keep Helm coupled to capability contracts, not vendor types. |
-| Knowledge and recall | `/Users/kpernyer/dev/extensions/mnemos` | Existing `converge_knowledge` imports may be satisfied by aliasing the `mnemos` package during migration. |
-| Analytics and ML pipelines | `/Users/kpernyer/dev/extensions/prism` | Existing `converge_analytics` imports may be satisfied by aliasing the `prism` package during migration. |
+| Policy gates / Cedar PDP | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/arbiter-policy` | Use Arbiter through Organism formations or explicit policy contracts. Do not build local policy engines. |
+| Provider adapters / external tools / storage / vector / search / fetch / feed | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/manifold-adapters` | Keep Helm coupled to capability contracts, not vendor types. Do not spread direct vendor HTTP across product code. |
+| Source-specific connectors | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/embassy-ports` | Use Embassy when the external source identity is part of the type. Do not hide source semantics behind ad hoc product connectors. |
+| Knowledge, recall, memory | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/mnemos-knowledge` | Use Mnemos for recall and evidence seeding. Do not create product-local vector recall or memory layers. |
+| Analytics and ML pipelines | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/prism-analytics` | Use Prism for regression, fuzzy inference, ranking, forecasting, anomaly detection, classification, feature extraction, and ML critique. |
+| Native optimization solvers | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/ferrox-solvers` | Use Ferrox for scheduling, routing, allocation, feasibility, and solver-backed optimization. Do not reintroduce OR-Tools or local optimizers into Helm. |
+
+## No Local Specialist Cores
+
+This is a hard boundary. Helm may compose specialist capabilities, configure
+them, render their results, and decide host policy. Helm must not implement
+reusable specialist cores that already belong to Mosaic.
+
+Forbidden local cores include:
+
+- regression engines
+- fuzzy-logic engines
+- generic ranking frameworks
+- forecasting engines
+- anomaly detection engines
+- optimization, scheduling, routing, allocation, or feasibility solvers
+- Cedar or policy evaluation engines
+- vector recall, memory, or knowledge retrieval systems
+- generic provider adapters
+- source-specific connectors
+
+Allowed Helm work:
+
+- product-specific Truth catalog and overlays
+- UI surfaces, projections, API endpoints, operator flows
+- tenant policy choices, thresholds, credentials, and cost caps
+- application plugin lifecycle, signing, quotas, and sandbox host policy
+- executable factory registration and capability assembly
+- thin glue that maps Helm data into an Organism/Mosaic contract and maps the
+  result back into Helm projections
+
+If Helm appears to need a reusable specialist core, first check Organism
+formation support and the Mosaic bench. If the capability is missing, record an
+upstream gap in the correct owner instead of normalizing a local implementation.
+
+## Formation Rule
+
+For non-trivial automated decisions, Helm should prefer the Organism formation
+path over direct local orchestration:
+
+```text
+Axiom Truth -> IntentPacket
+  -> Organism selects a Formation
+  -> Mosaic-backed Suggestors participate in Converge's fixed-point loop
+  -> Converge promotes governed facts or stops honestly
+  -> Helm renders, approves, redirects, and writes back
+```
+
+The selection trace should explain why Arbiter, Manifold, Embassy, Mnemos,
+Prism, and Ferrox were used or intentionally omitted.
 
 ## What Helm Owns
 
@@ -33,6 +114,7 @@ and keep the foundation dependencies focused on contracts.
 - application state and projections
 - product-specific truth composition
 - app-local storage, APIs, and workflows
+- application plugin runtime and sandbox policy
 - composition of Axiom, Organism, and Converge into a usable product
 
 ## What Helm Does Not Own
@@ -42,6 +124,13 @@ and keep the foundation dependencies focused on contracts.
 - generic OCR, web, social, or note primitives
 - generic provider contracts or adapters
 - truth compilation or validation semantics that belong in Axiom
+- the Converge runtime or promotion gate
+- regression, fuzzy logic, ranking, forecasting, anomaly detection, or ML
+  implementations that belong in Prism
+- optimization, scheduling, routing, allocation, or feasibility implementations
+  that belong in Ferrox
+- policy evaluation, authorization, approval-gate, memory, recall, provider, or
+  source-connector implementations that belong in Mosaic
 
 ## Practical Rule
 
@@ -53,6 +142,6 @@ Only keep it in Helm if it is truly product-specific.
 
 ## References
 
-- `~/dev/work/converge/kb/Architecture/Golden Path Matrix.md`
+- `~/dev/reflective/stack/bedrock-platform/converge/kb/Architecture/Golden Path Matrix.md`
 - [[Architecture/Converge Application]]
 - [[Architecture/Naming Migration Map]]

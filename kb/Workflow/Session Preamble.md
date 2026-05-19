@@ -18,6 +18,7 @@ You are helping me build Helm, a JTBD-driven operator workbench built as an appl
 - Side-fixes get 15 min max, then back to the milestone.
 - End every session with `/done`: what moved, what's left, any date risk.
 - Use `just <recipe>` when a Justfile exists. Never suggest raw cargo commands.
+- Work on `next`; keep `main` for validated integration. Do not create topic branches or worktrees unless explicitly asked.
 - Never push to main without confirmation. Never commit secrets.
 
 ### Architecture

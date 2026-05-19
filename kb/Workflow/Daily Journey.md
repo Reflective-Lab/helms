@@ -9,6 +9,8 @@
 
 ## During Work
 
+- Work on `next`, not `main`.
+- Do not create topic branches or worktrees unless the human explicitly asks.
 - Keep the repo application-shaped.
 - Keep capability module, truth, and desktop app separate.
 - Treat `crm-*` and `prio-*` names as temporary legacy names.

@@ -154,6 +154,12 @@ Options B and C are complementary:
 
 ## Code Generation as a Capability (Future — EXP-002)
 
-A convergence loop may reach a point where it needs to *build something that didn't exist before* — a Wasm module, an API adapter, a data transformation. This is a special capability where the suggestor's output is executable code.
+A convergence loop may reach a point where it needs to *build something that didn't exist before* — a Wasm module, an API adapter, a data transformation. This is a special capability where the suggestor's output is executable code. Helm hosts executable app plugins in `helm-plugin-runtime`; Converge remains the governed convergence and promotion layer.
+
+Axiom-produced WASM and manifests are executable contract artifacts. Helm owns
+their sandbox lifecycle, signing policy, quotas, and host capability policy.
+Converge owns the decision boundary after execution: plugin output is only
+evidence, a proposal, or an invariant verdict until Converge recomputes
+authority and accepts it through public contracts.
 
 See `experiments/EXP-002.md` for the hypothesis that code generation can participate as a convergence step, producing Wasm artifacts that are verified before promotion.

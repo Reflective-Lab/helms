@@ -260,7 +260,7 @@ Convergence loops that generate, verify, and deploy executable code when they di
 ### Deliverables
 
 - [ ] Wire Axiom's `WasmCompiler::compile()` into CodeVerifierSuggestor (replaces structural checks with actual Wasm compilation)
-- [ ] Build `WasmSuggestor` adapter in converge-runtime (lets verified Wasm modules execute as suggestors in subsequent loops)
+- [ ] Build `WasmSuggestor` adapter in `helm-plugin-runtime` (lets verified Wasm modules execute as suggestors in subsequent loops)
 - [ ] Connect generated modules back to organism-runtime Registry so future intents can resolve and use them
 - [ ] LLM-backed CodeGenSuggestor (replaces stub with real generation from transformation specs)
 - [ ] Acceptance test framework: Axiom Gherkin specs as runtime test cases for generated modules

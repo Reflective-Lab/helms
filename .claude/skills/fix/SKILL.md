@@ -1,7 +1,7 @@
 ---
 name: fix
 model: opus
-description: Fix a GitHub issue — read, branch, implement, check, PR.
+description: Fix a GitHub issue on next — read, implement, check, PR.
 user-invocable: true
 argument-hint: [issue-number]
 allowed-tools: Bash, Read, Edit, Write, Grep, Glob
@@ -9,7 +9,7 @@ allowed-tools: Bash, Read, Edit, Write, Grep, Glob
 # Fix #$ARGUMENTS
 ## Steps
 1. Read the issue: `gh issue view $ARGUMENTS`
-2. Branch: `git checkout -b fix/$ARGUMENTS`
+2. Work on `next`; do not create a topic branch unless the user explicitly asks.
 3. Explore relevant code.
 4. Implement the minimum fix. Follow existing patterns.
 5. Verify: `just lint` or `bun run check`
