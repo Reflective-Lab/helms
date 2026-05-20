@@ -5,6 +5,9 @@ use application_kernel::{
 use application_storage::{AppConfig, RuntimeModuleConfig};
 use capability_core::CapabilityModule;
 use chrono::{DateTime, Utc};
+use prio_agent_ops::{
+    JobReadinessPacket, OperatorLedgerEntry, OperatorLedgerRecordKind, ReceiptFamily,
+};
 use serde::{Deserialize, Serialize};
 use truth_catalog::TruthKind;
 
@@ -14,6 +17,20 @@ pub struct OperatorDashboard {
     pub approvals: Vec<ApprovalListItem>,
     pub exceptions: Vec<WorkflowCaseListItem>,
     pub recent_timeline: Vec<TimelineEventItem>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OperatorControlPreview {
+    pub packet: JobReadinessPacket,
+    pub ledger_entries: Vec<OperatorLedgerEntry>,
+    pub receipt_families: Vec<OperatorReceiptFamilyView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OperatorReceiptFamilyView {
+    pub family: ReceiptFamily,
+    pub purpose: String,
+    pub record_kinds: Vec<OperatorLedgerRecordKind>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -234,6 +234,49 @@ impl OperatorLedgerEntry {
     }
 }
 
+pub fn job_readiness_packet_payload_hash(packet: &JobReadinessPacket) -> String {
+    let evidence_hash = evidence_status_hash(&packet.evidence_status);
+    let forbidden_hash = string_list_hash(&packet.verifier_forbidden_actions);
+    let action_hash = string_list_hash(&packet.operator_actions);
+    let verdict = packet.verdict.map_or("none", JobVerdict::as_str);
+
+    sha256_lines(&[
+        "job_readiness_packet_payload",
+        packet.packet_id.as_str(),
+        packet.package_id.as_str(),
+        packet.truth_version.as_str(),
+        packet.domain_hint.as_str(),
+        packet.job_key.as_str(),
+        packet.subject_ref.as_str(),
+        packet.adapter_receipt_id.as_str(),
+        packet.adapter_status.as_str(),
+        verdict,
+        evidence_hash.as_str(),
+        forbidden_hash.as_str(),
+        action_hash.as_str(),
+    ])
+}
+
+pub fn job_readiness_packet_ledger_entry(
+    sequence: u64,
+    packet: &JobReadinessPacket,
+    backlink_ids: Vec<String>,
+    summary: impl Into<String>,
+) -> Result<OperatorLedgerEntry, OperatorControlError> {
+    OperatorLedgerEntry::new(OperatorLedgerEntryInput {
+        sequence,
+        record_kind: OperatorLedgerRecordKind::JobReadinessPacket,
+        receipt_family: ReceiptFamily::Common,
+        source_ref: packet.packet_id.clone(),
+        package_id: packet.package_id.clone(),
+        truth_version: packet.truth_version.clone(),
+        domain_hint: packet.domain_hint.clone(),
+        payload_hash: job_readiness_packet_payload_hash(packet),
+        backlink_ids,
+        summary: summary.into(),
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorLedgerEntryInput {
     pub sequence: u64,
@@ -543,6 +586,30 @@ mod tests {
         let second = OperatorLedgerEntry::new(input).expect("entry builds");
 
         assert_ne!(first.entry_id, second.entry_id);
+    }
+
+    #[test]
+    fn job_readiness_packet_ledger_entry_uses_packet_payload_hash() {
+        let packet = JobReadinessPacket::new(sample_packet_input()).expect("packet builds");
+        let entry = job_readiness_packet_ledger_entry(
+            7,
+            &packet,
+            vec!["artifact.adapter.abcdef012345".to_string()],
+            "job readiness preview",
+        )
+        .expect("entry builds");
+
+        assert_eq!(
+            entry.record_kind,
+            OperatorLedgerRecordKind::JobReadinessPacket
+        );
+        assert_eq!(entry.receipt_family, ReceiptFamily::Common);
+        assert_eq!(entry.source_ref, packet.packet_id);
+        assert_eq!(
+            entry.payload_hash,
+            job_readiness_packet_payload_hash(&packet)
+        );
+        assert_eq!(entry.authority_effect, AuthorityEffect::None);
     }
 
     fn sample_packet_input() -> JobReadinessPacketInput {

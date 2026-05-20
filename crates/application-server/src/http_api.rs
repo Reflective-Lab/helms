@@ -19,10 +19,10 @@ use truth_catalog::{TruthDefinition, TruthKind, TruthModuleTouch, all_truths, fi
 use uuid::Uuid;
 use workbench_backend::{
     AccountWorkspaceSummary, ApprovalFilter, ApprovalListItem, CatalogItemListItem, OperatorApp,
-    OperatorAppError, OperatorDashboard, OpportunityListItem, OrganizationListItem,
-    SubscriptionListItem, SystemProfile as WorkbenchSystemProfile, TruthDetailItem,
-    TruthExecutionSession, TruthListItem, WorkbenchAppManifest, WorkflowCaseFilter,
-    WorkflowCaseListItem,
+    OperatorAppError, OperatorControlPreview, OperatorDashboard, OpportunityListItem,
+    OrganizationListItem, SubscriptionListItem, SystemProfile as WorkbenchSystemProfile,
+    TruthDetailItem, TruthExecutionSession, TruthListItem, WorkbenchAppManifest,
+    WorkflowCaseFilter, WorkflowCaseListItem,
 };
 
 use crate::truth_runtime::{TruthExecutionArtifacts, TruthProjection, execute_truth};
@@ -388,6 +388,10 @@ where
             get(workbench_system_profile::<S>),
         )
         .route("/v1/workbench/dashboard", get(workbench_dashboard::<S>))
+        .route(
+            "/v1/workbench/operator-control/preview",
+            get(workbench_operator_control_preview::<S>),
+        )
         .route("/v1/workbench/apps", get(list_workbench_apps::<S>))
         .route("/v1/workbench/truths", get(list_workbench_truths::<S>))
         .route(
@@ -480,6 +484,19 @@ where
     state
         .operator
         .operator_dashboard()
+        .map(Json)
+        .map_err(api_error_from_operator)
+}
+
+async fn workbench_operator_control_preview<S>(
+    State(state): State<HttpState<S>>,
+) -> Result<Json<OperatorControlPreview>, ApiError>
+where
+    S: KernelStore + Clone + Send + Sync + 'static,
+{
+    state
+        .operator
+        .operator_control_preview()
         .map(Json)
         .map_err(api_error_from_operator)
 }
@@ -1593,7 +1610,9 @@ fn api_error_from_operator(error: OperatorAppError) -> ApiError {
             StatusCode::BAD_REQUEST,
             format!("invalid integer for {field}: {value}"),
         ),
-        OperatorAppError::Validation(message) | OperatorAppError::UnsupportedTruth(message) => {
+        OperatorAppError::Validation(message)
+        | OperatorAppError::OperatorControl(message)
+        | OperatorAppError::UnsupportedTruth(message) => {
             ApiError::new(StatusCode::BAD_REQUEST, message)
         }
     }

@@ -13410,6 +13410,7 @@ dependencies = [
  "chrono",
  "organism-domain",
  "organism-runtime",
+ "prio-agent-ops",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

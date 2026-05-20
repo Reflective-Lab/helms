@@ -7,6 +7,12 @@ ready, what is missing, and which receipt chain explains the current state.
 
 The first code slice lives in `crates/prio-agent-ops`.
 
+The first host-facing preview lives at
+`GET /v1/workbench/operator-control/preview`. It returns a
+`JobReadinessPacket`, the packet's matching `OperatorLedgerEntry`, and the
+receipt-family catalog Helm can render before app-specific receipt payloads are
+standardized.
+
 ## First Shared Types
 
 `JobReadinessPacket` is the generic read model repeated across the app probes:

@@ -18,6 +18,11 @@ use capability_registry::all_modules;
 use chrono::Utc;
 use organism_domain::packs;
 use organism_runtime::Registry;
+use prio_agent_ops::{
+    AdapterReceiptStatus, EvidenceReadinessStatus, JobEvidenceStatus, JobReadinessPacket,
+    JobReadinessPacketInput, JobVerdict, OperatorControlError, OperatorLedgerRecordKind,
+    ReceiptFamily, job_readiness_packet_ledger_entry,
+};
 use thiserror::Error;
 use truth_catalog::{
     TruthDefinition,
@@ -30,14 +35,15 @@ use uuid::Uuid;
 pub use views::{
     AccountWorkspaceSummary, ApprovalFilter, ApprovalListItem, AxiomIntentView,
     CatalogItemListItem, ConvergeTruthResolutionView, CriteriaOutcomeItem, CriterionStatus,
-    EntitlementListItem, ExecutionState, FeatureToggles, FormationSelectionView, OperatorDashboard,
-    OpportunityListItem, OrganismCapabilityRequirementView, OrganismPackRequirementView,
-    OrganismTruthResolutionView, OrganizationListItem, OrganizationWorkspaceItem,
-    PersonWorkspaceItem, RecordReferenceItem, SubscriptionListItem, SystemProfile,
-    TimelineEventItem, TruthDetailItem, TruthExecutionProjection, TruthExecutionResult,
-    TruthExecutionSession, TruthListItem, TruthModuleTouchItem, TruthReadinessConfirmationView,
-    TruthReadinessGapView, TruthReadinessView, WorkbenchAppKind, WorkbenchAppManifest,
-    WorkbenchAppStatus, WorkflowCaseFilter, WorkflowCaseListItem,
+    EntitlementListItem, ExecutionState, FeatureToggles, FormationSelectionView,
+    OperatorControlPreview, OperatorDashboard, OperatorReceiptFamilyView, OpportunityListItem,
+    OrganismCapabilityRequirementView, OrganismPackRequirementView, OrganismTruthResolutionView,
+    OrganizationListItem, OrganizationWorkspaceItem, PersonWorkspaceItem, RecordReferenceItem,
+    SubscriptionListItem, SystemProfile, TimelineEventItem, TruthDetailItem,
+    TruthExecutionProjection, TruthExecutionResult, TruthExecutionSession, TruthListItem,
+    TruthModuleTouchItem, TruthReadinessConfirmationView, TruthReadinessGapView,
+    TruthReadinessView, WorkbenchAppKind, WorkbenchAppManifest, WorkbenchAppStatus,
+    WorkflowCaseFilter, WorkflowCaseListItem,
 };
 
 const QUALIFY_INBOUND_LEAD: &str = "qualify-inbound-lead";
@@ -59,6 +65,8 @@ pub enum OperatorAppError {
     InvalidInteger { field: &'static str, value: String },
     #[error("validation error: {0}")]
     Validation(String),
+    #[error("operator control error: {0}")]
+    OperatorControl(String),
     #[error("unsupported truth execution: {0}")]
     UnsupportedTruth(String),
 }
@@ -249,6 +257,57 @@ fn formation_selection_view(selection: &TruthFormationSelection) -> FormationSel
     }
 }
 
+fn operator_control_error(error: OperatorControlError) -> OperatorAppError {
+    OperatorAppError::OperatorControl(error.to_string())
+}
+
+fn operator_receipt_families() -> Vec<OperatorReceiptFamilyView> {
+    vec![
+        OperatorReceiptFamilyView {
+            family: ReceiptFamily::Common,
+            purpose: "shared adapter and readiness receipts used by every app probe".to_string(),
+            record_kinds: vec![
+                OperatorLedgerRecordKind::ObservationAdapterReceipt,
+                OperatorLedgerRecordKind::JobReadinessPacket,
+            ],
+        },
+        OperatorReceiptFamilyView {
+            family: ReceiptFamily::LongRunningJob,
+            purpose: "approval, decision, plan, execution, action, and outcome milestones"
+                .to_string(),
+            record_kinds: vec![
+                OperatorLedgerRecordKind::OperatorDecisionReceipt,
+                OperatorLedgerRecordKind::ApprovalReceipt,
+                OperatorLedgerRecordKind::PlanReceipt,
+                OperatorLedgerRecordKind::ExecutionReceipt,
+                OperatorLedgerRecordKind::ActionReceipt,
+                OperatorLedgerRecordKind::OutcomeReceipt,
+            ],
+        },
+        OperatorReceiptFamilyView {
+            family: ReceiptFamily::TemporalEvidence,
+            purpose: "corpus snapshots, evidence windows, preserved disagreements, analyst review, and cited narrative claims".to_string(),
+            record_kinds: vec![
+                OperatorLedgerRecordKind::CorpusSnapshotReceipt,
+                OperatorLedgerRecordKind::EvidenceWindowReceipt,
+                OperatorLedgerRecordKind::DisagreementReceipt,
+                OperatorLedgerRecordKind::AnalystReviewReceipt,
+                OperatorLedgerRecordKind::NarrativeClaimReceipt,
+            ],
+        },
+        OperatorReceiptFamilyView {
+            family: ReceiptFamily::ContentPublication,
+            purpose: "canonical story, claim review, editorial approval, and publication boundary receipts".to_string(),
+            record_kinds: vec![
+                OperatorLedgerRecordKind::CanonicalStoryReceipt,
+                OperatorLedgerRecordKind::ClaimReviewReceipt,
+                OperatorLedgerRecordKind::EditorialApprovalReceipt,
+                OperatorLedgerRecordKind::PublicationBoundaryReceipt,
+            ],
+        },
+    ]
+}
+
 impl<S> OperatorApp<S>
 where
     S: KernelStore,
@@ -301,6 +360,79 @@ where
                 ..WorkflowCaseFilter::default()
             })?,
             recent_timeline: self.list_timeline(None, 12)?,
+        })
+    }
+
+    pub fn operator_control_preview(&self) -> OperatorAppResult<OperatorControlPreview> {
+        let packet = JobReadinessPacket::new(JobReadinessPacketInput {
+            package_id: "helm.truth.quorum-sense.discovery".to_string(),
+            truth_version: "workbench.truth-catalog.v1".to_string(),
+            domain_hint: "quorum-sense.constraint-discovery".to_string(),
+            job_key: "quorum-sense-frontload-topics".to_string(),
+            subject_ref: "quorum://session/meta-app-discovery".to_string(),
+            adapter_receipt_id: "artifact.observation_adapter.quorum-preview".to_string(),
+            adapter_status: AdapterReceiptStatus::Succeeded,
+            verdict: Some(JobVerdict::Invalid),
+            authorizes_domain_action: false,
+            evidence_status: vec![
+                JobEvidenceStatus {
+                    clause_id: "clause.evidence.topic-signal".to_string(),
+                    clause_key: "participant_signal_captured".to_string(),
+                    label: "participant signals are captured before topics are selected"
+                        .to_string(),
+                    status: EvidenceReadinessStatus::Present,
+                    fact_ids: vec!["quorum.signal.participant-map".to_string()],
+                    evidence_refs: vec!["evidence:quorum.signal.participant-map".to_string()],
+                    trace_links: vec!["trace:quorum.signal.participant-map".to_string()],
+                    concern_record_ids: Vec::new(),
+                },
+                JobEvidenceStatus {
+                    clause_id: "clause.evidence.disagreement".to_string(),
+                    clause_key: "high_variance_topics_preserved".to_string(),
+                    label: "high-variance or fuzzy-disagreement topics remain visible"
+                        .to_string(),
+                    status: EvidenceReadinessStatus::Concern,
+                    fact_ids: vec!["quorum.signal.fuzzy-membership".to_string()],
+                    evidence_refs: vec!["evidence:quorum.signal.fuzzy-membership".to_string()],
+                    trace_links: vec!["trace:quorum.signal.fuzzy-membership".to_string()],
+                    concern_record_ids: vec!["calibration.concern.quorum-fuzzy-topic".to_string()],
+                },
+                JobEvidenceStatus {
+                    clause_id: "clause.evidence.commitment-bridge".to_string(),
+                    clause_key: "decision_bridge_named".to_string(),
+                    label: "the downstream commitment bridge is named before handoff"
+                        .to_string(),
+                    status: EvidenceReadinessStatus::Missing,
+                    fact_ids: Vec::new(),
+                    evidence_refs: Vec::new(),
+                    trace_links: Vec::new(),
+                    concern_record_ids: Vec::new(),
+                },
+            ],
+            verifier_forbidden_actions: vec![
+                "do not convert fuzzy disagreement into a binary release condition without operator review"
+                    .to_string(),
+                "do not authorize a downstream app action from readiness alone".to_string(),
+            ],
+            operator_actions: vec![
+                "inspect axiom report".to_string(),
+                "review high-variance fuzzy topics".to_string(),
+                "name the downstream commitment bridge before handoff".to_string(),
+            ],
+        })
+        .map_err(operator_control_error)?;
+        let ledger_entry = job_readiness_packet_ledger_entry(
+            0,
+            &packet,
+            vec![packet.adapter_receipt_id.clone()],
+            format!("job readiness {:?} for {}", packet.verdict, packet.job_key),
+        )
+        .map_err(operator_control_error)?;
+
+        Ok(OperatorControlPreview {
+            packet,
+            ledger_entries: vec![ledger_entry],
+            receipt_families: operator_receipt_families(),
         })
     }
 
@@ -2542,6 +2674,7 @@ mod tests {
         SubscriptionStatus,
     };
     use application_storage::InMemoryKernelStore;
+    use prio_agent_ops::{AuthorityEffect, OperatorLedgerRecordKind, ReceiptFamily};
     use uuid::Uuid;
 
     use super::{ApprovalFilter, ExecutionState, OperatorApp, WorkflowCaseFilter};
@@ -2723,6 +2856,44 @@ mod tests {
             apps.iter()
                 .any(|app| app.id == "notes"
                     && app.capability_keys.contains(&"documents".to_string()))
+        );
+    }
+
+    #[test]
+    fn operator_control_preview_exposes_non_authoritative_readiness_chain() {
+        let preview = app()
+            .operator_control_preview()
+            .expect("operator control preview");
+
+        assert!(preview.packet.packet_id.starts_with("helm.job_readiness."));
+        assert!(!preview.packet.authorizes_domain_action);
+        assert!(
+            preview
+                .packet
+                .evidence_status
+                .iter()
+                .any(|status| status.clause_key == "high_variance_topics_preserved")
+        );
+        assert_eq!(preview.ledger_entries.len(), 1);
+        assert_eq!(
+            preview.ledger_entries[0].record_kind,
+            OperatorLedgerRecordKind::JobReadinessPacket
+        );
+        assert_eq!(
+            preview.ledger_entries[0].authority_effect,
+            AuthorityEffect::None
+        );
+        assert!(
+            preview
+                .receipt_families
+                .iter()
+                .any(|family| family.family == ReceiptFamily::TemporalEvidence)
+        );
+        assert!(
+            preview
+                .receipt_families
+                .iter()
+                .any(|family| family.family == ReceiptFamily::ContentPublication)
         );
     }
 
