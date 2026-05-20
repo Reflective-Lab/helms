@@ -9,6 +9,7 @@ import type {
 	ExpenseReport,
 	ExpenseReceiptSample,
 	OperatorDashboard,
+	OperatorControlPreview,
 	OperatorShellData,
 	OpportunityListItem,
 	OrganizationListItem,
@@ -79,6 +80,12 @@ export function getOperatorDashboard() {
 	return useRemoteWorkbench()
 		? requestWorkbenchJson<OperatorDashboard>('/dashboard')
 		: invoke<OperatorDashboard>('operator_dashboard')
+}
+
+export function getOperatorControlPreview() {
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<OperatorControlPreview>('/operator-control/preview')
+		: invoke<OperatorControlPreview>('operator_control_preview')
 }
 
 export function getTruthCatalog() {
@@ -189,10 +196,21 @@ export function compareReceiptOcr(sampleId: string) {
 }
 
 export async function loadOperatorShell(): Promise<OperatorShellData> {
-	const [apps, dashboard, truths, organizations, opportunities, workflows, approvals, profile] =
+	const [
+		apps,
+		dashboard,
+		operatorControl,
+		truths,
+		organizations,
+		opportunities,
+		workflows,
+		approvals,
+		profile
+	] =
 		await Promise.all([
 			getWorkbenchApps(),
 			getOperatorDashboard(),
+			getOperatorControlPreview(),
 			getTruthCatalog(),
 			getOrganizations(),
 			getOpportunities(),
@@ -204,6 +222,7 @@ export async function loadOperatorShell(): Promise<OperatorShellData> {
 	return {
 		apps,
 		dashboard,
+		operatorControl,
 		truths,
 		organizations,
 		opportunities,

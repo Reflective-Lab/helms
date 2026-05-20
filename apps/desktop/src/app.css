@@ -364,6 +364,23 @@ body {
   background: rgba(255, 255, 255, 0.42);
 }
 
+.badge.satisfied,
+.badge.present,
+.readiness-row.ready .badge {
+  border-color: rgba(17, 94, 89, 0.22);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.badge.invalid,
+.badge.blocked,
+.badge.missing,
+.readiness-row.blocked .badge {
+  border-color: rgba(154, 52, 18, 0.25);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
 .empty {
   color: var(--ink-soft);
   font-size: 0.92rem;
@@ -537,6 +554,10 @@ body {
   gap: 10px;
 }
 
+.kv-grid.compact {
+  margin-top: 4px;
+}
+
 .kv-row {
   display: grid;
   gap: 4px;
@@ -544,6 +565,96 @@ body {
   border-radius: 14px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.55);
+}
+
+.kv-row span {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.operator-control {
+  display: grid;
+  gap: 16px;
+}
+
+.operator-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.packet-card {
+  align-content: start;
+}
+
+.operator-block {
+  display: grid;
+  gap: 10px;
+}
+
+.boundary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.readiness-list,
+.family-list {
+  display: grid;
+  gap: 10px;
+}
+
+.readiness-row,
+.family-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.readiness-row.attention {
+  border-color: rgba(154, 52, 18, 0.2);
+  background: rgba(154, 52, 18, 0.07);
+}
+
+.readiness-row.blocked {
+  border-color: rgba(154, 52, 18, 0.28);
+}
+
+.readiness-row.ready {
+  border-color: rgba(17, 94, 89, 0.22);
+}
+
+.readiness-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: end;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.family-row span {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.mono-line {
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-family: "SFMono-Regular", "Cascadia Code", "Liberation Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.pill.warning {
+  border-color: rgba(154, 52, 18, 0.24);
+  background: var(--warn-soft);
+  color: var(--warn);
 }
 
 .ocr-run-grid,
@@ -563,6 +674,9 @@ body {
   .cockpit,
   .app-grid,
   .grid.two,
+  .operator-grid,
+  .readiness-row,
+  .family-row,
   .detail-grid,
   .stat-grid,
   .expense-layout,

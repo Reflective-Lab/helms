@@ -3,15 +3,32 @@
 	import AccountsSection from '$lib/components/AccountsSection.svelte'
 	import ApprovalsSection from '$lib/components/ApprovalsSection.svelte'
 	import JobsSection from '$lib/components/JobsSection.svelte'
+	import OperatorControlSection from '$lib/components/OperatorControlSection.svelte'
 	import RightRail from '$lib/components/RightRail.svelte'
 	import SystemSection from '$lib/components/SystemSection.svelte'
 	import WorkflowSection from '$lib/components/WorkflowSection.svelte'
 	import { executeTruth, getAccountSummary, loadOperatorShell } from '$lib/api'
-	import { navSections, type AccountWorkspaceSummary, type ApprovalListItem, type OperatorDashboard, type OpportunityListItem, type OrganizationListItem, type Section, type SystemProfile, type TruthExecutionInputs, type TruthExecutionSession, type TruthListItem, type WorkbenchAppManifest, type WorkflowCaseListItem } from '$lib/types'
+	import {
+		navSections,
+		type AccountWorkspaceSummary,
+		type ApprovalListItem,
+		type OperatorControlPreview,
+		type OperatorDashboard,
+		type OpportunityListItem,
+		type OrganizationListItem,
+		type Section,
+		type SystemProfile,
+		type TruthExecutionInputs,
+		type TruthExecutionSession,
+		type TruthListItem,
+		type WorkbenchAppManifest,
+		type WorkflowCaseListItem
+	} from '$lib/types'
 
 	let activeSection = $state<Section>('jobs')
 	let apps = $state<WorkbenchAppManifest[]>([])
 	let dashboard = $state<OperatorDashboard | null>(null)
+	let operatorControl = $state<OperatorControlPreview | null>(null)
 	let truths = $state<TruthListItem[]>([])
 	let organizations = $state<OrganizationListItem[]>([])
 	let opportunities = $state<OpportunityListItem[]>([])
@@ -33,6 +50,7 @@
 
 			apps = shell.apps
 			dashboard = shell.dashboard
+			operatorControl = shell.operatorControl
 			truths = shell.truths
 			organizations = shell.organizations
 			opportunities = shell.opportunities
@@ -191,6 +209,8 @@
 			<main class="panel content">
 				{#if activeSection === 'jobs'}
 					<JobsSection {truths} {latestExecution} />
+				{:else if activeSection === 'operator-control'}
+					<OperatorControlSection preview={operatorControl} />
 				{:else if activeSection === 'accounts'}
 					<AccountsSection {account} />
 				{:else if activeSection === 'workflows'}

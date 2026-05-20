@@ -33,9 +33,10 @@ use uuid::Uuid;
 #[cfg(feature = "embedded-backend")]
 use workbench_backend::{
     AccountWorkspaceSummary, ApprovalFilter, ApprovalListItem, CatalogItemListItem, OperatorApp,
-    OperatorDashboard, OpportunityListItem, OrganizationListItem, RecordReferenceItem,
-    SubscriptionListItem, SystemProfile, TruthDetailItem, TruthExecutionSession, TruthListItem,
-    WorkbenchAppManifest, WorkflowCaseFilter, WorkflowCaseListItem,
+    OperatorControlPreview, OperatorDashboard, OpportunityListItem, OrganizationListItem,
+    RecordReferenceItem, SubscriptionListItem, SystemProfile, TruthDetailItem,
+    TruthExecutionSession, TruthListItem, WorkbenchAppManifest, WorkflowCaseFilter,
+    WorkflowCaseListItem,
 };
 
 #[cfg(feature = "embedded-backend")]
@@ -441,6 +442,15 @@ fn operator_dashboard(state: State<'_, AppState>) -> Result<OperatorDashboard, S
 
 #[cfg(feature = "embedded-backend")]
 #[tauri::command]
+fn operator_control_preview(state: State<'_, AppState>) -> Result<OperatorControlPreview, String> {
+    state
+        .operator
+        .operator_control_preview()
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(feature = "embedded-backend")]
+#[tauri::command]
 fn system_profile(state: State<'_, AppState>) -> SystemProfile {
     state.operator.system_profile()
 }
@@ -622,7 +632,6 @@ fn compare_receipt_ocr(sample_id: String) -> Result<Vec<DesktopReceiptExtraction
         ),
     ])
 }
-
 
 #[cfg(feature = "embedded-backend")]
 fn seed_demo_data<S>(operator: &OperatorApp<S>)
@@ -945,6 +954,7 @@ fn main() {
         .manage(AppState { operator })
         .invoke_handler(tauri::generate_handler![
             operator_dashboard,
+            operator_control_preview,
             system_profile,
             list_truths,
             get_truth_detail,

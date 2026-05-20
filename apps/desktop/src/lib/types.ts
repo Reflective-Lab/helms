@@ -1,8 +1,16 @@
-export type Section = 'jobs' | 'accounts' | 'workflows' | 'approvals' | 'pipeline' | 'system'
+export type Section =
+	| 'jobs'
+	| 'operator-control'
+	| 'accounts'
+	| 'workflows'
+	| 'approvals'
+	| 'pipeline'
+	| 'system'
 
 export const navSections: Array<{ id: Section; label: string; href?: string }> = [
 	{ id: 'pipeline', label: 'Pipeline', href: '/pipeline' },
 	{ id: 'jobs', label: 'Jobs' },
+	{ id: 'operator-control', label: 'Operator Control' },
 	{ id: 'accounts', label: 'Accounts' },
 	{ id: 'workflows', label: 'Workflows' },
 	{ id: 'approvals', label: 'Approvals' },
@@ -349,6 +357,100 @@ export type OperatorDashboard = {
 	approvals: ApprovalListItem[]
 	exceptions: WorkflowCaseListItem[]
 	recent_timeline: TimelineEventItem[]
+}
+
+export type AdapterReceiptStatus = 'succeeded' | 'rejected'
+
+export type JobVerdict = 'satisfied' | 'blocked' | 'exhausted' | 'invalid'
+
+export type EvidenceReadinessStatus =
+	| 'present'
+	| 'missing'
+	| 'disputed'
+	| 'blocked'
+	| 'concern'
+
+export type OperatorLedgerRecordKind =
+	| 'observation_adapter_receipt'
+	| 'job_readiness_packet'
+	| 'operator_decision_receipt'
+	| 'approval_receipt'
+	| 'plan_receipt'
+	| 'execution_receipt'
+	| 'action_receipt'
+	| 'outcome_receipt'
+	| 'corpus_snapshot_receipt'
+	| 'evidence_window_receipt'
+	| 'disagreement_receipt'
+	| 'analyst_review_receipt'
+	| 'narrative_claim_receipt'
+	| 'canonical_story_receipt'
+	| 'claim_review_receipt'
+	| 'editorial_approval_receipt'
+	| 'publication_boundary_receipt'
+	| 'app_local_receipt'
+
+export type ReceiptFamily =
+	| 'common'
+	| 'long_running_job'
+	| 'temporal_evidence'
+	| 'content_publication'
+	| 'app_local'
+
+export type AuthorityEffect = 'none'
+
+export type JobEvidenceStatus = {
+	clause_id: string
+	clause_key: string
+	label: string
+	status: EvidenceReadinessStatus
+	fact_ids: string[]
+	evidence_refs: string[]
+	trace_links: string[]
+	concern_record_ids: string[]
+}
+
+export type JobReadinessPacket = {
+	packet_id: string
+	package_id: string
+	truth_version: string
+	domain_hint: string
+	job_key: string
+	subject_ref: string
+	adapter_receipt_id: string
+	adapter_status: AdapterReceiptStatus
+	verdict: JobVerdict | null
+	authorizes_domain_action: boolean
+	evidence_status: JobEvidenceStatus[]
+	verifier_forbidden_actions: string[]
+	operator_actions: string[]
+}
+
+export type OperatorLedgerEntry = {
+	entry_id: string
+	sequence: number
+	record_kind: OperatorLedgerRecordKind
+	receipt_family: ReceiptFamily
+	source_ref: string
+	package_id: string
+	truth_version: string
+	domain_hint: string
+	payload_hash: string
+	backlink_ids: string[]
+	authority_effect: AuthorityEffect
+	summary: string
+}
+
+export type OperatorReceiptFamilyView = {
+	family: ReceiptFamily
+	purpose: string
+	record_kinds: OperatorLedgerRecordKind[]
+}
+
+export type OperatorControlPreview = {
+	packet: JobReadinessPacket
+	ledger_entries: OperatorLedgerEntry[]
+	receipt_families: OperatorReceiptFamilyView[]
 }
 
 export type TruthExecutionResult = {
@@ -822,6 +924,7 @@ export const truthInputSchemas: Record<string, TruthInputSchema> = {
 export type OperatorShellData = {
 	apps: WorkbenchAppManifest[]
 	dashboard: OperatorDashboard
+	operatorControl: OperatorControlPreview
 	truths: TruthListItem[]
 	organizations: OrganizationListItem[]
 	opportunities: OpportunityListItem[]
