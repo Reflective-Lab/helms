@@ -924,7 +924,7 @@ export const truthInputSchemas: Record<string, TruthInputSchema> = {
 export type OperatorShellData = {
 	apps: WorkbenchAppManifest[]
 	dashboard: OperatorDashboard
-	operatorControl: OperatorControlPreview
+	operatorControlPreviews: OperatorControlPreview[]
 	truths: TruthListItem[]
 	organizations: OrganizationListItem[]
 	opportunities: OpportunityListItem[]

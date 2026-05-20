@@ -392,6 +392,10 @@ where
             "/v1/workbench/operator-control/preview",
             get(workbench_operator_control_preview::<S>),
         )
+        .route(
+            "/v1/workbench/operator-control/previews",
+            get(workbench_operator_control_previews::<S>),
+        )
         .route("/v1/workbench/apps", get(list_workbench_apps::<S>))
         .route("/v1/workbench/truths", get(list_workbench_truths::<S>))
         .route(
@@ -497,6 +501,19 @@ where
     state
         .operator
         .operator_control_preview()
+        .map(Json)
+        .map_err(api_error_from_operator)
+}
+
+async fn workbench_operator_control_previews<S>(
+    State(state): State<HttpState<S>>,
+) -> Result<Json<Vec<OperatorControlPreview>>, ApiError>
+where
+    S: KernelStore + Clone + Send + Sync + 'static,
+{
+    state
+        .operator
+        .operator_control_previews()
         .map(Json)
         .map_err(api_error_from_operator)
 }

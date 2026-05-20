@@ -477,6 +477,10 @@ where
         })
     }
 
+    pub fn operator_control_previews(&self) -> OperatorAppResult<Vec<OperatorControlPreview>> {
+        Ok(vec![self.operator_control_preview()?])
+    }
+
     #[must_use]
     pub fn list_truths(&self) -> Vec<TruthListItem> {
         let mut items = all_truths()
@@ -2962,6 +2966,25 @@ mod tests {
                 .receipt_families
                 .iter()
                 .any(|family| family.family == ReceiptFamily::ContentPublication)
+        );
+    }
+
+    #[test]
+    fn operator_control_previews_list_tally_first() {
+        let previews = app()
+            .operator_control_previews()
+            .expect("operator control previews");
+
+        assert_eq!(previews.len(), 1);
+        assert_eq!(previews[0].packet.domain_hint, "tally-escrow.release");
+        assert_eq!(previews[0].packet.job_key, "escrow-release");
+        assert_eq!(previews[0].packet.verdict, Some(JobVerdict::Satisfied));
+        assert!(
+            previews[0]
+                .packet
+                .evidence_status
+                .iter()
+                .all(|status| status.status == EvidenceReadinessStatus::Present)
         );
     }
 

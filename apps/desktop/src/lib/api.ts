@@ -88,6 +88,12 @@ export function getOperatorControlPreview() {
 		: invoke<OperatorControlPreview>('operator_control_preview')
 }
 
+export function getOperatorControlPreviews() {
+	return useRemoteWorkbench()
+		? requestWorkbenchJson<OperatorControlPreview[]>('/operator-control/previews')
+		: invoke<OperatorControlPreview[]>('operator_control_previews')
+}
+
 export function getTruthCatalog() {
 	return useRemoteWorkbench()
 		? requestWorkbenchJson<TruthListItem[]>('/truths')
@@ -199,7 +205,7 @@ export async function loadOperatorShell(): Promise<OperatorShellData> {
 	const [
 		apps,
 		dashboard,
-		operatorControl,
+		operatorControlPreviews,
 		truths,
 		organizations,
 		opportunities,
@@ -210,7 +216,7 @@ export async function loadOperatorShell(): Promise<OperatorShellData> {
 		await Promise.all([
 			getWorkbenchApps(),
 			getOperatorDashboard(),
-			getOperatorControlPreview(),
+			getOperatorControlPreviews(),
 			getTruthCatalog(),
 			getOrganizations(),
 			getOpportunities(),
@@ -222,7 +228,7 @@ export async function loadOperatorShell(): Promise<OperatorShellData> {
 	return {
 		apps,
 		dashboard,
-		operatorControl,
+		operatorControlPreviews,
 		truths,
 		organizations,
 		opportunities,

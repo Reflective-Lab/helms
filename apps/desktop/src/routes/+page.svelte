@@ -28,7 +28,7 @@
 	let activeSection = $state<Section>('jobs')
 	let apps = $state<WorkbenchAppManifest[]>([])
 	let dashboard = $state<OperatorDashboard | null>(null)
-	let operatorControl = $state<OperatorControlPreview | null>(null)
+	let operatorControlPreviews = $state<OperatorControlPreview[]>([])
 	let truths = $state<TruthListItem[]>([])
 	let organizations = $state<OrganizationListItem[]>([])
 	let opportunities = $state<OpportunityListItem[]>([])
@@ -50,7 +50,7 @@
 
 			apps = shell.apps
 			dashboard = shell.dashboard
-			operatorControl = shell.operatorControl
+			operatorControlPreviews = shell.operatorControlPreviews
 			truths = shell.truths
 			organizations = shell.organizations
 			opportunities = shell.opportunities
@@ -210,7 +210,7 @@
 				{#if activeSection === 'jobs'}
 					<JobsSection {truths} {latestExecution} />
 				{:else if activeSection === 'operator-control'}
-					<OperatorControlSection preview={operatorControl} />
+					<OperatorControlSection previews={operatorControlPreviews} />
 				{:else if activeSection === 'accounts'}
 					<AccountsSection {account} />
 				{:else if activeSection === 'workflows'}

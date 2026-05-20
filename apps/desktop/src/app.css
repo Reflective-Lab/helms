@@ -583,6 +583,36 @@ body {
   gap: 12px;
 }
 
+.packet-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.packet-selector button {
+  appearance: none;
+  display: grid;
+  gap: 3px;
+  min-width: 180px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 10px 12px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.packet-selector button.selected {
+  border-color: rgba(17, 94, 89, 0.28);
+  background: var(--accent-soft);
+}
+
+.packet-selector span {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
 .packet-card {
   align-content: start;
 }

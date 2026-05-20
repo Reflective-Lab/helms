@@ -7,10 +7,17 @@
 	} from '$lib/types'
 
 	type Props = {
-		preview: OperatorControlPreview | null
+		previews: OperatorControlPreview[]
 	}
 
-	let { preview }: Props = $props()
+	let { previews }: Props = $props()
+	let selectedPacketId = $state('')
+	const preview = $derived.by(
+		() =>
+			previews.find((candidate) => candidate.packet.packet_id === selectedPacketId) ??
+			previews[0] ??
+			null
+	)
 
 	function formatToken(value: string) {
 		return value.replaceAll('_', ' ').replaceAll('-', ' ')
@@ -40,6 +47,10 @@
 	function ledgerTitle(entry: OperatorLedgerEntry) {
 		return `${formatToken(entry.record_kind)} #${entry.sequence}`
 	}
+
+	function packetButtonLabel(candidate: OperatorControlPreview) {
+		return `${candidate.packet.job_key} - ${candidate.packet.domain_hint}`
+	}
 </script>
 
 <section class="content-section operator-control">
@@ -54,6 +65,24 @@
 	</div>
 
 	{#if preview}
+		{#if previews.length > 1}
+			<div class="packet-selector" aria-label="Operator control packets">
+				{#each previews as candidate}
+					<button
+						type="button"
+						class:selected={candidate.packet.packet_id === preview.packet.packet_id}
+						aria-label={packetButtonLabel(candidate)}
+						onclick={() => (selectedPacketId = candidate.packet.packet_id)}
+					>
+						<strong>{candidate.packet.job_key}</strong>
+						<span>{candidate.packet.domain_hint}</span>
+					</button>
+				{/each}
+			</div>
+		{:else}
+			<span class="badge muted">{previews.length} readiness packet</span>
+		{/if}
+
 		<div class="operator-grid">
 			<article class="card packet-card">
 				<div class="row-between">

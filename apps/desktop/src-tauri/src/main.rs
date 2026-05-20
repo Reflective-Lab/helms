@@ -451,6 +451,17 @@ fn operator_control_preview(state: State<'_, AppState>) -> Result<OperatorContro
 
 #[cfg(feature = "embedded-backend")]
 #[tauri::command]
+fn operator_control_previews(
+    state: State<'_, AppState>,
+) -> Result<Vec<OperatorControlPreview>, String> {
+    state
+        .operator
+        .operator_control_previews()
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(feature = "embedded-backend")]
+#[tauri::command]
 fn system_profile(state: State<'_, AppState>) -> SystemProfile {
     state.operator.system_profile()
 }
@@ -955,6 +966,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             operator_dashboard,
             operator_control_preview,
+            operator_control_previews,
             system_profile,
             list_truths,
             get_truth_detail,
