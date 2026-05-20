@@ -16,6 +16,7 @@ This vault is the documentation surface for Helm.
 - [[Architecture/Current Architecture]]
 - [[Architecture/Converge Application]]
 - [[Architecture/Foundation Contracts]]
+- [[Architecture/Operator Control Common Module]]
 - [[Architecture/Agent Architecture Brief]]
 - [[Architecture/Module Map]]
 - [[Architecture/Truths Layer]]

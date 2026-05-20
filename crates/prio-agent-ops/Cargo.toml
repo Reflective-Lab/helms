@@ -7,3 +7,5 @@ publish.workspace = true
 
 [dependencies]
 capability-core = { path = "../capability-core" }
+serde = { workspace = true, features = ["derive"] }
+sha2 = { workspace = true }

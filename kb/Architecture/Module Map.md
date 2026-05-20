@@ -29,7 +29,7 @@ Truths are not modules. They sit above these capabilities and compose them into 
 - `prio-audit`: provenance, decision trace, evidence links, replayable history
 - `prio-intents`: jobs, intent context, success criteria, outcomes, agent runs
 - `prio-memory`: semantic memory, embeddings, entity graph, retrieval context
-- `prio-agent-ops`: agent runs, tool invocations, validation contracts, execution traceability
+- `prio-agent-ops`: agent runs, operator-control readiness packets, receipt ledger entries, validation contracts, execution traceability
 
 ## Suites
 
@@ -73,6 +73,11 @@ Truths are not modules. They sit above these capabilities and compose them into 
 - `intents`
 - `memory`
 - `agent-ops`
+
+`agent-ops` now owns the first Helm common-module slice for operator control:
+`JobReadinessPacket`, `OperatorLedgerEntry`, receipt families, and the
+non-authority invariant for readiness views. See
+[[Operator Control Common Module]].
 
 ## API Naming Convention
 

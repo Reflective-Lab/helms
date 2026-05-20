@@ -1,4 +1,10 @@
 use capability_core::{ApiSurface, CapabilityModule, ModuleManifest, ModuleSuite};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::{
+    error::Error,
+    fmt::{self, Write as _},
+};
 
 pub struct AgentOpsModule;
 
@@ -7,12 +13,15 @@ pub const MODULE: CapabilityModule = CapabilityModule {
     display_name: "Agent Ops",
     suite: ModuleSuite::IntelligenceCore,
     crate_name: "prio-agent-ops",
-    purpose: "Agent runs, tool invocations, validation contracts, and execution traceability.",
-    dependencies: &["workflow", "facts", "memory"],
+    purpose: "Agent runs, operator control, validation contracts, and execution traceability.",
+    dependencies: &["workflow", "facts", "audit", "approvals", "memory"],
     owned_objects: &[
         "agent",
         "agent_run",
         "tool_invocation",
+        "job_readiness_packet",
+        "operator_receipt",
+        "operator_ledger_entry",
         "output_contract",
         "validation_result",
     ],
@@ -29,5 +38,569 @@ pub const MODULE: CapabilityModule = CapabilityModule {
 impl ModuleManifest for AgentOpsModule {
     fn module() -> CapabilityModule {
         MODULE
+    }
+}
+
+/// Helm-owned read model for "can this job be trusted enough for an operator
+/// to continue reviewing it?"
+///
+/// This is intentionally not an Axiom type. Axiom supplies packages, reports,
+/// clause ids, and adapter receipts. Helm composes those with app subject refs,
+/// missing-evidence actions, and operator ledger links.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobReadinessPacket {
+    pub packet_id: String,
+    pub package_id: String,
+    pub truth_version: String,
+    pub domain_hint: String,
+    pub job_key: String,
+    pub subject_ref: String,
+    pub adapter_receipt_id: String,
+    pub adapter_status: AdapterReceiptStatus,
+    pub verdict: Option<JobVerdict>,
+    pub authorizes_domain_action: bool,
+    pub evidence_status: Vec<JobEvidenceStatus>,
+    pub verifier_forbidden_actions: Vec<String>,
+    pub operator_actions: Vec<String>,
+}
+
+impl JobReadinessPacket {
+    /// Builds a deterministic packet and enforces the Helm boundary that a
+    /// readiness view never authorizes the underlying app action.
+    pub fn new(input: JobReadinessPacketInput) -> Result<Self, OperatorControlError> {
+        validate_nonempty("package_id", &input.package_id)?;
+        validate_nonempty("truth_version", &input.truth_version)?;
+        validate_nonempty("domain_hint", &input.domain_hint)?;
+        validate_nonempty("job_key", &input.job_key)?;
+        validate_nonempty("subject_ref", &input.subject_ref)?;
+        validate_nonempty("adapter_receipt_id", &input.adapter_receipt_id)?;
+        if input.authorizes_domain_action {
+            return Err(OperatorControlError::DomainActionAuthorityRequested);
+        }
+
+        let packet_id = job_readiness_packet_id(&input);
+        Ok(Self {
+            packet_id,
+            package_id: input.package_id,
+            truth_version: input.truth_version,
+            domain_hint: input.domain_hint,
+            job_key: input.job_key,
+            subject_ref: input.subject_ref,
+            adapter_receipt_id: input.adapter_receipt_id,
+            adapter_status: input.adapter_status,
+            verdict: input.verdict,
+            authorizes_domain_action: false,
+            evidence_status: input.evidence_status,
+            verifier_forbidden_actions: input.verifier_forbidden_actions,
+            operator_actions: input.operator_actions,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobReadinessPacketInput {
+    pub package_id: String,
+    pub truth_version: String,
+    pub domain_hint: String,
+    pub job_key: String,
+    pub subject_ref: String,
+    pub adapter_receipt_id: String,
+    pub adapter_status: AdapterReceiptStatus,
+    pub verdict: Option<JobVerdict>,
+    pub authorizes_domain_action: bool,
+    pub evidence_status: Vec<JobEvidenceStatus>,
+    pub verifier_forbidden_actions: Vec<String>,
+    pub operator_actions: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobEvidenceStatus {
+    pub clause_id: String,
+    pub clause_key: String,
+    pub label: String,
+    pub status: EvidenceReadinessStatus,
+    pub fact_ids: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub trace_links: Vec<String>,
+    pub concern_record_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdapterReceiptStatus {
+    Succeeded,
+    Rejected,
+}
+
+impl AdapterReceiptStatus {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Succeeded => "succeeded",
+            Self::Rejected => "rejected",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JobVerdict {
+    Satisfied,
+    Blocked,
+    Exhausted,
+    Invalid,
+}
+
+impl JobVerdict {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Satisfied => "satisfied",
+            Self::Blocked => "blocked",
+            Self::Exhausted => "exhausted",
+            Self::Invalid => "invalid",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceReadinessStatus {
+    Present,
+    Missing,
+    Disputed,
+    Blocked,
+    Concern,
+}
+
+impl EvidenceReadinessStatus {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Present => "present",
+            Self::Missing => "missing",
+            Self::Disputed => "disputed",
+            Self::Blocked => "blocked",
+            Self::Concern => "concern",
+        }
+    }
+}
+
+/// Deterministic append-only ledger entry for Helm operator-control receipts.
+///
+/// This is a control-plane journal entry. It stores ids, refs, hashes, and
+/// backlinks; it does not store raw app transcripts and it never grants domain
+/// authority.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorLedgerEntry {
+    pub entry_id: String,
+    pub sequence: u64,
+    pub record_kind: OperatorLedgerRecordKind,
+    pub receipt_family: ReceiptFamily,
+    pub source_ref: String,
+    pub package_id: String,
+    pub truth_version: String,
+    pub domain_hint: String,
+    pub payload_hash: String,
+    pub backlink_ids: Vec<String>,
+    pub authority_effect: AuthorityEffect,
+    pub summary: String,
+}
+
+impl OperatorLedgerEntry {
+    pub fn new(input: OperatorLedgerEntryInput) -> Result<Self, OperatorControlError> {
+        validate_nonempty("source_ref", &input.source_ref)?;
+        validate_nonempty("package_id", &input.package_id)?;
+        validate_nonempty("truth_version", &input.truth_version)?;
+        validate_nonempty("domain_hint", &input.domain_hint)?;
+        validate_nonempty("summary", &input.summary)?;
+        validate_sha256("payload_hash", &input.payload_hash)?;
+        if input.backlink_ids.iter().any(|id| id.trim().is_empty()) {
+            return Err(OperatorControlError::EmptyBacklink);
+        }
+
+        let entry_id = operator_ledger_entry_id(&input);
+        Ok(Self {
+            entry_id,
+            sequence: input.sequence,
+            record_kind: input.record_kind,
+            receipt_family: input.receipt_family,
+            source_ref: input.source_ref,
+            package_id: input.package_id,
+            truth_version: input.truth_version,
+            domain_hint: input.domain_hint,
+            payload_hash: input.payload_hash,
+            backlink_ids: input.backlink_ids,
+            authority_effect: AuthorityEffect::None,
+            summary: input.summary,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorLedgerEntryInput {
+    pub sequence: u64,
+    pub record_kind: OperatorLedgerRecordKind,
+    pub receipt_family: ReceiptFamily,
+    pub source_ref: String,
+    pub package_id: String,
+    pub truth_version: String,
+    pub domain_hint: String,
+    pub payload_hash: String,
+    pub backlink_ids: Vec<String>,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorLedgerRecordKind {
+    ObservationAdapterReceipt,
+    JobReadinessPacket,
+    OperatorDecisionReceipt,
+    ApprovalReceipt,
+    PlanReceipt,
+    ExecutionReceipt,
+    ActionReceipt,
+    OutcomeReceipt,
+    CorpusSnapshotReceipt,
+    EvidenceWindowReceipt,
+    DisagreementReceipt,
+    AnalystReviewReceipt,
+    NarrativeClaimReceipt,
+    CanonicalStoryReceipt,
+    ClaimReviewReceipt,
+    EditorialApprovalReceipt,
+    PublicationBoundaryReceipt,
+    AppLocalReceipt,
+}
+
+impl OperatorLedgerRecordKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ObservationAdapterReceipt => "observation_adapter_receipt",
+            Self::JobReadinessPacket => "job_readiness_packet",
+            Self::OperatorDecisionReceipt => "operator_decision_receipt",
+            Self::ApprovalReceipt => "approval_receipt",
+            Self::PlanReceipt => "plan_receipt",
+            Self::ExecutionReceipt => "execution_receipt",
+            Self::ActionReceipt => "action_receipt",
+            Self::OutcomeReceipt => "outcome_receipt",
+            Self::CorpusSnapshotReceipt => "corpus_snapshot_receipt",
+            Self::EvidenceWindowReceipt => "evidence_window_receipt",
+            Self::DisagreementReceipt => "disagreement_receipt",
+            Self::AnalystReviewReceipt => "analyst_review_receipt",
+            Self::NarrativeClaimReceipt => "narrative_claim_receipt",
+            Self::CanonicalStoryReceipt => "canonical_story_receipt",
+            Self::ClaimReviewReceipt => "claim_review_receipt",
+            Self::EditorialApprovalReceipt => "editorial_approval_receipt",
+            Self::PublicationBoundaryReceipt => "publication_boundary_receipt",
+            Self::AppLocalReceipt => "app_local_receipt",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReceiptFamily {
+    Common,
+    LongRunningJob,
+    TemporalEvidence,
+    ContentPublication,
+    AppLocal,
+}
+
+impl ReceiptFamily {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Common => "common",
+            Self::LongRunningJob => "long_running_job",
+            Self::TemporalEvidence => "temporal_evidence",
+            Self::ContentPublication => "content_publication",
+            Self::AppLocal => "app_local",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorityEffect {
+    None,
+}
+
+impl AuthorityEffect {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OperatorControlError {
+    EmptyField { field: &'static str },
+    EmptyBacklink,
+    InvalidSha256 { field: &'static str, value: String },
+    DomainActionAuthorityRequested,
+}
+
+impl fmt::Display for OperatorControlError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyField { field } => write!(f, "`{field}` must not be empty"),
+            Self::EmptyBacklink => write!(f, "backlink ids must not contain empty values"),
+            Self::InvalidSha256 { field, value } => {
+                write!(f, "`{field}` must be a sha256 hash, got `{value}`")
+            }
+            Self::DomainActionAuthorityRequested => {
+                write!(f, "job readiness packets must not authorize domain action")
+            }
+        }
+    }
+}
+
+impl Error for OperatorControlError {}
+
+fn job_readiness_packet_id(input: &JobReadinessPacketInput) -> String {
+    let evidence_hash = evidence_status_hash(&input.evidence_status);
+    let forbidden_hash = string_list_hash(&input.verifier_forbidden_actions);
+    let action_hash = string_list_hash(&input.operator_actions);
+    let verdict = input.verdict.map_or("none", JobVerdict::as_str);
+
+    short_id(
+        "helm.job_readiness",
+        &sha256_lines(&[
+            "job_readiness_packet",
+            input.package_id.as_str(),
+            input.truth_version.as_str(),
+            input.domain_hint.as_str(),
+            input.job_key.as_str(),
+            input.subject_ref.as_str(),
+            input.adapter_receipt_id.as_str(),
+            input.adapter_status.as_str(),
+            verdict,
+            evidence_hash.as_str(),
+            forbidden_hash.as_str(),
+            action_hash.as_str(),
+        ]),
+    )
+}
+
+fn operator_ledger_entry_id(input: &OperatorLedgerEntryInput) -> String {
+    let backlinks_hash = string_list_hash(&input.backlink_ids);
+    let sequence = input.sequence.to_string();
+    short_id(
+        "helm.ledger_entry",
+        &sha256_lines(&[
+            "operator_ledger_entry",
+            sequence.as_str(),
+            input.record_kind.as_str(),
+            input.receipt_family.as_str(),
+            input.source_ref.as_str(),
+            input.package_id.as_str(),
+            input.truth_version.as_str(),
+            input.domain_hint.as_str(),
+            input.payload_hash.as_str(),
+            backlinks_hash.as_str(),
+        ]),
+    )
+}
+
+fn evidence_status_hash(statuses: &[JobEvidenceStatus]) -> String {
+    let mut parts = Vec::new();
+    for status in statuses {
+        parts.push(status.clause_id.clone());
+        parts.push(status.clause_key.clone());
+        parts.push(status.label.clone());
+        parts.push(status.status.as_str().to_string());
+        parts.push(string_list_hash(&status.fact_ids));
+        parts.push(string_list_hash(&status.evidence_refs));
+        parts.push(string_list_hash(&status.trace_links));
+        parts.push(string_list_hash(&status.concern_record_ids));
+    }
+    string_list_hash(&parts)
+}
+
+fn string_list_hash(values: &[String]) -> String {
+    let refs = values.iter().map(String::as_str).collect::<Vec<_>>();
+    sha256_lines(&refs)
+}
+
+fn validate_nonempty(field: &'static str, value: &str) -> Result<(), OperatorControlError> {
+    if value.trim().is_empty() {
+        Err(OperatorControlError::EmptyField { field })
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_sha256(field: &'static str, value: &str) -> Result<(), OperatorControlError> {
+    if value.strip_prefix("sha256:").is_some_and(|digest| {
+        digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+    }) {
+        Ok(())
+    } else {
+        Err(OperatorControlError::InvalidSha256 {
+            field,
+            value: value.to_string(),
+        })
+    }
+}
+
+fn short_id(prefix: &str, digest: &str) -> String {
+    let short_digest = &digest
+        .strip_prefix("sha256:")
+        .expect("local digest has sha256 prefix")[..12];
+    format!("{prefix}.{short_digest}")
+}
+
+fn sha256_lines(parts: &[&str]) -> String {
+    sha256_bytes(parts.join("\n").as_bytes())
+}
+
+fn sha256_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    let digest = hasher.finalize();
+    let mut output = String::with_capacity("sha256:".len() + digest.len() * 2);
+    output.push_str("sha256:");
+    for byte in digest {
+        write!(&mut output, "{byte:02x}").expect("writing to String cannot fail");
+    }
+    output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn job_readiness_packet_id_is_deterministic() {
+        let first = JobReadinessPacket::new(sample_packet_input()).expect("packet builds");
+        let second = JobReadinessPacket::new(sample_packet_input()).expect("packet builds");
+
+        assert_eq!(first, second);
+        assert!(first.packet_id.starts_with("helm.job_readiness."));
+        assert!(!first.authorizes_domain_action);
+        assert_eq!(first.evidence_status.len(), 2);
+    }
+
+    #[test]
+    fn job_readiness_packet_id_changes_when_evidence_changes() {
+        let first = JobReadinessPacket::new(sample_packet_input()).expect("packet builds");
+        let mut input = sample_packet_input();
+        input.evidence_status[1].status = EvidenceReadinessStatus::Present;
+        input.evidence_status[1]
+            .fact_ids
+            .push("folio.editorial.claim-citations".to_string());
+        let second = JobReadinessPacket::new(input).expect("packet builds");
+
+        assert_ne!(first.packet_id, second.packet_id);
+    }
+
+    #[test]
+    fn job_readiness_packet_rejects_domain_authority() {
+        let mut input = sample_packet_input();
+        input.authorizes_domain_action = true;
+
+        let error = JobReadinessPacket::new(input).expect_err("authority is rejected");
+        assert_eq!(error, OperatorControlError::DomainActionAuthorityRequested);
+    }
+
+    #[test]
+    fn operator_ledger_entry_is_deterministic_and_non_authoritative() {
+        let first = OperatorLedgerEntry::new(sample_ledger_input()).expect("entry builds");
+        let second = OperatorLedgerEntry::new(sample_ledger_input()).expect("entry builds");
+
+        assert_eq!(first, second);
+        assert!(first.entry_id.starts_with("helm.ledger_entry."));
+        assert_eq!(first.authority_effect, AuthorityEffect::None);
+        assert_eq!(
+            first.record_kind,
+            OperatorLedgerRecordKind::JobReadinessPacket
+        );
+        assert_eq!(first.receipt_family, ReceiptFamily::Common);
+    }
+
+    #[test]
+    fn operator_ledger_entry_rejects_non_hash_payloads() {
+        let mut input = sample_ledger_input();
+        input.payload_hash = "raw-json-payload".to_string();
+
+        let error = OperatorLedgerEntry::new(input).expect_err("raw payload hash is rejected");
+        assert_eq!(
+            error,
+            OperatorControlError::InvalidSha256 {
+                field: "payload_hash",
+                value: "raw-json-payload".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn operator_ledger_entry_id_changes_when_backlinks_change() {
+        let first = OperatorLedgerEntry::new(sample_ledger_input()).expect("entry builds");
+        let mut input = sample_ledger_input();
+        input
+            .backlink_ids
+            .push("helm.claim_review.9b8f00ab1111".to_string());
+        let second = OperatorLedgerEntry::new(input).expect("entry builds");
+
+        assert_ne!(first.entry_id, second.entry_id);
+    }
+
+    fn sample_packet_input() -> JobReadinessPacketInput {
+        JobReadinessPacketInput {
+            package_id: "truth_package.folio.1234".to_string(),
+            truth_version: "truth.v1".to_string(),
+            domain_hint: "folio-editor.publication-boundary".to_string(),
+            job_key: "folio-publication-package".to_string(),
+            subject_ref: "folio.subject.abcdef012345".to_string(),
+            adapter_receipt_id: "artifact.adapter.abcdef012345".to_string(),
+            adapter_status: AdapterReceiptStatus::Succeeded,
+            verdict: Some(JobVerdict::Invalid),
+            authorizes_domain_action: false,
+            evidence_status: vec![
+                JobEvidenceStatus {
+                    clause_id: "clause.evidence.1".to_string(),
+                    clause_key: "canonical_story_snapshot_bound".to_string(),
+                    label: "canonical story snapshot is bound".to_string(),
+                    status: EvidenceReadinessStatus::Present,
+                    fact_ids: vec!["folio.editorial.canonical-story".to_string()],
+                    evidence_refs: vec!["evidence:folio.editorial.canonical-story".to_string()],
+                    trace_links: vec!["trace:folio.editorial.canonical-story".to_string()],
+                    concern_record_ids: Vec::new(),
+                },
+                JobEvidenceStatus {
+                    clause_id: "clause.evidence.2".to_string(),
+                    clause_key: "claim_citations_attached".to_string(),
+                    label: "public claims carry resolving citations".to_string(),
+                    status: EvidenceReadinessStatus::Missing,
+                    fact_ids: Vec::new(),
+                    evidence_refs: Vec::new(),
+                    trace_links: Vec::new(),
+                    concern_record_ids: vec!["calibration.concern.123".to_string()],
+                },
+            ],
+            verifier_forbidden_actions: vec![
+                "public package is published without editorial approval".to_string(),
+            ],
+            operator_actions: vec![
+                "inspect axiom report".to_string(),
+                "request missing evidence for claim_citations_attached".to_string(),
+            ],
+        }
+    }
+
+    fn sample_ledger_input() -> OperatorLedgerEntryInput {
+        OperatorLedgerEntryInput {
+            sequence: 1,
+            record_kind: OperatorLedgerRecordKind::JobReadinessPacket,
+            receipt_family: ReceiptFamily::Common,
+            source_ref: "helm.job_readiness.abcdef012345".to_string(),
+            package_id: "truth_package.folio.1234".to_string(),
+            truth_version: "truth.v1".to_string(),
+            domain_hint: "folio-editor.publication-boundary".to_string(),
+            payload_hash: "sha256:90b8fb64fdd6f926a4ef42d67a145215aa7e7e07480863217f8558c472da579f"
+                .to_string(),
+            backlink_ids: vec!["artifact.adapter.abcdef012345".to_string()],
+            summary: "job readiness Invalid for folio-publication-package".to_string(),
+        }
     }
 }
