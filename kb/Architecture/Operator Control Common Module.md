@@ -18,6 +18,13 @@ readiness: it shows buyer authorization, release-condition evidence,
 policy-gate evidence, idempotency, custody receipt, and double-release guard
 coverage while keeping release authority inside Tally.
 
+The second packet is Quorum adaptive inquiry readiness. It demonstrates the
+same list contract on a softer, sensemaking-shaped job: the inquiry question,
+participant consent, signal mass, and adaptive probe are present, while
+competing hypotheses and skewed role coverage keep the packet blocked. Helm can
+show the operator what to inspect next, but it does not declare quorum, approve
+synthesis, or convert sensemaking into organizational action.
+
 ## First Shared Types
 
 `JobReadinessPacket` is the generic read model repeated across the app probes:

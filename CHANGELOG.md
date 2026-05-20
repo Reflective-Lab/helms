@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Workbench operator-control previews surface: `/v1/workbench/operator-control/previews` returns the readiness-packet list so Tally, Quorum, Fathom, Folio, and later app packets can share the same UI/API contract.
 - Desktop workbench Operator Control tab renders the standard readiness packet, evidence states, operator actions, ledger entry, and receipt-family catalog in both embedded and remote backend modes.
 - Operator Control now starts with the Tally escrow-release packet: buyer authorization, release conditions, policy gate, idempotency, custody receipt, and double-release guard all render through the standard non-authoritative readiness surface.
+- Operator Control now includes Quorum as the second readiness packet: adaptive inquiry is blocked on preserved disagreement and role-coverage concern, making the packet selector visible while keeping synthesis authority outside Helm.
 - `kb/Architecture/Operator Control Common Module.md` documents the Helm side of the Axiom app-probe extraction: long-running job receipts, temporal-evidence receipts, and content/publication receipts share deterministic backlink mechanics while app payloads remain local.
 
 ### Fixed

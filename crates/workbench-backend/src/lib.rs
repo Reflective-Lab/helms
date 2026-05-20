@@ -358,6 +358,134 @@ fn tally_escrow_release_packet() -> Result<JobReadinessPacket, OperatorControlEr
     })
 }
 
+fn quorum_adaptive_inquiry_packet() -> Result<JobReadinessPacket, OperatorControlError> {
+    JobReadinessPacket::new(JobReadinessPacketInput {
+        package_id: "axiom.truth-package.quorum-sense.v0.1".to_string(),
+        truth_version: "quorum-sense.truths.v0.1".to_string(),
+        domain_hint: "quorum-sense.inquiry".to_string(),
+        job_key: "adaptive-inquiry".to_string(),
+        subject_ref: "quorum://inquiry/org-transition-001/session/2026-05-20".to_string(),
+        adapter_receipt_id: "artifact.observation_adapter.quorum-sense-2026-05-20".to_string(),
+        adapter_status: AdapterReceiptStatus::Succeeded,
+        verdict: Some(JobVerdict::Blocked),
+        authorizes_domain_action: false,
+        evidence_status: vec![
+            JobEvidenceStatus {
+                clause_id: "jtbd.adaptive-inquiry.evidence.core_question".to_string(),
+                clause_key: "core_question_declared".to_string(),
+                label: "operator-defined inquiry question anchors the sensemaking run".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.quorum.inquiry.core-question".to_string()],
+                evidence_refs: vec!["evidence:quorum.inquiry-thread.created".to_string()],
+                trace_links: vec!["trace:quorum.open-inquiry".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.adaptive-inquiry.evidence.participant_consent".to_string(),
+                clause_key: "participant_consent".to_string(),
+                label: "participant consent scope is recorded before signals are used".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.quorum.participant.consent-scope".to_string()],
+                evidence_refs: vec!["evidence:quorum.consent.workspace-review".to_string()],
+                trace_links: vec!["trace:quorum.consent-gate".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.adaptive-inquiry.evidence.signal_mass".to_string(),
+                clause_key: "signal_mass".to_string(),
+                label: "participant signals have enough mass to form initial hypotheses"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.quorum.signals.initial-mass".to_string()],
+                evidence_refs: vec!["evidence:quorum.signal-batch.round-2".to_string()],
+                trace_links: vec!["trace:quorum.signal-extraction".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.adaptive-inquiry.evidence.adaptive_probe".to_string(),
+                clause_key: "adaptive_probe_generated".to_string(),
+                label: "next probe cites the hypothesis it is meant to test".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.quorum.probe.generated-from-hypothesis".to_string()],
+                evidence_refs: vec!["evidence:quorum.probe.hypothesis-link".to_string()],
+                trace_links: vec!["trace:quorum.probe-generation".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.adaptive-inquiry.evidence.competing_hypotheses".to_string(),
+                clause_key: "competing_hypotheses_preserved".to_string(),
+                label: "minority hypothesis remains preserved instead of collapsed into consensus"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Disputed,
+                fact_ids: vec![
+                    "fact.quorum.hypothesis.operations-risk".to_string(),
+                    "fact.quorum.hypothesis.strategy-confusion".to_string(),
+                ],
+                evidence_refs: vec!["evidence:quorum.disagreement.round-2".to_string()],
+                trace_links: vec!["trace:quorum.branch-synthesis.disagreement".to_string()],
+                concern_record_ids: vec![
+                    "operator.concern.quorum.competing-hypotheses".to_string(),
+                ],
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.adaptive-inquiry.evidence.role_coverage".to_string(),
+                clause_key: "role_coverage".to_string(),
+                label: "role coverage is skewed; frontline and executive voices are not balanced"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Concern,
+                fact_ids: vec!["fact.quorum.coverage.middle-management-heavy".to_string()],
+                evidence_refs: vec!["evidence:quorum.coverage.role-topology".to_string()],
+                trace_links: vec!["trace:quorum.quorum-topology".to_string()],
+                concern_record_ids: vec!["operator.concern.quorum.role-coverage".to_string()],
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.adaptive-inquiry.failure.false_consensus".to_string(),
+                clause_key: "false_consensus_guard".to_string(),
+                label: "false-consensus guard blocks quorum declaration before topology is sound"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.quorum.guard.false-consensus".to_string()],
+                evidence_refs: vec!["evidence:quorum.truth.no-false-consensus".to_string()],
+                trace_links: vec!["trace:axiom.failure.false-consensus".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+        ],
+        verifier_forbidden_actions: vec![
+            "do not steer participants toward a predetermined conclusion".to_string(),
+            "do not suppress minority hypotheses below quorum threshold".to_string(),
+            "do not declare quorum without role coverage and dissent review".to_string(),
+            "do not convert synthesis into organizational action without operator approval"
+                .to_string(),
+            "do not treat Helm readiness as inquiry or synthesis authority".to_string(),
+        ],
+        operator_actions: vec![
+            "inspect the Quorum inquiry thread".to_string(),
+            "review preserved disagreement and competing hypothesis citations".to_string(),
+            "collect missing frontline and executive role coverage".to_string(),
+            "choose whether to continue probing or hold synthesis for approval".to_string(),
+        ],
+    })
+}
+
+fn operator_control_preview_from_packet(
+    sequence: u64,
+    packet: JobReadinessPacket,
+    summary: &str,
+) -> Result<OperatorControlPreview, OperatorControlError> {
+    let ledger_entry = job_readiness_packet_ledger_entry(
+        sequence,
+        &packet,
+        vec![packet.adapter_receipt_id.clone()],
+        summary,
+    )?;
+
+    Ok(OperatorControlPreview {
+        packet,
+        ledger_entries: vec![ledger_entry],
+        receipt_families: operator_receipt_families(),
+    })
+}
+
 fn operator_receipt_families() -> Vec<OperatorReceiptFamilyView> {
     vec![
         OperatorReceiptFamilyView {
@@ -462,23 +590,24 @@ where
 
     pub fn operator_control_preview(&self) -> OperatorAppResult<OperatorControlPreview> {
         let packet = tally_escrow_release_packet().map_err(operator_control_error)?;
-        let ledger_entry = job_readiness_packet_ledger_entry(
+        operator_control_preview_from_packet(
             0,
-            &packet,
-            vec![packet.adapter_receipt_id.clone()],
+            packet,
             "Tally escrow-release readiness is satisfied; Helm records no release authority",
         )
-        .map_err(operator_control_error)?;
-
-        Ok(OperatorControlPreview {
-            packet,
-            ledger_entries: vec![ledger_entry],
-            receipt_families: operator_receipt_families(),
-        })
+        .map_err(operator_control_error)
     }
 
     pub fn operator_control_previews(&self) -> OperatorAppResult<Vec<OperatorControlPreview>> {
-        Ok(vec![self.operator_control_preview()?])
+        let quorum = quorum_adaptive_inquiry_packet().map_err(operator_control_error)?;
+        let quorum = operator_control_preview_from_packet(
+            1,
+            quorum,
+            "Quorum inquiry is blocked on role coverage and unresolved dissent; Helm records no synthesis authority",
+        )
+        .map_err(operator_control_error)?;
+
+        Ok(vec![self.operator_control_preview()?, quorum])
     }
 
     #[must_use]
@@ -2975,7 +3104,7 @@ mod tests {
             .operator_control_previews()
             .expect("operator control previews");
 
-        assert_eq!(previews.len(), 1);
+        assert_eq!(previews.len(), 2);
         assert_eq!(previews[0].packet.domain_hint, "tally-escrow.release");
         assert_eq!(previews[0].packet.job_key, "escrow-release");
         assert_eq!(previews[0].packet.verdict, Some(JobVerdict::Satisfied));
@@ -2985,6 +3114,37 @@ mod tests {
                 .evidence_status
                 .iter()
                 .all(|status| status.status == EvidenceReadinessStatus::Present)
+        );
+
+        assert_eq!(previews[1].packet.domain_hint, "quorum-sense.inquiry");
+        assert_eq!(previews[1].packet.job_key, "adaptive-inquiry");
+        assert_eq!(previews[1].packet.verdict, Some(JobVerdict::Blocked));
+        assert!(!previews[1].packet.authorizes_domain_action);
+        assert_eq!(previews[1].ledger_entries[0].sequence, 1);
+        assert!(
+            previews[1]
+                .packet
+                .evidence_status
+                .iter()
+                .any(
+                    |status| status.clause_key == "competing_hypotheses_preserved"
+                        && status.status == EvidenceReadinessStatus::Disputed
+                )
+        );
+        assert!(
+            previews[1]
+                .packet
+                .evidence_status
+                .iter()
+                .any(|status| status.clause_key == "role_coverage"
+                    && status.status == EvidenceReadinessStatus::Concern)
+        );
+        assert!(
+            previews[1]
+                .packet
+                .verifier_forbidden_actions
+                .iter()
+                .any(|action| action.contains("synthesis authority"))
         );
     }
 
