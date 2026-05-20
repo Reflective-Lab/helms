@@ -985,13 +985,6 @@ fn main() {
             list_expense_items,
             list_receipt_samples,
             compare_receipt_ocr,
-            get_note_vault_root,
-            list_notes,
-            read_note,
-            save_note,
-            create_note,
-            move_note,
-            import_markdown_tree,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run outcome workbench");

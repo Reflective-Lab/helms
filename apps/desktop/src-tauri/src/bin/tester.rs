@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use application_storage::{AppConfig, RecordStoreConfig, SurrealDbKernelStore, SurrealStoreConfig};
 use uuid::Uuid;
-use workbench_backend::{OperatorApp, OperatorDashboard, TruthExecutionSession, TruthListItem};
+use workbench_backend::OperatorApp;
 
 fn default_desktop_store_endpoint() -> String {
     let path = std::env::current_dir()
@@ -33,7 +33,6 @@ use application_kernel::{
     OrganizationLifecycle, OrganizationUpsert, SubscriptionActivate, SubscriptionCreate,
     SubscriptionStatus,
 };
-use application_storage::KernelStore;
 use std::collections::BTreeMap;
 
 fn seed_uuid(value: &str) -> Uuid {
@@ -218,7 +217,6 @@ fn main() {
             ("contact_email".to_string(), "test@test.com".to_string()),
         ]),
     );
-    let mut f1_org_id = None;
     match f1_res {
         Ok(session) => {
             println!("Execution state: {:?}", session.state);
@@ -227,7 +225,6 @@ fn main() {
                 .as_ref()
                 .and_then(|p| p.organization_id.clone());
             println!("Projected Org ID: {:?}", org_id);
-            f1_org_id = org_id.clone();
 
             let orgs = operator.list_organizations().unwrap();
             println!("Orgs count: {}", orgs.len());

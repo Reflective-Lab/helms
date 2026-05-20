@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Desktop workbench Operator Control tab renders the standard readiness packet, evidence states, operator actions, ledger entry, and receipt-family catalog in both embedded and remote backend modes.
 - `kb/Architecture/Operator Control Common Module.md` documents the Helm side of the Axiom app-probe extraction: long-running job receipts, temporal-evidence receipts, and content/publication receipts share deterministic backlink mechanics while app payloads remain local.
 
+### Fixed
+- Desktop Tauri Rust crate now belongs to the root Helms workspace, uses the same local Organism/Converge dependency graph, and relies on the root `Cargo.lock`; this removes the duplicate `converge_core` / `converge_model` type identity split in embedded desktop checks.
+
 ## [0.2.0] - 2026-05-08
 
 ### Added
