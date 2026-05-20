@@ -261,6 +261,103 @@ fn operator_control_error(error: OperatorControlError) -> OperatorAppError {
     OperatorAppError::OperatorControl(error.to_string())
 }
 
+fn tally_escrow_release_packet() -> Result<JobReadinessPacket, OperatorControlError> {
+    JobReadinessPacket::new(JobReadinessPacketInput {
+        package_id: "axiom.truth-package.escrow-release.v0.12".to_string(),
+        truth_version: "escrow-release.truths.v0.12".to_string(),
+        domain_hint: "tally-escrow.release".to_string(),
+        job_key: "escrow-release".to_string(),
+        subject_ref: "tally://agreement/agreement-7/release/2026-05-19".to_string(),
+        adapter_receipt_id: "artifact.observation_adapter.tally-release-2026-05-19".to_string(),
+        adapter_status: AdapterReceiptStatus::Succeeded,
+        verdict: Some(JobVerdict::Satisfied),
+        authorizes_domain_action: false,
+        evidence_status: vec![
+            JobEvidenceStatus {
+                clause_id: "jtbd.escrow-release.evidence.buyer_approval".to_string(),
+                clause_key: "buyer_approval".to_string(),
+                label: "buyer authorization is signed, on file, and non-revoked".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.tally.release.buyer-authorization".to_string()],
+                evidence_refs: vec!["evidence:tally.signing-witness.acquirer".to_string()],
+                trace_links: vec![
+                    "trace:tally.release.truth.transition-requires-signature".to_string(),
+                ],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.escrow-release.evidence.delivery_confirmed".to_string(),
+                clause_key: "delivery_confirmed".to_string(),
+                label: "vendor delivery is confirmed by release-condition evidence".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.tally.release.conditions-met".to_string()],
+                evidence_refs: vec![
+                    "evidence:tally.truth.release-requires-conditions-met".to_string(),
+                ],
+                trace_links: vec!["trace:tally.release.conditions".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.escrow-release.evidence.compliance_cleared".to_string(),
+                clause_key: "compliance_cleared".to_string(),
+                label: "promotion authority observed the current release policy gate".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.tally.release.policy-gate-cleared".to_string()],
+                evidence_refs: vec![
+                    "evidence:converge.policy.sha256.tally-release-policy".to_string(),
+                ],
+                trace_links: vec!["trace:converge.gate.tally-release".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.escrow-release.evidence.idempotency_key".to_string(),
+                clause_key: "idempotency_key".to_string(),
+                label: "release transition carries a unique idempotency record".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.tally.release.idempotency-agreement-7".to_string()],
+                evidence_refs: vec![
+                    "evidence:tally.transition.agreement-7.verified-released".to_string(),
+                ],
+                trace_links: vec!["trace:tally.transition.record".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.escrow-release.evidence.disbursement_recorded".to_string(),
+                clause_key: "disbursement_recorded".to_string(),
+                label: "custody release receipt is recorded for the payment handoff".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.tally.release.custody-receipt".to_string()],
+                evidence_refs: vec!["evidence:tally.release-receipt.attestation".to_string()],
+                trace_links: vec!["trace:tally.custody.release-receipt".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.escrow-release.failure.double_release".to_string(),
+                clause_key: "double_release_guard".to_string(),
+                label: "double-release failure guard is covered by the idempotency check"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.tally.release.double-release-guard".to_string()],
+                evidence_refs: vec!["evidence:tally.idempotency.no-prior-promotion".to_string()],
+                trace_links: vec!["trace:axiom.failure.double-release".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+        ],
+        verifier_forbidden_actions: vec![
+            "do not release funds without active buyer authorization".to_string(),
+            "do not release funds for a sanctioned recipient".to_string(),
+            "do not release funds while the agreement has an open dispute".to_string(),
+            "do not promote a second release for the same idempotency key".to_string(),
+            "do not treat Helm readiness as payment-rail authority".to_string(),
+        ],
+        operator_actions: vec![
+            "inspect the Axiom escrow-release report".to_string(),
+            "review the Tally custody receipt and transition record".to_string(),
+            "confirm Tally's transition guard remains the release authority".to_string(),
+        ],
+    })
+}
+
 fn operator_receipt_families() -> Vec<OperatorReceiptFamilyView> {
     vec![
         OperatorReceiptFamilyView {
@@ -364,68 +461,12 @@ where
     }
 
     pub fn operator_control_preview(&self) -> OperatorAppResult<OperatorControlPreview> {
-        let packet = JobReadinessPacket::new(JobReadinessPacketInput {
-            package_id: "helm.truth.quorum-sense.discovery".to_string(),
-            truth_version: "workbench.truth-catalog.v1".to_string(),
-            domain_hint: "quorum-sense.constraint-discovery".to_string(),
-            job_key: "quorum-sense-frontload-topics".to_string(),
-            subject_ref: "quorum://session/meta-app-discovery".to_string(),
-            adapter_receipt_id: "artifact.observation_adapter.quorum-preview".to_string(),
-            adapter_status: AdapterReceiptStatus::Succeeded,
-            verdict: Some(JobVerdict::Invalid),
-            authorizes_domain_action: false,
-            evidence_status: vec![
-                JobEvidenceStatus {
-                    clause_id: "clause.evidence.topic-signal".to_string(),
-                    clause_key: "participant_signal_captured".to_string(),
-                    label: "participant signals are captured before topics are selected"
-                        .to_string(),
-                    status: EvidenceReadinessStatus::Present,
-                    fact_ids: vec!["quorum.signal.participant-map".to_string()],
-                    evidence_refs: vec!["evidence:quorum.signal.participant-map".to_string()],
-                    trace_links: vec!["trace:quorum.signal.participant-map".to_string()],
-                    concern_record_ids: Vec::new(),
-                },
-                JobEvidenceStatus {
-                    clause_id: "clause.evidence.disagreement".to_string(),
-                    clause_key: "high_variance_topics_preserved".to_string(),
-                    label: "high-variance or fuzzy-disagreement topics remain visible"
-                        .to_string(),
-                    status: EvidenceReadinessStatus::Concern,
-                    fact_ids: vec!["quorum.signal.fuzzy-membership".to_string()],
-                    evidence_refs: vec!["evidence:quorum.signal.fuzzy-membership".to_string()],
-                    trace_links: vec!["trace:quorum.signal.fuzzy-membership".to_string()],
-                    concern_record_ids: vec!["calibration.concern.quorum-fuzzy-topic".to_string()],
-                },
-                JobEvidenceStatus {
-                    clause_id: "clause.evidence.commitment-bridge".to_string(),
-                    clause_key: "decision_bridge_named".to_string(),
-                    label: "the downstream commitment bridge is named before handoff"
-                        .to_string(),
-                    status: EvidenceReadinessStatus::Missing,
-                    fact_ids: Vec::new(),
-                    evidence_refs: Vec::new(),
-                    trace_links: Vec::new(),
-                    concern_record_ids: Vec::new(),
-                },
-            ],
-            verifier_forbidden_actions: vec![
-                "do not convert fuzzy disagreement into a binary release condition without operator review"
-                    .to_string(),
-                "do not authorize a downstream app action from readiness alone".to_string(),
-            ],
-            operator_actions: vec![
-                "inspect axiom report".to_string(),
-                "review high-variance fuzzy topics".to_string(),
-                "name the downstream commitment bridge before handoff".to_string(),
-            ],
-        })
-        .map_err(operator_control_error)?;
+        let packet = tally_escrow_release_packet().map_err(operator_control_error)?;
         let ledger_entry = job_readiness_packet_ledger_entry(
             0,
             &packet,
             vec![packet.adapter_receipt_id.clone()],
-            format!("job readiness {:?} for {}", packet.verdict, packet.job_key),
+            "Tally escrow-release readiness is satisfied; Helm records no release authority",
         )
         .map_err(operator_control_error)?;
 
@@ -2674,7 +2715,10 @@ mod tests {
         SubscriptionStatus,
     };
     use application_storage::InMemoryKernelStore;
-    use prio_agent_ops::{AuthorityEffect, OperatorLedgerRecordKind, ReceiptFamily};
+    use prio_agent_ops::{
+        AuthorityEffect, EvidenceReadinessStatus, JobVerdict, OperatorLedgerRecordKind,
+        ReceiptFamily,
+    };
     use uuid::Uuid;
 
     use super::{ApprovalFilter, ExecutionState, OperatorApp, WorkflowCaseFilter};
@@ -2866,13 +2910,37 @@ mod tests {
             .expect("operator control preview");
 
         assert!(preview.packet.packet_id.starts_with("helm.job_readiness."));
+        assert_eq!(preview.packet.domain_hint, "tally-escrow.release");
+        assert_eq!(preview.packet.job_key, "escrow-release");
+        assert_eq!(preview.packet.verdict, Some(JobVerdict::Satisfied));
         assert!(!preview.packet.authorizes_domain_action);
         assert!(
             preview
                 .packet
                 .evidence_status
                 .iter()
-                .any(|status| status.clause_key == "high_variance_topics_preserved")
+                .any(|status| status.clause_key == "buyer_approval")
+        );
+        assert!(
+            preview
+                .packet
+                .evidence_status
+                .iter()
+                .any(|status| status.clause_key == "double_release_guard")
+        );
+        assert!(
+            preview
+                .packet
+                .evidence_status
+                .iter()
+                .all(|status| status.status == EvidenceReadinessStatus::Present)
+        );
+        assert!(
+            preview
+                .packet
+                .verifier_forbidden_actions
+                .iter()
+                .any(|action| action.contains("payment-rail authority"))
         );
         assert_eq!(preview.ledger_entries.len(), 1);
         assert_eq!(

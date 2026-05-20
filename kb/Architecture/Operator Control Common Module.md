@@ -11,7 +11,10 @@ The first host-facing preview lives at
 `GET /v1/workbench/operator-control/preview`. It returns a
 `JobReadinessPacket`, the packet's matching `OperatorLedgerEntry`, and the
 receipt-family catalog Helm can render before app-specific receipt payloads are
-standardized.
+standardized. The current preview is Tally escrow-release readiness: it shows
+buyer authorization, release-condition evidence, policy-gate evidence,
+idempotency, custody receipt, and double-release guard coverage while keeping
+release authority inside Tally.
 
 ## First Shared Types
 

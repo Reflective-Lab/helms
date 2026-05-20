@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `prio-agent-ops` operator-control common module slice: deterministic `JobReadinessPacket`, clause-level evidence readiness, receipt families, non-authoritative `OperatorLedgerEntry`, content-addressed ids, and unit tests for replay stability and authority boundaries.
 - Workbench operator-control preview surface: `/v1/workbench/operator-control/preview` exposes a sample readiness packet, matching non-authoritative ledger entry, and receipt-family catalog for Helm UI integration.
 - Desktop workbench Operator Control tab renders the standard readiness packet, evidence states, operator actions, ledger entry, and receipt-family catalog in both embedded and remote backend modes.
+- Operator Control now starts with the Tally escrow-release packet: buyer authorization, release conditions, policy gate, idempotency, custody receipt, and double-release guard all render through the standard non-authoritative readiness surface.
 - `kb/Architecture/Operator Control Common Module.md` documents the Helm side of the Axiom app-probe extraction: long-running job receipts, temporal-evidence receipts, and content/publication receipts share deterministic backlink mechanics while app payloads remain local.
 
 ### Fixed
