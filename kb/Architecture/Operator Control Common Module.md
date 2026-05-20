@@ -25,6 +25,17 @@ competing hypotheses and skewed role coverage keep the packet blocked. Helm can
 show the operator what to inspect next, but it does not declare quorum, approve
 synthesis, or convert sensemaking into organizational action.
 
+The next packets widen the contract across the app portfolio:
+
+- Fathom carries temporal-evidence windows and filing disagreement without
+  granting narrative authority.
+- Warden carries compliance verdicts, shadow-rule diffs, and remediation blocks
+  without granting compliance override authority.
+- Plumb carries strategy anchors, execution telemetry, and drift concerns
+  without granting revision authority.
+- Atlas carries integration-candidate evidence, owner-gate gaps, and writeback
+  guards without granting repository writeback authority.
+
 ## First Shared Types
 
 `JobReadinessPacket` is the generic read model repeated across the app probes:

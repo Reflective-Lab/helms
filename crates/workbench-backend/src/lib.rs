@@ -467,6 +467,340 @@ fn quorum_adaptive_inquiry_packet() -> Result<JobReadinessPacket, OperatorContro
     })
 }
 
+fn fathom_temporal_evidence_packet() -> Result<JobReadinessPacket, OperatorControlError> {
+    JobReadinessPacket::new(JobReadinessPacketInput {
+        package_id: "axiom.truth-package.fathom-narrative.v0.1".to_string(),
+        truth_version: "fathom-narrative.truths.v0.1".to_string(),
+        domain_hint: "fathom-narrative.temporal-evidence".to_string(),
+        job_key: "temporal-filing-window".to_string(),
+        subject_ref: "fathom://cik/0000320193/risk-factors/fy2025".to_string(),
+        adapter_receipt_id: "artifact.observation_adapter.fathom-window-2026-05-20".to_string(),
+        adapter_status: AdapterReceiptStatus::Succeeded,
+        verdict: Some(JobVerdict::Blocked),
+        authorizes_domain_action: false,
+        evidence_status: vec![
+            JobEvidenceStatus {
+                clause_id: "jtbd.temporal-filing-window.evidence.corpus_snapshot".to_string(),
+                clause_key: "corpus_snapshot".to_string(),
+                label: "EDGAR corpus snapshot is recorded for the filing comparison".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.fathom.corpus.edgar-snapshot".to_string()],
+                evidence_refs: vec!["evidence:fathom.edgar.snapshot.2026-05-20".to_string()],
+                trace_links: vec!["trace:fathom.ingest.edgar".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.temporal-filing-window.evidence.evidence_window".to_string(),
+                clause_key: "evidence_window".to_string(),
+                label: "prior and current risk-factor windows are bound to filing dates"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.fathom.window.2024-to-2025".to_string()],
+                evidence_refs: vec!["evidence:fathom.window.10k-2024-2025".to_string()],
+                trace_links: vec!["trace:fathom.temporal-window".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.temporal-filing-window.evidence.risk_factor_drift".to_string(),
+                clause_key: "risk_factor_drift".to_string(),
+                label: "risk-factor language drift is material enough for analyst review"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Concern,
+                fact_ids: vec!["fact.fathom.risk-factor.language-drift".to_string()],
+                evidence_refs: vec!["evidence:fathom.language-drift.jaccard".to_string()],
+                trace_links: vec!["trace:fathom.suggestor.risk-factor-language".to_string()],
+                concern_record_ids: vec!["operator.concern.fathom.material-drift".to_string()],
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.temporal-filing-window.evidence.segment_consistency".to_string(),
+                clause_key: "segment_consistency".to_string(),
+                label: "segment narrative and reported numbers have not been reconciled"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Disputed,
+                fact_ids: vec![
+                    "fact.fathom.segment.narrative-growth".to_string(),
+                    "fact.fathom.segment.reported-decline".to_string(),
+                ],
+                evidence_refs: vec!["evidence:fathom.segment-disagreement".to_string()],
+                trace_links: vec!["trace:fathom.disagreement-map".to_string()],
+                concern_record_ids: vec!["operator.concern.fathom.segment-mismatch".to_string()],
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.temporal-filing-window.failure.early_collapse".to_string(),
+                clause_key: "no_early_collapse_guard".to_string(),
+                label: "conflicting filing perspectives remain separate before promotion"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.fathom.guard.no-early-collapse".to_string()],
+                evidence_refs: vec!["evidence:fathom.truth.perspective-separation".to_string()],
+                trace_links: vec!["trace:axiom.failure.early-collapse".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+        ],
+        verifier_forbidden_actions: vec![
+            "do not promote a narrative claim without source filing windows".to_string(),
+            "do not collapse conflicting segment evidence into one summary".to_string(),
+            "do not treat stale filings as current evidence".to_string(),
+            "do not publish analyst conclusions before review".to_string(),
+            "do not treat Helm readiness as narrative authority".to_string(),
+        ],
+        operator_actions: vec![
+            "inspect the Fathom corpus snapshot and evidence window".to_string(),
+            "review risk-factor language drift before promotion".to_string(),
+            "resolve segment narrative disagreement with analyst notes".to_string(),
+        ],
+    })
+}
+
+fn warden_compliance_packet() -> Result<JobReadinessPacket, OperatorControlError> {
+    JobReadinessPacket::new(JobReadinessPacketInput {
+        package_id: "axiom.truth-package.warden-compliance.v0.1".to_string(),
+        truth_version: "warden-compliance.truths.v0.1".to_string(),
+        domain_hint: "warden-compliance.audit".to_string(),
+        job_key: "compliance-gate-review".to_string(),
+        subject_ref: "warden://audit-pack/cross-framework/week-20".to_string(),
+        adapter_receipt_id: "artifact.observation_adapter.warden-audit-2026-05-20".to_string(),
+        adapter_status: AdapterReceiptStatus::Succeeded,
+        verdict: Some(JobVerdict::Blocked),
+        authorizes_domain_action: false,
+        evidence_status: vec![
+            JobEvidenceStatus {
+                clause_id: "jtbd.compliance-gate-review.evidence.rule_registry".to_string(),
+                clause_key: "rule_registry".to_string(),
+                label: "GDPR, SOC2, HIPAA, and PCI-DSS rule registry is loaded".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.warden.rules.loaded".to_string()],
+                evidence_refs: vec!["evidence:warden.rule-registry.week-20".to_string()],
+                trace_links: vec!["trace:warden.rule-load".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.compliance-gate-review.evidence.document_stream".to_string(),
+                clause_key: "document_stream".to_string(),
+                label: "cross-app document stream is inspected by the compliance gate".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.warden.documents.inspected-6".to_string()],
+                evidence_refs: vec!["evidence:warden.document-stream.fixture".to_string()],
+                trace_links: vec!["trace:warden.document-inspection".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.compliance-gate-review.evidence.verdict_log".to_string(),
+                clause_key: "verdict_log".to_string(),
+                label: "seven compliance verdicts were emitted across regulated apps".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.warden.verdicts.emitted-7".to_string()],
+                evidence_refs: vec!["evidence:warden.verdict-log.2026-05-19".to_string()],
+                trace_links: vec!["trace:warden.compliance-gate".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.compliance-gate-review.evidence.shadow_rule".to_string(),
+                clause_key: "shadow_rule_diff".to_string(),
+                label: "PCI-DSS shadow rule would newly block legacy card records".to_string(),
+                status: EvidenceReadinessStatus::Concern,
+                fact_ids: vec!["fact.warden.shadow-rule.newly-blocked-2".to_string()],
+                evidence_refs: vec!["evidence:warden.shadow-diff.pci-card-data".to_string()],
+                trace_links: vec!["trace:warden.shadow-runner".to_string()],
+                concern_record_ids: vec!["operator.concern.warden.pci-remediation".to_string()],
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.compliance-gate-review.failure.clean_attestation".to_string(),
+                clause_key: "clean_attestation_guard".to_string(),
+                label: "clean attestation is blocked while remediation is still required"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Blocked,
+                fact_ids: vec!["fact.warden.remediation.required".to_string()],
+                evidence_refs: vec!["evidence:warden.audit-pack.cross-framework".to_string()],
+                trace_links: vec!["trace:axiom.failure.clean-attestation".to_string()],
+                concern_record_ids: vec!["operator.concern.warden.clean-attestation".to_string()],
+            },
+        ],
+        verifier_forbidden_actions: vec![
+            "do not mark compliance clean while block verdicts remain open".to_string(),
+            "do not roll out a candidate rule without shadow-run review".to_string(),
+            "do not hide framework citations from the audit pack".to_string(),
+            "do not let Helm override compliance remediation authority".to_string(),
+        ],
+        operator_actions: vec![
+            "inspect the Warden verdict log and framework citations".to_string(),
+            "review the PCI-DSS shadow diff before rule rollout".to_string(),
+            "assign remediation for newly blocked records".to_string(),
+        ],
+    })
+}
+
+fn plumb_execution_drift_packet() -> Result<JobReadinessPacket, OperatorControlError> {
+    JobReadinessPacket::new(JobReadinessPacketInput {
+        package_id: "axiom.truth-package.plumb-execution.v0.1".to_string(),
+        truth_version: "plumb-execution.truths.v0.1".to_string(),
+        domain_hint: "plumb-execution.drift".to_string(),
+        job_key: "strategy-drift-review".to_string(),
+        subject_ref: "plumb://strategy/fy2026-growth/version/3".to_string(),
+        adapter_receipt_id: "artifact.observation_adapter.plumb-drift-2026-05-20".to_string(),
+        adapter_status: AdapterReceiptStatus::Succeeded,
+        verdict: Some(JobVerdict::Blocked),
+        authorizes_domain_action: false,
+        evidence_status: vec![
+            JobEvidenceStatus {
+                clause_id: "jtbd.strategy-drift-review.evidence.strategy_anchor".to_string(),
+                clause_key: "strategy_anchor".to_string(),
+                label: "versioned strategy anchor is recorded before drift is measured".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.plumb.strategy.anchor-v3".to_string()],
+                evidence_refs: vec!["evidence:plumb.strategy.version-history".to_string()],
+                trace_links: vec!["trace:plumb.anchor".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.strategy-drift-review.evidence.execution_signals".to_string(),
+                clause_key: "execution_signals".to_string(),
+                label: "operating telemetry is attached to the current strategy review".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.plumb.execution.telemetry-week-20".to_string()],
+                evidence_refs: vec!["evidence:plumb.execution-signal.batch".to_string()],
+                trace_links: vec!["trace:plumb.signal-ingest".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.strategy-drift-review.evidence.drift_verdict".to_string(),
+                clause_key: "drift_verdict".to_string(),
+                label: "material drift verdict cites source signals and fuzzy severity".to_string(),
+                status: EvidenceReadinessStatus::Concern,
+                fact_ids: vec!["fact.plumb.drift.materializing".to_string()],
+                evidence_refs: vec!["evidence:plumb.drift-verdict.fuzzy".to_string()],
+                trace_links: vec!["trace:plumb.drift-detector".to_string()],
+                concern_record_ids: vec!["operator.concern.plumb.material-drift".to_string()],
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.strategy-drift-review.evidence.adversarial_review".to_string(),
+                clause_key: "adversarial_review".to_string(),
+                label: "adversarial review has not yet challenged the proposed correction"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Missing,
+                fact_ids: Vec::new(),
+                evidence_refs: Vec::new(),
+                trace_links: vec!["trace:plumb.adversarial-review.pending".to_string()],
+                concern_record_ids: vec![
+                    "operator.concern.plumb.adversarial-review-missing".to_string(),
+                ],
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.strategy-drift-review.failure.ungated_revision".to_string(),
+                clause_key: "ungated_revision_guard".to_string(),
+                label: "strategy revision cannot commit before promotion gates pass".to_string(),
+                status: EvidenceReadinessStatus::Blocked,
+                fact_ids: vec!["fact.plumb.guard.no-ungated-revision".to_string()],
+                evidence_refs: vec!["evidence:plumb.truth.revision-gate".to_string()],
+                trace_links: vec!["trace:axiom.failure.ungated-revision".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+        ],
+        verifier_forbidden_actions: vec![
+            "do not overwrite the strategy anchor".to_string(),
+            "do not commit a revision without adversarial review".to_string(),
+            "do not treat drift detection as revision authority".to_string(),
+            "do not let Helm close the execution loop for the app".to_string(),
+        ],
+        operator_actions: vec![
+            "inspect the Plumb drift verdict and cited source signals".to_string(),
+            "request adversarial review for the proposed correction".to_string(),
+            "hold strategy revision until promotion gates pass".to_string(),
+        ],
+    })
+}
+
+fn atlas_integration_packet() -> Result<JobReadinessPacket, OperatorControlError> {
+    JobReadinessPacket::new(JobReadinessPacketInput {
+        package_id: "axiom.truth-package.atlas-integration.v0.1".to_string(),
+        truth_version: "atlas-integration.truths.v0.1".to_string(),
+        domain_hint: "atlas-integration.integration-room".to_string(),
+        job_key: "integration-candidate-review".to_string(),
+        subject_ref: "atlas://integration-room/omnistack-ai/candidate/shared-identity-core"
+            .to_string(),
+        adapter_receipt_id: "artifact.observation_adapter.atlas-candidate-2026-05-20".to_string(),
+        adapter_status: AdapterReceiptStatus::Succeeded,
+        verdict: Some(JobVerdict::Blocked),
+        authorizes_domain_action: false,
+        evidence_status: vec![
+            JobEvidenceStatus {
+                clause_id: "jtbd.integration-candidate-review.evidence.repository_profiles"
+                    .to_string(),
+                clause_key: "repository_profiles".to_string(),
+                label: "two acquired repositories have owner and capability profiles".to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.atlas.repositories.profiled".to_string()],
+                evidence_refs: vec!["evidence:atlas.repo-profile.seed-room".to_string()],
+                trace_links: vec!["trace:atlas.map-repositories".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.integration-candidate-review.evidence.reviewable_evidence"
+                    .to_string(),
+                clause_key: "reviewable_evidence".to_string(),
+                label: "identity overlap claim cites AST shape and contract-test evidence"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Present,
+                fact_ids: vec!["fact.atlas.identity-overlap.candidate".to_string()],
+                evidence_refs: vec![
+                    "evidence:atlas.ast.jwt-shape".to_string(),
+                    "evidence:atlas.contract.oidc-test".to_string(),
+                ],
+                trace_links: vec!["trace:atlas.evidence-graph".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.integration-candidate-review.evidence.integration_strength"
+                    .to_string(),
+                clause_key: "integration_strength".to_string(),
+                label: "similarity is high but remains a candidate until bounded proof lands"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Concern,
+                fact_ids: vec!["fact.atlas.similarity.845bps".to_string()],
+                evidence_refs: vec!["evidence:atlas.similarity.prism-planned".to_string()],
+                trace_links: vec!["trace:atlas.candidate-scoring".to_string()],
+                concern_record_ids: vec![
+                    "operator.concern.atlas.bounded-proof-missing".to_string(),
+                ],
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.integration-candidate-review.evidence.owner_approval".to_string(),
+                clause_key: "owner_approval".to_string(),
+                label: "named repository owners have not approved writeback".to_string(),
+                status: EvidenceReadinessStatus::Missing,
+                fact_ids: Vec::new(),
+                evidence_refs: Vec::new(),
+                trace_links: vec!["trace:atlas.owner-gate.pending".to_string()],
+                concern_record_ids: vec!["operator.concern.atlas.owner-approval".to_string()],
+            },
+            JobEvidenceStatus {
+                clause_id: "jtbd.integration-candidate-review.failure.writeback".to_string(),
+                clause_key: "writeback_guard".to_string(),
+                label: "customer repository writeback is blocked until owner and policy gates pass"
+                    .to_string(),
+                status: EvidenceReadinessStatus::Blocked,
+                fact_ids: vec!["fact.atlas.guard.no-writeback".to_string()],
+                evidence_refs: vec![
+                    "evidence:atlas.truth.owner-approval-before-writeback".to_string(),
+                ],
+                trace_links: vec!["trace:axiom.failure.writeback".to_string()],
+                concern_record_ids: Vec::new(),
+            },
+        ],
+        verifier_forbidden_actions: vec![
+            "do not treat similarity score as integration authority".to_string(),
+            "do not write to a customer repository without named owner approval".to_string(),
+            "do not merge bounded-proof and reviewer evidence into one score".to_string(),
+            "do not let Helm bypass Atlas integration gates".to_string(),
+        ],
+        operator_actions: vec![
+            "inspect Atlas evidence graph for the shared identity candidate".to_string(),
+            "collect owner approval before any writeback".to_string(),
+            "request bounded proof for the integration-strength claim".to_string(),
+        ],
+    })
+}
+
 fn operator_control_preview_from_packet(
     sequence: u64,
     packet: JobReadinessPacket,
@@ -606,8 +940,43 @@ where
             "Quorum inquiry is blocked on role coverage and unresolved dissent; Helm records no synthesis authority",
         )
         .map_err(operator_control_error)?;
+        let fathom = fathom_temporal_evidence_packet().map_err(operator_control_error)?;
+        let fathom = operator_control_preview_from_packet(
+            2,
+            fathom,
+            "Fathom temporal evidence is blocked on analyst review; Helm records no narrative authority",
+        )
+        .map_err(operator_control_error)?;
+        let warden = warden_compliance_packet().map_err(operator_control_error)?;
+        let warden = operator_control_preview_from_packet(
+            3,
+            warden,
+            "Warden audit is blocked on remediation; Helm records no compliance override authority",
+        )
+        .map_err(operator_control_error)?;
+        let plumb = plumb_execution_drift_packet().map_err(operator_control_error)?;
+        let plumb = operator_control_preview_from_packet(
+            4,
+            plumb,
+            "Plumb drift review is blocked before adversarial review; Helm records no revision authority",
+        )
+        .map_err(operator_control_error)?;
+        let atlas = atlas_integration_packet().map_err(operator_control_error)?;
+        let atlas = operator_control_preview_from_packet(
+            5,
+            atlas,
+            "Atlas integration candidate is blocked before owner approval; Helm records no writeback authority",
+        )
+        .map_err(operator_control_error)?;
 
-        Ok(vec![self.operator_control_preview()?, quorum])
+        Ok(vec![
+            self.operator_control_preview()?,
+            quorum,
+            fathom,
+            warden,
+            plumb,
+            atlas,
+        ])
     }
 
     #[must_use]
@@ -3104,7 +3473,20 @@ mod tests {
             .operator_control_previews()
             .expect("operator control previews");
 
-        assert_eq!(previews.len(), 2);
+        assert_eq!(
+            previews
+                .iter()
+                .map(|preview| preview.packet.domain_hint.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "tally-escrow.release",
+                "quorum-sense.inquiry",
+                "fathom-narrative.temporal-evidence",
+                "warden-compliance.audit",
+                "plumb-execution.drift",
+                "atlas-integration.integration-room",
+            ]
+        );
         assert_eq!(previews[0].packet.domain_hint, "tally-escrow.release");
         assert_eq!(previews[0].packet.job_key, "escrow-release");
         assert_eq!(previews[0].packet.verdict, Some(JobVerdict::Satisfied));
@@ -3145,6 +3527,67 @@ mod tests {
                 .verifier_forbidden_actions
                 .iter()
                 .any(|action| action.contains("synthesis authority"))
+        );
+
+        assert_eq!(previews[2].packet.job_key, "temporal-filing-window");
+        assert_eq!(previews[2].packet.verdict, Some(JobVerdict::Blocked));
+        assert_eq!(previews[2].ledger_entries[0].sequence, 2);
+        assert!(
+            previews[2]
+                .packet
+                .evidence_status
+                .iter()
+                .any(|status| status.clause_key == "evidence_window"
+                    && status.status == EvidenceReadinessStatus::Present)
+        );
+        assert!(
+            previews[2]
+                .packet
+                .evidence_status
+                .iter()
+                .any(|status| status.clause_key == "segment_consistency"
+                    && status.status == EvidenceReadinessStatus::Disputed)
+        );
+
+        assert_eq!(previews[3].packet.job_key, "compliance-gate-review");
+        assert_eq!(previews[3].packet.verdict, Some(JobVerdict::Blocked));
+        assert_eq!(previews[3].ledger_entries[0].sequence, 3);
+        assert!(
+            previews[3]
+                .packet
+                .evidence_status
+                .iter()
+                .any(|status| status.clause_key == "clean_attestation_guard"
+                    && status.status == EvidenceReadinessStatus::Blocked)
+        );
+
+        assert_eq!(previews[4].packet.job_key, "strategy-drift-review");
+        assert_eq!(previews[4].packet.verdict, Some(JobVerdict::Blocked));
+        assert_eq!(previews[4].ledger_entries[0].sequence, 4);
+        assert!(
+            previews[4]
+                .packet
+                .evidence_status
+                .iter()
+                .any(|status| status.clause_key == "adversarial_review"
+                    && status.status == EvidenceReadinessStatus::Missing)
+        );
+
+        assert_eq!(previews[5].packet.job_key, "integration-candidate-review");
+        assert_eq!(previews[5].packet.verdict, Some(JobVerdict::Blocked));
+        assert_eq!(previews[5].ledger_entries[0].sequence, 5);
+        assert!(
+            previews[5]
+                .packet
+                .evidence_status
+                .iter()
+                .any(|status| status.clause_key == "writeback_guard"
+                    && status.status == EvidenceReadinessStatus::Blocked)
+        );
+        assert!(
+            previews
+                .iter()
+                .all(|preview| !preview.packet.authorizes_domain_action)
         );
     }
 
