@@ -19,9 +19,10 @@ use chrono::Utc;
 use organism_domain::packs;
 use organism_runtime::Registry;
 use prio_agent_ops::{
-    AdapterReceiptStatus, EvidenceReadinessStatus, JobEvidenceStatus, JobReadinessPacket,
-    JobReadinessPacketInput, JobVerdict, OperatorControlError, OperatorLedgerRecordKind,
-    ReceiptFamily, job_readiness_packet_ledger_entry,
+    AdapterReceiptStatus, EvidenceReadinessStatus, FuzzyMembership, FuzzyReadinessTrace,
+    FuzzyRuleActivation, JobEvidenceStatus, JobReadinessPacket, JobReadinessPacketInput,
+    JobVerdict, OperatorControlError, OperatorLedgerRecordKind, ReceiptFamily,
+    job_readiness_packet_ledger_entry,
 };
 use thiserror::Error;
 use truth_catalog::{
@@ -343,6 +344,7 @@ fn tally_escrow_release_packet() -> Result<JobReadinessPacket, OperatorControlEr
                 concern_record_ids: Vec::new(),
             },
         ],
+        fuzzy_trace: None,
         verifier_forbidden_actions: vec![
             "do not release funds without active buyer authorization".to_string(),
             "do not release funds for a sanctioned recipient".to_string(),
@@ -450,6 +452,7 @@ fn quorum_adaptive_inquiry_packet() -> Result<JobReadinessPacket, OperatorContro
                 concern_record_ids: Vec::new(),
             },
         ],
+        fuzzy_trace: None,
         verifier_forbidden_actions: vec![
             "do not steer participants toward a predetermined conclusion".to_string(),
             "do not suppress minority hypotheses below quorum threshold".to_string(),
@@ -537,6 +540,7 @@ fn fathom_temporal_evidence_packet() -> Result<JobReadinessPacket, OperatorContr
                 concern_record_ids: Vec::new(),
             },
         ],
+        fuzzy_trace: None,
         verifier_forbidden_actions: vec![
             "do not promote a narrative claim without source filing windows".to_string(),
             "do not collapse conflicting segment evidence into one summary".to_string(),
@@ -616,6 +620,7 @@ fn warden_compliance_packet() -> Result<JobReadinessPacket, OperatorControlError
                 concern_record_ids: vec!["operator.concern.warden.clean-attestation".to_string()],
             },
         ],
+        fuzzy_trace: None,
         verifier_forbidden_actions: vec![
             "do not mark compliance clean while block verdicts remain open".to_string(),
             "do not roll out a candidate rule without shadow-run review".to_string(),
@@ -696,6 +701,37 @@ fn plumb_execution_drift_packet() -> Result<JobReadinessPacket, OperatorControlE
                 concern_record_ids: Vec::new(),
             },
         ],
+        fuzzy_trace: Some(FuzzyReadinessTrace {
+            variable_key: "drift_severity".to_string(),
+            observed_value_basis_points: 6_200,
+            memberships: vec![
+                FuzzyMembership {
+                    label: "negligible".to_string(),
+                    score_basis_points: 0,
+                },
+                FuzzyMembership {
+                    label: "minor".to_string(),
+                    score_basis_points: 0,
+                },
+                FuzzyMembership {
+                    label: "moderate".to_string(),
+                    score_basis_points: 4_000,
+                },
+                FuzzyMembership {
+                    label: "material".to_string(),
+                    score_basis_points: 3_500,
+                },
+                FuzzyMembership {
+                    label: "critical".to_string(),
+                    score_basis_points: 0,
+                },
+            ],
+            activated_rules: vec![FuzzyRuleActivation {
+                rule_id: "revision-trigger-on-materializing-drift".to_string(),
+                strength_basis_points: 3_500,
+                conclusion: "revision_urgency:advisable".to_string(),
+            }],
+        }),
         verifier_forbidden_actions: vec![
             "do not overwrite the strategy anchor".to_string(),
             "do not commit a revision without adversarial review".to_string(),
@@ -787,6 +823,7 @@ fn atlas_integration_packet() -> Result<JobReadinessPacket, OperatorControlError
                 concern_record_ids: Vec::new(),
             },
         ],
+        fuzzy_trace: None,
         verifier_forbidden_actions: vec![
             "do not treat similarity score as integration authority".to_string(),
             "do not write to a customer repository without named owner approval".to_string(),
@@ -3564,6 +3601,20 @@ mod tests {
         assert_eq!(previews[4].packet.job_key, "strategy-drift-review");
         assert_eq!(previews[4].packet.verdict, Some(JobVerdict::Blocked));
         assert_eq!(previews[4].ledger_entries[0].sequence, 4);
+        let fuzzy_trace = previews[4]
+            .packet
+            .fuzzy_trace
+            .as_ref()
+            .expect("plumb preview carries fuzzy drift trace");
+        assert_eq!(fuzzy_trace.variable_key, "drift_severity");
+        assert_eq!(fuzzy_trace.observed_value_basis_points, 6_200);
+        assert!(
+            fuzzy_trace
+                .memberships
+                .iter()
+                .any(|membership| membership.label == "material"
+                    && membership.score_basis_points == 3_500)
+        );
         assert!(
             previews[4]
                 .packet

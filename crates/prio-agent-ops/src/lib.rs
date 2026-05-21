@@ -60,6 +60,8 @@ pub struct JobReadinessPacket {
     pub verdict: Option<JobVerdict>,
     pub authorizes_domain_action: bool,
     pub evidence_status: Vec<JobEvidenceStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fuzzy_trace: Option<FuzzyReadinessTrace>,
     pub verifier_forbidden_actions: Vec<String>,
     pub operator_actions: Vec<String>,
 }
@@ -74,6 +76,9 @@ impl JobReadinessPacket {
         validate_nonempty("job_key", &input.job_key)?;
         validate_nonempty("subject_ref", &input.subject_ref)?;
         validate_nonempty("adapter_receipt_id", &input.adapter_receipt_id)?;
+        if let Some(trace) = &input.fuzzy_trace {
+            validate_fuzzy_trace(trace)?;
+        }
         if input.authorizes_domain_action {
             return Err(OperatorControlError::DomainActionAuthorityRequested);
         }
@@ -91,6 +96,7 @@ impl JobReadinessPacket {
             verdict: input.verdict,
             authorizes_domain_action: false,
             evidence_status: input.evidence_status,
+            fuzzy_trace: input.fuzzy_trace,
             verifier_forbidden_actions: input.verifier_forbidden_actions,
             operator_actions: input.operator_actions,
         })
@@ -109,6 +115,7 @@ pub struct JobReadinessPacketInput {
     pub verdict: Option<JobVerdict>,
     pub authorizes_domain_action: bool,
     pub evidence_status: Vec<JobEvidenceStatus>,
+    pub fuzzy_trace: Option<FuzzyReadinessTrace>,
     pub verifier_forbidden_actions: Vec<String>,
     pub operator_actions: Vec<String>,
 }
@@ -123,6 +130,27 @@ pub struct JobEvidenceStatus {
     pub evidence_refs: Vec<String>,
     pub trace_links: Vec<String>,
     pub concern_record_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FuzzyReadinessTrace {
+    pub variable_key: String,
+    pub observed_value_basis_points: u16,
+    pub memberships: Vec<FuzzyMembership>,
+    pub activated_rules: Vec<FuzzyRuleActivation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FuzzyMembership {
+    pub label: String,
+    pub score_basis_points: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FuzzyRuleActivation {
+    pub rule_id: String,
+    pub strength_basis_points: u16,
+    pub conclusion: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -236,6 +264,10 @@ impl OperatorLedgerEntry {
 
 pub fn job_readiness_packet_payload_hash(packet: &JobReadinessPacket) -> String {
     let evidence_hash = evidence_status_hash(&packet.evidence_status);
+    let fuzzy_hash = packet
+        .fuzzy_trace
+        .as_ref()
+        .map_or_else(|| "none".to_string(), fuzzy_trace_hash);
     let forbidden_hash = string_list_hash(&packet.verifier_forbidden_actions);
     let action_hash = string_list_hash(&packet.operator_actions);
     let verdict = packet.verdict.map_or("none", JobVerdict::as_str);
@@ -252,6 +284,7 @@ pub fn job_readiness_packet_payload_hash(packet: &JobReadinessPacket) -> String 
         packet.adapter_status.as_str(),
         verdict,
         evidence_hash.as_str(),
+        fuzzy_hash.as_str(),
         forbidden_hash.as_str(),
         action_hash.as_str(),
     ])
@@ -379,6 +412,7 @@ impl AuthorityEffect {
 pub enum OperatorControlError {
     EmptyField { field: &'static str },
     EmptyBacklink,
+    InvalidBasisPoints { field: &'static str, value: u16 },
     InvalidSha256 { field: &'static str, value: String },
     DomainActionAuthorityRequested,
 }
@@ -388,6 +422,9 @@ impl fmt::Display for OperatorControlError {
         match self {
             Self::EmptyField { field } => write!(f, "`{field}` must not be empty"),
             Self::EmptyBacklink => write!(f, "backlink ids must not contain empty values"),
+            Self::InvalidBasisPoints { field, value } => {
+                write!(f, "`{field}` must be between 0 and 10000, got `{value}`")
+            }
             Self::InvalidSha256 { field, value } => {
                 write!(f, "`{field}` must be a sha256 hash, got `{value}`")
             }
@@ -402,6 +439,10 @@ impl Error for OperatorControlError {}
 
 fn job_readiness_packet_id(input: &JobReadinessPacketInput) -> String {
     let evidence_hash = evidence_status_hash(&input.evidence_status);
+    let fuzzy_hash = input
+        .fuzzy_trace
+        .as_ref()
+        .map_or_else(|| "none".to_string(), fuzzy_trace_hash);
     let forbidden_hash = string_list_hash(&input.verifier_forbidden_actions);
     let action_hash = string_list_hash(&input.operator_actions);
     let verdict = input.verdict.map_or("none", JobVerdict::as_str);
@@ -419,6 +460,7 @@ fn job_readiness_packet_id(input: &JobReadinessPacketInput) -> String {
             input.adapter_status.as_str(),
             verdict,
             evidence_hash.as_str(),
+            fuzzy_hash.as_str(),
             forbidden_hash.as_str(),
             action_hash.as_str(),
         ]),
@@ -460,9 +502,78 @@ fn evidence_status_hash(statuses: &[JobEvidenceStatus]) -> String {
     string_list_hash(&parts)
 }
 
+fn fuzzy_trace_hash(trace: &FuzzyReadinessTrace) -> String {
+    let observed = trace.observed_value_basis_points.to_string();
+    let membership_hash = fuzzy_membership_hash(&trace.memberships);
+    let rule_hash = fuzzy_rule_hash(&trace.activated_rules);
+    sha256_lines(&[
+        "fuzzy_readiness_trace",
+        trace.variable_key.as_str(),
+        observed.as_str(),
+        membership_hash.as_str(),
+        rule_hash.as_str(),
+    ])
+}
+
+fn fuzzy_membership_hash(memberships: &[FuzzyMembership]) -> String {
+    let mut parts = Vec::new();
+    for membership in memberships {
+        parts.push(membership.label.clone());
+        parts.push(membership.score_basis_points.to_string());
+    }
+    string_list_hash(&parts)
+}
+
+fn fuzzy_rule_hash(rules: &[FuzzyRuleActivation]) -> String {
+    let mut parts = Vec::new();
+    for rule in rules {
+        parts.push(rule.rule_id.clone());
+        parts.push(rule.strength_basis_points.to_string());
+        parts.push(rule.conclusion.clone());
+    }
+    string_list_hash(&parts)
+}
+
 fn string_list_hash(values: &[String]) -> String {
     let refs = values.iter().map(String::as_str).collect::<Vec<_>>();
     sha256_lines(&refs)
+}
+
+fn validate_fuzzy_trace(trace: &FuzzyReadinessTrace) -> Result<(), OperatorControlError> {
+    validate_nonempty("fuzzy_trace.variable_key", &trace.variable_key)?;
+    validate_basis_points(
+        "fuzzy_trace.observed_value_basis_points",
+        trace.observed_value_basis_points,
+    )?;
+    if trace.memberships.is_empty() {
+        return Err(OperatorControlError::EmptyField {
+            field: "fuzzy_trace.memberships",
+        });
+    }
+    for membership in &trace.memberships {
+        validate_nonempty("fuzzy_trace.membership.label", &membership.label)?;
+        validate_basis_points(
+            "fuzzy_trace.membership.score_basis_points",
+            membership.score_basis_points,
+        )?;
+    }
+    for rule in &trace.activated_rules {
+        validate_nonempty("fuzzy_trace.rule.rule_id", &rule.rule_id)?;
+        validate_basis_points(
+            "fuzzy_trace.rule.strength_basis_points",
+            rule.strength_basis_points,
+        )?;
+        validate_nonempty("fuzzy_trace.rule.conclusion", &rule.conclusion)?;
+    }
+    Ok(())
+}
+
+fn validate_basis_points(field: &'static str, value: u16) -> Result<(), OperatorControlError> {
+    if value <= 10_000 {
+        Ok(())
+    } else {
+        Err(OperatorControlError::InvalidBasisPoints { field, value })
+    }
 }
 
 fn validate_nonempty(field: &'static str, value: &str) -> Result<(), OperatorControlError> {
@@ -535,6 +646,42 @@ mod tests {
         let second = JobReadinessPacket::new(input).expect("packet builds");
 
         assert_ne!(first.packet_id, second.packet_id);
+    }
+
+    #[test]
+    fn job_readiness_packet_id_changes_when_fuzzy_trace_changes() {
+        let mut input = sample_packet_input();
+        input.fuzzy_trace = Some(sample_fuzzy_trace(6_200, 3_500));
+        let first = JobReadinessPacket::new(input).expect("packet builds");
+        let mut input = sample_packet_input();
+        input.fuzzy_trace = Some(sample_fuzzy_trace(7_000, 5_000));
+        let second = JobReadinessPacket::new(input).expect("packet builds");
+
+        assert_ne!(first.packet_id, second.packet_id);
+        assert_eq!(
+            first
+                .fuzzy_trace
+                .as_ref()
+                .expect("fuzzy trace")
+                .memberships
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn job_readiness_packet_rejects_invalid_fuzzy_scores() {
+        let mut input = sample_packet_input();
+        input.fuzzy_trace = Some(sample_fuzzy_trace(10_001, 3_500));
+
+        let error = JobReadinessPacket::new(input).expect_err("invalid score");
+        assert_eq!(
+            error,
+            OperatorControlError::InvalidBasisPoints {
+                field: "fuzzy_trace.observed_value_basis_points",
+                value: 10_001
+            }
+        );
     }
 
     #[test]
@@ -645,6 +792,7 @@ mod tests {
                     concern_record_ids: vec!["calibration.concern.123".to_string()],
                 },
             ],
+            fuzzy_trace: None,
             verifier_forbidden_actions: vec![
                 "public package is published without editorial approval".to_string(),
             ],
@@ -652,6 +800,31 @@ mod tests {
                 "inspect axiom report".to_string(),
                 "request missing evidence for claim_citations_attached".to_string(),
             ],
+        }
+    }
+
+    fn sample_fuzzy_trace(
+        observed_value_basis_points: u16,
+        material_score_basis_points: u16,
+    ) -> FuzzyReadinessTrace {
+        FuzzyReadinessTrace {
+            variable_key: "drift_severity".to_string(),
+            observed_value_basis_points,
+            memberships: vec![
+                FuzzyMembership {
+                    label: "moderate".to_string(),
+                    score_basis_points: 4_000,
+                },
+                FuzzyMembership {
+                    label: "material".to_string(),
+                    score_basis_points: material_score_basis_points,
+                },
+            ],
+            activated_rules: vec![FuzzyRuleActivation {
+                rule_id: "revision-trigger-on-materializing-drift".to_string(),
+                strength_basis_points: material_score_basis_points,
+                conclusion: "revision_urgency:advisable".to_string(),
+            }],
         }
     }
 

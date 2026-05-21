@@ -630,13 +630,15 @@ body {
 }
 
 .readiness-list,
-.family-list {
+.family-list,
+.score-list {
   display: grid;
   gap: 10px;
 }
 
 .readiness-row,
-.family-row {
+.family-row,
+.score-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
@@ -672,6 +674,15 @@ body {
 .family-row span {
   color: var(--ink-soft);
   font-size: 0.82rem;
+}
+
+.fuzzy-card {
+  align-content: start;
+}
+
+.score-row span {
+  color: var(--ink-soft);
+  font-size: 0.88rem;
 }
 
 .mono-line {

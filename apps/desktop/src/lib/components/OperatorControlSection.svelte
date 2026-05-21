@@ -48,6 +48,15 @@
 		return `${formatToken(entry.record_kind)} #${entry.sequence}`
 	}
 
+	function formatBasisPoints(value: number) {
+		const whole = Math.floor(value / 100)
+		const fraction = value % 100
+		if (fraction === 0) {
+			return `${whole}%`
+		}
+		return `${whole}.${String(fraction).padStart(2, '0').replace(/0+$/, '')}%`
+	}
+
 	function packetButtonLabel(candidate: OperatorControlPreview) {
 		return `${candidate.packet.job_key} - ${candidate.packet.domain_hint}`
 	}
@@ -154,6 +163,45 @@
 				{/each}
 			</div>
 		</section>
+
+		{#if preview.packet.fuzzy_trace}
+			<section class="operator-grid">
+				<article class="card fuzzy-card">
+					<div class="row-between">
+						<div>
+							<div class="section-title">Fuzzy Trace</div>
+							<strong>{formatToken(preview.packet.fuzzy_trace.variable_key)}</strong>
+						</div>
+						<span class="badge muted">
+							{formatBasisPoints(preview.packet.fuzzy_trace.observed_value_basis_points)}
+						</span>
+					</div>
+					<div class="score-list">
+						{#each preview.packet.fuzzy_trace.memberships as membership}
+							<div class="score-row">
+								<span>{formatToken(membership.label)}</span>
+								<strong>{formatBasisPoints(membership.score_basis_points)}</strong>
+							</div>
+						{/each}
+					</div>
+				</article>
+
+				<article class="card">
+					<div class="section-title">Activated Rules</div>
+					<div class="list compact">
+						{#each preview.packet.fuzzy_trace.activated_rules as rule}
+							<div class="list-item">
+								<strong>{rule.rule_id}</strong>
+								<div class="meta">{rule.conclusion}</div>
+								<span class="badge muted">{formatBasisPoints(rule.strength_basis_points)}</span>
+							</div>
+						{:else}
+							<p class="empty">No fuzzy rules activated.</p>
+						{/each}
+					</div>
+				</article>
+			</section>
+		{/if}
 
 		<section class="operator-grid">
 			<article class="card">

@@ -410,6 +410,24 @@ export type JobEvidenceStatus = {
 	concern_record_ids: string[]
 }
 
+export type FuzzyMembership = {
+	label: string
+	score_basis_points: number
+}
+
+export type FuzzyRuleActivation = {
+	rule_id: string
+	strength_basis_points: number
+	conclusion: string
+}
+
+export type FuzzyReadinessTrace = {
+	variable_key: string
+	observed_value_basis_points: number
+	memberships: FuzzyMembership[]
+	activated_rules: FuzzyRuleActivation[]
+}
+
 export type JobReadinessPacket = {
 	packet_id: string
 	package_id: string
@@ -422,6 +440,7 @@ export type JobReadinessPacket = {
 	verdict: JobVerdict | null
 	authorizes_domain_action: boolean
 	evidence_status: JobEvidenceStatus[]
+	fuzzy_trace?: FuzzyReadinessTrace | null
 	verifier_forbidden_actions: string[]
 	operator_actions: string[]
 }
