@@ -421,11 +421,20 @@ export type FuzzyRuleActivation = {
 	conclusion: string
 }
 
+export type FuzzyDefuzzifiedScore = {
+	method: string
+	score_basis_points: number
+	domain_min_basis_points: number
+	domain_max_basis_points: number
+	domain_steps: number
+}
+
 export type FuzzyReadinessTrace = {
 	variable_key: string
 	observed_value_basis_points: number
 	memberships: FuzzyMembership[]
 	activated_rules: FuzzyRuleActivation[]
+	defuzzified_score?: FuzzyDefuzzifiedScore | null
 }
 
 export type JobReadinessPacket = {

@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Operator Control now includes Quorum as the second readiness packet: adaptive inquiry is blocked on preserved disagreement and role-coverage concern, making the packet selector visible while keeping synthesis authority outside Helm.
 - Operator Control now includes Fathom, Warden, Plumb, and Atlas packets, covering temporal evidence windows, compliance remediation, execution drift review, and integration writeback gates through the same readiness-list contract.
 - Operator Control readiness packets can now carry optional fuzzy traces. The Plumb preview shows drift-severity memberships and activated rules produced by the app's Prism-backed Suggestor path, while Helm remains display-only.
+- Fuzzy readiness traces can now include an optional typed defuzzified score, including method, score basis points, output domain, and domain steps. Helm hashes and validates the scalar beside memberships/rules without turning it into domain authority.
 - `kb/Architecture/Operator Control Common Module.md` documents the Helm side of the Axiom app-probe extraction: long-running job receipts, temporal-evidence receipts, and content/publication receipts share deterministic backlink mechanics while app payloads remain local.
 
 ### Fixed

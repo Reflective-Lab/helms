@@ -177,6 +177,16 @@
 						</span>
 					</div>
 					<div class="score-list">
+						{#if preview.packet.fuzzy_trace.defuzzified_score}
+							<div class="score-row">
+								<span>{formatToken(preview.packet.fuzzy_trace.defuzzified_score.method)} score</span>
+								<strong>
+									{formatBasisPoints(
+										preview.packet.fuzzy_trace.defuzzified_score.score_basis_points
+									)}
+								</strong>
+							</div>
+						{/if}
 						{#each preview.packet.fuzzy_trace.memberships as membership}
 							<div class="score-row">
 								<span>{formatToken(membership.label)}</span>

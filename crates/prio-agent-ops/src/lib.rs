@@ -138,6 +138,8 @@ pub struct FuzzyReadinessTrace {
     pub observed_value_basis_points: u16,
     pub memberships: Vec<FuzzyMembership>,
     pub activated_rules: Vec<FuzzyRuleActivation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub defuzzified_score: Option<FuzzyDefuzzifiedScore>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -151,6 +153,15 @@ pub struct FuzzyRuleActivation {
     pub rule_id: String,
     pub strength_basis_points: u16,
     pub conclusion: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FuzzyDefuzzifiedScore {
+    pub method: String,
+    pub score_basis_points: u16,
+    pub domain_min_basis_points: u16,
+    pub domain_max_basis_points: u16,
+    pub domain_steps: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -410,10 +421,27 @@ impl AuthorityEffect {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OperatorControlError {
-    EmptyField { field: &'static str },
+    EmptyField {
+        field: &'static str,
+    },
     EmptyBacklink,
-    InvalidBasisPoints { field: &'static str, value: u16 },
-    InvalidSha256 { field: &'static str, value: String },
+    InvalidBasisPoints {
+        field: &'static str,
+        value: u16,
+    },
+    InvalidRange {
+        field: &'static str,
+        min: u16,
+        max: u16,
+    },
+    InvalidCount {
+        field: &'static str,
+        value: u32,
+    },
+    InvalidSha256 {
+        field: &'static str,
+        value: String,
+    },
     DomainActionAuthorityRequested,
 }
 
@@ -424,6 +452,12 @@ impl fmt::Display for OperatorControlError {
             Self::EmptyBacklink => write!(f, "backlink ids must not contain empty values"),
             Self::InvalidBasisPoints { field, value } => {
                 write!(f, "`{field}` must be between 0 and 10000, got `{value}`")
+            }
+            Self::InvalidRange { field, min, max } => {
+                write!(f, "`{field}` must have min < max, got `{min}`..`{max}`")
+            }
+            Self::InvalidCount { field, value } => {
+                write!(f, "`{field}` must be greater than zero, got `{value}`")
             }
             Self::InvalidSha256 { field, value } => {
                 write!(f, "`{field}` must be a sha256 hash, got `{value}`")
@@ -506,12 +540,17 @@ fn fuzzy_trace_hash(trace: &FuzzyReadinessTrace) -> String {
     let observed = trace.observed_value_basis_points.to_string();
     let membership_hash = fuzzy_membership_hash(&trace.memberships);
     let rule_hash = fuzzy_rule_hash(&trace.activated_rules);
+    let defuzzified_hash = trace
+        .defuzzified_score
+        .as_ref()
+        .map_or_else(|| "none".to_string(), fuzzy_defuzzified_score_hash);
     sha256_lines(&[
         "fuzzy_readiness_trace",
         trace.variable_key.as_str(),
         observed.as_str(),
         membership_hash.as_str(),
         rule_hash.as_str(),
+        defuzzified_hash.as_str(),
     ])
 }
 
@@ -532,6 +571,21 @@ fn fuzzy_rule_hash(rules: &[FuzzyRuleActivation]) -> String {
         parts.push(rule.conclusion.clone());
     }
     string_list_hash(&parts)
+}
+
+fn fuzzy_defuzzified_score_hash(score: &FuzzyDefuzzifiedScore) -> String {
+    let score_basis_points = score.score_basis_points.to_string();
+    let domain_min_basis_points = score.domain_min_basis_points.to_string();
+    let domain_max_basis_points = score.domain_max_basis_points.to_string();
+    let domain_steps = score.domain_steps.to_string();
+    sha256_lines(&[
+        "fuzzy_defuzzified_score",
+        score.method.as_str(),
+        score_basis_points.as_str(),
+        domain_min_basis_points.as_str(),
+        domain_max_basis_points.as_str(),
+        domain_steps.as_str(),
+    ])
 }
 
 fn string_list_hash(values: &[String]) -> String {
@@ -564,6 +618,34 @@ fn validate_fuzzy_trace(trace: &FuzzyReadinessTrace) -> Result<(), OperatorContr
             rule.strength_basis_points,
         )?;
         validate_nonempty("fuzzy_trace.rule.conclusion", &rule.conclusion)?;
+    }
+    if let Some(score) = &trace.defuzzified_score {
+        validate_nonempty("fuzzy_trace.defuzzified_score.method", &score.method)?;
+        validate_basis_points(
+            "fuzzy_trace.defuzzified_score.score_basis_points",
+            score.score_basis_points,
+        )?;
+        validate_basis_points(
+            "fuzzy_trace.defuzzified_score.domain_min_basis_points",
+            score.domain_min_basis_points,
+        )?;
+        validate_basis_points(
+            "fuzzy_trace.defuzzified_score.domain_max_basis_points",
+            score.domain_max_basis_points,
+        )?;
+        if score.domain_min_basis_points >= score.domain_max_basis_points {
+            return Err(OperatorControlError::InvalidRange {
+                field: "fuzzy_trace.defuzzified_score.domain",
+                min: score.domain_min_basis_points,
+                max: score.domain_max_basis_points,
+            });
+        }
+        if score.domain_steps == 0 {
+            return Err(OperatorControlError::InvalidCount {
+                field: "fuzzy_trace.defuzzified_score.domain_steps",
+                value: score.domain_steps,
+            });
+        }
     }
     Ok(())
 }
@@ -670,6 +752,33 @@ mod tests {
     }
 
     #[test]
+    fn job_readiness_packet_id_changes_when_defuzzified_score_changes() {
+        let mut first_input = sample_packet_input();
+        let mut first_trace = sample_fuzzy_trace(6_200, 3_500);
+        first_trace.defuzzified_score = Some(sample_defuzzified_score(3_750));
+        first_input.fuzzy_trace = Some(first_trace);
+        let first = JobReadinessPacket::new(first_input).expect("packet builds");
+
+        let mut second_input = sample_packet_input();
+        let mut second_trace = sample_fuzzy_trace(6_200, 3_500);
+        second_trace.defuzzified_score = Some(sample_defuzzified_score(4_250));
+        second_input.fuzzy_trace = Some(second_trace);
+        let second = JobReadinessPacket::new(second_input).expect("packet builds");
+
+        assert_ne!(first.packet_id, second.packet_id);
+        assert_eq!(
+            first
+                .fuzzy_trace
+                .as_ref()
+                .and_then(|trace| trace.defuzzified_score.as_ref())
+                .expect("defuzzified score")
+                .method
+                .as_str(),
+            "centroid"
+        );
+    }
+
+    #[test]
     fn job_readiness_packet_rejects_invalid_fuzzy_scores() {
         let mut input = sample_packet_input();
         input.fuzzy_trace = Some(sample_fuzzy_trace(10_001, 3_500));
@@ -680,6 +789,30 @@ mod tests {
             OperatorControlError::InvalidBasisPoints {
                 field: "fuzzy_trace.observed_value_basis_points",
                 value: 10_001
+            }
+        );
+    }
+
+    #[test]
+    fn job_readiness_packet_rejects_invalid_defuzzified_score_domain() {
+        let mut input = sample_packet_input();
+        let mut trace = sample_fuzzy_trace(6_200, 3_500);
+        trace.defuzzified_score = Some(FuzzyDefuzzifiedScore {
+            method: "centroid".to_string(),
+            score_basis_points: 3_750,
+            domain_min_basis_points: 10_000,
+            domain_max_basis_points: 10_000,
+            domain_steps: 1_000,
+        });
+        input.fuzzy_trace = Some(trace);
+
+        let error = JobReadinessPacket::new(input).expect_err("invalid domain");
+        assert_eq!(
+            error,
+            OperatorControlError::InvalidRange {
+                field: "fuzzy_trace.defuzzified_score.domain",
+                min: 10_000,
+                max: 10_000,
             }
         );
     }
@@ -825,6 +958,17 @@ mod tests {
                 strength_basis_points: material_score_basis_points,
                 conclusion: "revision_urgency:advisable".to_string(),
             }],
+            defuzzified_score: None,
+        }
+    }
+
+    fn sample_defuzzified_score(score_basis_points: u16) -> FuzzyDefuzzifiedScore {
+        FuzzyDefuzzifiedScore {
+            method: "centroid".to_string(),
+            score_basis_points,
+            domain_min_basis_points: 0,
+            domain_max_basis_points: 10_000,
+            domain_steps: 1_000,
         }
     }
 

@@ -19,10 +19,10 @@ use chrono::Utc;
 use organism_domain::packs;
 use organism_runtime::Registry;
 use prio_agent_ops::{
-    AdapterReceiptStatus, EvidenceReadinessStatus, FuzzyMembership, FuzzyReadinessTrace,
-    FuzzyRuleActivation, JobEvidenceStatus, JobReadinessPacket, JobReadinessPacketInput,
-    JobVerdict, OperatorControlError, OperatorLedgerRecordKind, ReceiptFamily,
-    job_readiness_packet_ledger_entry,
+    AdapterReceiptStatus, EvidenceReadinessStatus, FuzzyDefuzzifiedScore, FuzzyMembership,
+    FuzzyReadinessTrace, FuzzyRuleActivation, JobEvidenceStatus, JobReadinessPacket,
+    JobReadinessPacketInput, JobVerdict, OperatorControlError, OperatorLedgerRecordKind,
+    ReceiptFamily, job_readiness_packet_ledger_entry,
 };
 use thiserror::Error;
 use truth_catalog::{
@@ -731,6 +731,13 @@ fn plumb_execution_drift_packet() -> Result<JobReadinessPacket, OperatorControlE
                 strength_basis_points: 3_500,
                 conclusion: "revision_urgency:advisable".to_string(),
             }],
+            defuzzified_score: Some(FuzzyDefuzzifiedScore {
+                method: "centroid".to_string(),
+                score_basis_points: 3_750,
+                domain_min_basis_points: 0,
+                domain_max_basis_points: 10_000,
+                domain_steps: 1_000,
+            }),
         }),
         verifier_forbidden_actions: vec![
             "do not overwrite the strategy anchor".to_string(),
@@ -3614,6 +3621,14 @@ mod tests {
                 .iter()
                 .any(|membership| membership.label == "material"
                     && membership.score_basis_points == 3_500)
+        );
+        assert_eq!(
+            fuzzy_trace
+                .defuzzified_score
+                .as_ref()
+                .expect("plumb preview carries defuzzified score")
+                .score_basis_points,
+            3_750
         );
         assert!(
             previews[4]

@@ -33,7 +33,8 @@ The next packets widen the contract across the app portfolio:
   without granting compliance override authority.
 - Plumb carries strategy anchors, execution telemetry, and Prism-backed fuzzy
   drift traces from its Organism Suggestor path without granting revision
-  authority.
+  authority. A trace may include both linguistic memberships/rule activations
+  and a typed defuzzified score for sorting or dashboard summaries.
 - Atlas carries integration-candidate evidence, owner-gate gaps, and writeback
   guards without granting repository writeback authority.
 
@@ -45,7 +46,8 @@ The next packets widen the contract across the app portfolio:
 - adapter receipt id and adapter status;
 - optional verifier verdict;
 - clause-level evidence readiness;
-- optional fuzzy-readiness trace from app-owned Suggestors;
+- optional fuzzy-readiness trace from app-owned Suggestors, including an
+  optional typed defuzzified score when the app produces one;
 - verifier forbidden actions;
 - operator actions;
 - `authorizes_domain_action: false`.
