@@ -1,17 +1,8 @@
-mod activate_subscription;
 mod common;
-mod evaluate_acquisition_target;
+// generate_data_transformer is a generic convergence-codegen experiment (EXP-002).
+// TODO(Phase 9): evaluate whether to promote to a proper crate or delete.
 #[cfg(test)]
 mod generate_data_transformer;
-mod match_renewal_context;
-mod plan_outbound_campaign;
-mod qualify_inbound_lead;
-mod reconcile_model_usage_against_customer_ledger;
-mod refill_prepaid_ai_credits;
-mod schedule_strategic_meetings;
-mod score_inbound_fit;
-mod suspend_service_on_payment_failure;
-mod upgrade_subscription_plan;
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -84,131 +75,26 @@ pub async fn execute_truth<S: KernelStore>(
     actor: CrmActor,
     persist_projection: bool,
 ) -> Result<TruthExecutionArtifacts, Status> {
+    // NOTE: truth_runtime dispatcher is in maintenance mode (Phase 6a cleanup).
+    // Movement-territory truths (activate-subscription, upgrade-subscription-plan,
+    // suspend-service-on-payment-failure, reconcile-model-usage-against-customer-ledger,
+    // refill-prepaid-ai-credits) were deleted — they belong in commerce-rails.
+    // CRM/Catalyst truths (qualify-inbound-lead, score-inbound-fit, plan-outbound-campaign,
+    // match-renewal-context, schedule-strategic-meetings, evaluate-acquisition-target) were
+    // relocated to catalyst-biz/truths or atelier-showcase/crm-helm.
+    // Full dispatch now lives in helm-truth-execution. Phase 9 removes this dispatcher.
     match truth_key {
-        "activate-subscription" => {
-            let parsed = activate_subscription::ActivateSubscriptionInput::from_map(&inputs)?;
-            activate_subscription::execute(store, runtime_stores, parsed, actor, persist_projection)
-                .await
-        }
-        "upgrade-subscription-plan" => {
-            let parsed =
-                upgrade_subscription_plan::UpgradeSubscriptionPlanInput::from_map(&inputs)?;
-            upgrade_subscription_plan::execute(
-                store,
-                runtime_stores,
-                parsed,
-                actor,
-                persist_projection,
-            )
-            .await
-        }
-        "suspend-service-on-payment-failure" => {
-            let parsed =
-                suspend_service_on_payment_failure::SuspendServiceOnPaymentFailureInput::from_map(
-                    &inputs,
-                )?;
-            suspend_service_on_payment_failure::execute(
-                store,
-                runtime_stores,
-                parsed,
-                actor,
-                persist_projection,
-            )
-            .await
-        }
-        "reconcile-model-usage-against-customer-ledger" => {
-            let parsed = reconcile_model_usage_against_customer_ledger::ReconcileModelUsageAgainstCustomerLedgerInput::from_map(&inputs)?;
-            reconcile_model_usage_against_customer_ledger::execute(
-                store,
-                runtime_stores,
-                parsed,
-                actor,
-                persist_projection,
-            )
-            .await
-        }
-        "refill-prepaid-ai-credits" => {
-            let parsed = refill_prepaid_ai_credits::RefillPrepaidAiCreditsInput::from_map(&inputs)?;
-            refill_prepaid_ai_credits::execute(
-                store,
-                runtime_stores,
-                parsed,
-                actor,
-                persist_projection,
-            )
-            .await
-        }
-        "qualify-inbound-lead" => {
-            let parsed = qualify_inbound_lead::QualifyInboundLeadInput::from_map(&inputs)?;
-            qualify_inbound_lead::execute(store, runtime_stores, parsed, actor, persist_projection)
-                .await
-        }
-        "score-inbound-fit" => {
-            let parsed = score_inbound_fit::ScoreInboundFitInput::from_map(&inputs)?;
-            score_inbound_fit::execute(store, runtime_stores, parsed, actor, persist_projection)
-                .await
-        }
-        "plan-outbound-campaign" => {
-            let parsed = plan_outbound_campaign::PlanOutboundCampaignInput::from_map(&inputs)?;
-            plan_outbound_campaign::execute(
-                store,
-                runtime_stores,
-                parsed,
-                actor,
-                persist_projection,
-            )
-            .await
-        }
-        "match-renewal-context" => {
-            let parsed = match_renewal_context::MatchRenewalContextInput::from_map(&inputs)?;
-            match_renewal_context::execute(store, runtime_stores, parsed, actor, persist_projection)
-                .await
-        }
-        "schedule-strategic-meetings" => {
-            let parsed =
-                schedule_strategic_meetings::ScheduleStrategicMeetingsInput::from_map(&inputs)?;
-            schedule_strategic_meetings::execute(
-                store,
-                runtime_stores,
-                parsed,
-                actor,
-                persist_projection,
-            )
-            .await
-        }
-        "evaluate-acquisition-target" => {
-            let parsed =
-                evaluate_acquisition_target::EvaluateAcquisitionTargetInput::from_map(&inputs)?;
-            evaluate_acquisition_target::execute(
-                store,
-                runtime_stores,
-                parsed,
-                actor,
-                persist_projection,
-            )
-            .await
-        }
         _ => Err(Status::unimplemented(format!(
             "truth execution is not implemented yet for {truth_key}"
         ))),
     }
 }
 
-pub fn supports_truth_execution(truth_key: &str) -> bool {
-    matches!(
-        truth_key,
-        "activate-subscription"
-            | "upgrade-subscription-plan"
-            | "suspend-service-on-payment-failure"
-            | "reconcile-model-usage-against-customer-ledger"
-            | "refill-prepaid-ai-credits"
-            | "qualify-inbound-lead"
-            | "score-inbound-fit"
-            | "plan-outbound-campaign"
-            | "match-renewal-context"
-            | "schedule-strategic-meetings"
-            | "evaluate-acquisition-target"
-    )
+// NOTE: supports_truth_execution is in maintenance mode (Phase 6a cleanup).
+// All truths were removed from the application-server dispatcher. See execute_truth for context.
+// Phase 9 removes this function entirely.
+pub fn supports_truth_execution(_truth_key: &str) -> bool {
+    false
 }
 
 pub(super) fn status_from_converge(error: ConvergeError) -> Status {
