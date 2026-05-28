@@ -8,6 +8,20 @@
 
 ---
 
+## Immediate priority: Runway execution-container boundary
+**Deadline:** today | **Epic:** E5
+Stop generic server ownership from accumulating in Helm. Classify
+`application-server` work into Runway host concerns, Helm operator-control
+modules, and app packet concerns. Catalyst should prove the target shape:
+Runway container + Helm module + app packet.
+
+- [x] Document the Runway/Helm/app execution-container boundary
+- [x] Classify the current `application-server` areas into Runway host,
+      Helm module, and transitional truth-runtime ownership
+- [ ] Expose Helm governed-job routes as a mountable router
+- [ ] Expose Helm operator-control routes as a mountable router
+- [ ] Mount those routers in the Runway-hosted Catalyst path
+
 ## Current: Stage 1.5 — Notes & Intelligence Daily Driver
 **Deadline:** TBD | **Epic:** E5
 Notes app fully implemented: Google import, social capture (LinkedIn/X/Instagram/Facebook), OCR, PDF extraction, object detection. Expenses integrated with OCR pipeline.

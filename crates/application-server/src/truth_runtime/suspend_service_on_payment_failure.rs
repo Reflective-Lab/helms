@@ -665,7 +665,7 @@ impl Suggestor for RecoveryPathAgent {
                 serde_json::to_string(&RecoveryPathPayload {
                     summary,
                     next_action,
-                    workflow_state: WorkflowState::WaitingExternal.as_ref().to_string(),
+                    workflow_state: WorkflowState::WaitingExternal.label().to_string(),
                 })
                 .expect("recovery path payload should serialize"),
                 RECOVERY_PROVENANCE.to_string(),
@@ -732,7 +732,7 @@ fn manual_review_from_result(
         .iter()
         .find(|fact| fact.id() == MANUAL_REVIEW_FACT_ID)
         .map(|fact| {
-            serde_json::from_str(&fact.text().unwrap_or_default()).map_err(|error| {
+            serde_json::from_str(fact.text().unwrap_or_default()).map_err(|error| {
                 Status::internal(format!("invalid suspension manual review payload: {error}"))
             })
         })
@@ -783,11 +783,11 @@ fn seed_context(seed: &SuspensionSeed) -> Result<Context, Status> {
 }
 
 trait WorkflowStateExt {
-    fn as_ref(self) -> &'static str;
+    fn label(self) -> &'static str;
 }
 
 impl WorkflowStateExt for WorkflowState {
-    fn as_ref(self) -> &'static str {
+    fn label(self) -> &'static str {
         match self {
             WorkflowState::Open => "open",
             WorkflowState::AwaitingApproval => "awaiting-approval",

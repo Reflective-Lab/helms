@@ -344,14 +344,15 @@ fn extract_fit_score(artifacts: &TruthExecutionArtifacts) -> Option<u16> {
             // Extract bps from statement like "Inbound fit score 7500 bps (high-fit)..."
             let words: Vec<&str> = fact.statement.split_whitespace().collect();
             for (i, w) in words.iter().enumerate() {
-                if *w == "bps" && i > 0 {
-                    if let Ok(score) = words[i - 1].parse::<u16>() {
-                        return Some(score);
-                    }
+                if *w == "bps"
+                    && i > 0
+                    && let Ok(score) = words[i - 1].parse::<u16>()
+                {
+                    return Some(score);
                 }
             }
             // Fallback: use confidence_bps as proxy
-            return Some(fact.confidence_bps as u16);
+            return Some(fact.confidence_bps);
         }
     }
     None

@@ -170,16 +170,16 @@ where
     let truth_key_clone = truth_key.clone();
 
     tokio::spawn(async move {
-        run_job_task(
+        run_job_task(JobRunTask {
             store,
             runtime_stores,
-            hub_clone,
+            hub: hub_clone,
             job_stream_state,
-            run_id_clone,
-            truth_key_clone,
+            run_id: run_id_clone,
+            truth_key: truth_key_clone,
             app_id,
-            request.inputs,
-        )
+            inputs: request.inputs,
+        })
         .await;
     });
 
@@ -189,7 +189,7 @@ where
 
 // ── Background Job Task ──────────────────────────────────────────────
 
-async fn run_job_task<S>(
+struct JobRunTask<S> {
     store: S,
     runtime_stores: application_storage::AppRuntimeStores,
     hub: RealtimeHub,
@@ -198,9 +198,23 @@ async fn run_job_task<S>(
     truth_key: String,
     app_id: String,
     inputs: HashMap<String, String>,
-) where
+}
+
+async fn run_job_task<S>(task: JobRunTask<S>)
+where
     S: KernelStore + Clone + Send + Sync + 'static,
 {
+    let JobRunTask {
+        store,
+        runtime_stores,
+        hub,
+        job_stream_state,
+        run_id,
+        truth_key,
+        app_id,
+        inputs,
+    } = task;
+
     publish(&hub, &run_id, &truth_key, &app_id, "job.started", json!({})).await;
     if let Err(error) = admit_job(&hub, &run_id, &truth_key, &app_id).await {
         publish(

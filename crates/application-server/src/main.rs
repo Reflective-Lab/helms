@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 mod http_api;
 pub mod job_stream;
 pub mod pipeline;

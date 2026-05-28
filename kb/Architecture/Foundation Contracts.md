@@ -10,6 +10,7 @@ redefine them.
 | Truth authoring and validation | Axiom CLI/library | live LLM validation through Converge provider surfaces | product-local truth parsers or validators |
 | Governed execution in-process | `converge-kernel` | `converge-model`, `converge-pack` | `converge-core` |
 | Governed execution out-of-process | `converge-client` | `converge-protocol` for typed wire access | runtime internals |
+| App server execution container | Runway app execution container | Helm mounted as operator-control/job module | app-owned HTTP/gRPC/GraphQL servers |
 | Capability contracts for chat and routing | `converge-provider-api` | `converge-provider` for ready-made adapters | direct vendor HTTP spread across product code |
 | Reusable reasoning and planning | `organism-pack`, `organism-runtime` | `organism-domain`, `organism-intelligence`, `organism-notes` | Organism phase crates |
 | Application plugin execution | `helm-plugin-runtime` | Axiom-produced WASM/manifests and Converge contracts | embedding plugin machinery in Converge |
@@ -114,6 +115,7 @@ Prism, and Ferrox were used or intentionally omitted.
 - application state and projections
 - product-specific truth composition
 - app-local storage, APIs, and workflows
+- operator-control and governed-job modules mounted into the Runway host
 - application plugin runtime and sandbox policy
 - composition of Axiom, Organism, and Converge into a usable product
 
@@ -125,6 +127,8 @@ Prism, and Ferrox were used or intentionally omitted.
 - generic provider contracts or adapters
 - truth compilation or validation semantics that belong in Axiom
 - the Converge runtime or promotion gate
+- the generic app server container, deployment host, auth, secrets, telemetry,
+  health, or storage/event-log substrate that belongs in Runway
 - regression, fuzzy logic, ranking, forecasting, anomaly detection, or ML
   implementations that belong in Prism
 - optimization, scheduling, routing, allocation, or feasibility implementations

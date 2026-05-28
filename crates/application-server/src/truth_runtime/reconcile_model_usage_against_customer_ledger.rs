@@ -937,7 +937,7 @@ impl Suggestor for ExceptionRoutingAgent {
             .find(|fact| fact.id() == EXCEPTION_FACT_ID)
             .expect("exception fact should exist before routing");
         let assessment: ReconciliationAssessmentPayload =
-            serde_json::from_str(&exception.text().unwrap_or_default())
+            serde_json::from_str(exception.text().unwrap_or_default())
                 .expect("exception payload should deserialize");
         AgentEffect::with_proposals(vec![
             crate::truth_runtime::common::proposed_text_fact(
@@ -982,7 +982,7 @@ fn manual_review_from_result(
         .iter()
         .find(|fact| fact.id() == MANUAL_REVIEW_FACT_ID)
         .map(|fact| {
-            serde_json::from_str(&fact.text().unwrap_or_default()).map_err(|error| {
+            serde_json::from_str(fact.text().unwrap_or_default()).map_err(|error| {
                 Status::internal(format!(
                     "invalid reconciliation manual review payload: {error}"
                 ))

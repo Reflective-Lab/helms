@@ -355,22 +355,21 @@ impl Suggestor for CampaignSolverAgent {
         else {
             return AgentEffect::empty();
         };
-        let routing_input = match serde_json::from_str::<LeadRoutingInput>(
-            &input_fact.text().unwrap_or_default(),
-        ) {
-            Ok(input) => input,
-            Err(error) => {
-                return AgentEffect::with_proposal(
-                    crate::truth_runtime::common::proposed_text_fact(
-                        ContextKey::Diagnostic,
-                        "campaign:plan:error",
-                        error.to_string(),
-                        "diagnostic",
-                    )
-                    .with_confidence(1.0),
-                );
-            }
-        };
+        let routing_input =
+            match serde_json::from_str::<LeadRoutingInput>(input_fact.text().unwrap_or_default()) {
+                Ok(input) => input,
+                Err(error) => {
+                    return AgentEffect::with_proposal(
+                        crate::truth_runtime::common::proposed_text_fact(
+                            ContextKey::Diagnostic,
+                            "campaign:plan:error",
+                            error.to_string(),
+                            "diagnostic",
+                        )
+                        .with_confidence(1.0),
+                    );
+                }
+            };
 
         let spec = match ProblemSpec::builder(
             format!("campaign-{}", slug(&self.campaign_name)),
@@ -486,22 +485,22 @@ impl Suggestor for BudgetGuardAgent {
         else {
             return AgentEffect::empty();
         };
-        let plan = match serde_json::from_str::<CampaignPlanPayload>(
-            &plan_fact.text().unwrap_or_default(),
-        ) {
-            Ok(plan) => plan,
-            Err(error) => {
-                return AgentEffect::with_proposal(
-                    crate::truth_runtime::common::proposed_text_fact(
-                        ContextKey::Diagnostic,
-                        "campaign:plan:error",
-                        error.to_string(),
-                        "diagnostic",
-                    )
-                    .with_confidence(1.0),
-                );
-            }
-        };
+        let plan =
+            match serde_json::from_str::<CampaignPlanPayload>(plan_fact.text().unwrap_or_default())
+            {
+                Ok(plan) => plan,
+                Err(error) => {
+                    return AgentEffect::with_proposal(
+                        crate::truth_runtime::common::proposed_text_fact(
+                            ContextKey::Diagnostic,
+                            "campaign:plan:error",
+                            error.to_string(),
+                            "diagnostic",
+                        )
+                        .with_confidence(1.0),
+                    );
+                }
+            };
 
         let estimated_spend_minor = plan.assignments.len() as i64 * self.outreach_cost_minor;
         let within_budget = estimated_spend_minor <= self.campaign_budget_minor;

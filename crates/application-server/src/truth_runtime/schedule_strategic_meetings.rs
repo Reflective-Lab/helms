@@ -8,6 +8,7 @@ use application_storage::{KernelStore, StoreWriteResult};
 use converge_kernel::{ContextState as Context, ConvergeResult, Engine};
 use converge_pack::{AgentEffect, Context as ContextView, ContextKey, Suggestor};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tonic::Status;
 use truth_catalog::{
     ScheduleStrategicMeetingsEvaluator,
@@ -85,23 +86,12 @@ struct ProspectSeed {
     tags: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct StrategyContext {
     target_segments: Vec<String>,
     priority_territories: Vec<String>,
     focus_tags: Vec<String>,
     campaign_id: Option<String>,
-}
-
-impl Default for StrategyContext {
-    fn default() -> Self {
-        Self {
-            target_segments: Vec::new(),
-            priority_territories: Vec::new(),
-            focus_tags: Vec::new(),
-            campaign_id: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,7 +188,7 @@ pub(super) async fn execute<S: KernelStore>(
         },
     );
 
-    let scope_id = format!("meeting-schedule-{}", Uuid::new_v4().simple());
+    let scope_id = stable_scope_id(&inputs);
     let mut seed_ctx = seed_context(&inputs)?;
     let intent = admit_truth_intent(
         "schedule-strategic-meetings",
@@ -396,10 +386,10 @@ impl Suggestor for SlateProposerAgent {
             .cloned();
 
         let candidates: Vec<RankedCandidate> = candidates_fact
-            .and_then(|f| serde_json::from_str(&f.text().unwrap_or_default()).ok())
+            .and_then(|f| serde_json::from_str(f.text().unwrap_or_default()).ok())
             .unwrap_or_default();
         let slots: Vec<CalendarSlot> = availability_fact
-            .and_then(|f| serde_json::from_str(&f.text().unwrap_or_default()).ok())
+            .and_then(|f| serde_json::from_str(f.text().unwrap_or_default()).ok())
             .unwrap_or_default();
 
         let candidates_considered = candidates.len() as u32;
@@ -482,16 +472,16 @@ fn compute_strategy_score(prospect: &ProspectSeed, strategy: &StrategyContext) -
     let fit = u32::from(prospect.fit_score_bps.unwrap_or(0));
     score += fit * 3 / 10;
 
-    if let Some(ref segment) = prospect.segment {
-        if strategy.target_segments.iter().any(|s| s == segment) {
-            score += 1_500;
-        }
+    if let Some(ref segment) = prospect.segment
+        && strategy.target_segments.iter().any(|s| s == segment)
+    {
+        score += 1_500;
     }
 
-    if let Some(ref territory) = prospect.territory {
-        if strategy.priority_territories.iter().any(|t| t == territory) {
-            score += 1_000;
-        }
+    if let Some(ref territory) = prospect.territory
+        && strategy.priority_territories.iter().any(|t| t == territory)
+    {
+        score += 1_000;
     }
 
     let tag_matches = prospect
@@ -542,16 +532,16 @@ fn build_ranking_reasoning(prospect: &ProspectSeed, strategy: &StrategyContext) 
         }
     }
 
-    if let Some(ref segment) = prospect.segment {
-        if strategy.target_segments.iter().any(|s| s == segment) {
-            reasons.push(format!("in target segment '{segment}'"));
-        }
+    if let Some(ref segment) = prospect.segment
+        && strategy.target_segments.iter().any(|s| s == segment)
+    {
+        reasons.push(format!("in target segment '{segment}'"));
     }
 
-    if let Some(ref territory) = prospect.territory {
-        if strategy.priority_territories.iter().any(|t| t == territory) {
-            reasons.push(format!("in priority territory '{territory}'"));
-        }
+    if let Some(ref territory) = prospect.territory
+        && strategy.priority_territories.iter().any(|t| t == territory)
+    {
+        reasons.push(format!("in priority territory '{territory}'"));
     }
 
     match prospect.pipeline_stage.as_deref() {
@@ -564,10 +554,10 @@ fn build_ranking_reasoning(prospect: &ProspectSeed, strategy: &StrategyContext) 
         _ => {}
     }
 
-    if let Some(days) = prospect.last_contact_days_ago {
-        if days <= 7 {
-            reasons.push(format!("recent contact ({days} days ago)"));
-        }
+    if let Some(days) = prospect.last_contact_days_ago
+        && days <= 7
+    {
+        reasons.push(format!("recent contact ({days} days ago)"));
     }
 
     if reasons.is_empty() {
@@ -587,16 +577,16 @@ fn collect_alignment_signals(
         signals.push(format!("fit-score:{score}"));
     }
 
-    if let Some(ref segment) = candidate.prospect.segment {
-        if strategy.target_segments.iter().any(|s| s == segment) {
-            signals.push(format!("target-segment:{segment}"));
-        }
+    if let Some(ref segment) = candidate.prospect.segment
+        && strategy.target_segments.iter().any(|s| s == segment)
+    {
+        signals.push(format!("target-segment:{segment}"));
     }
 
-    if let Some(ref territory) = candidate.prospect.territory {
-        if strategy.priority_territories.iter().any(|t| t == territory) {
-            signals.push(format!("priority-territory:{territory}"));
-        }
+    if let Some(ref territory) = candidate.prospect.territory
+        && strategy.priority_territories.iter().any(|t| t == territory)
+    {
+        signals.push(format!("priority-territory:{territory}"));
     }
 
     if let Some(ref stage) = candidate.prospect.pipeline_stage {
@@ -714,7 +704,7 @@ fn project<S: KernelStore>(
             facts.push(slate_fact);
 
             for (index, proposal) in slate.proposals.iter().enumerate() {
-                let related_to = vec![org_refs[index].clone()];
+                let related_to = vec![org_refs[index]];
 
                 let alignment_fact = kernel.record_fact(
                     FactRecord {
@@ -786,6 +776,26 @@ fn slug(value: &str) -> String {
     slug
 }
 
+fn stable_scope_id(inputs: &ScheduleStrategicMeetingsInput) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(inputs.intent_text.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(inputs.requested_count.to_string().as_bytes());
+    hasher.update(b"\0");
+    hasher.update(inputs.window_start.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(inputs.window_end.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(inputs.prospects_json.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(inputs.strategy_context_json.as_deref().unwrap_or_default());
+    hasher.update(b"\0");
+    hasher.update(inputs.calendar_slots_json.as_deref().unwrap_or_default());
+
+    let digest = format!("{:x}", hasher.finalize());
+    format!("meeting-schedule-{}", &digest[..16])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -802,6 +812,26 @@ mod tests {
                 application_storage::InMemoryExperienceStoreAdapter::new(),
             ),
         }
+    }
+
+    #[test]
+    fn schedule_scope_id_is_stable_for_gate_resume() {
+        let inputs = ScheduleStrategicMeetingsInput {
+            intent_text: "Book strategic meetings".to_string(),
+            requested_count: 2,
+            window_start: "2026-06-01T09:00:00Z".to_string(),
+            window_end: "2026-06-07T17:00:00Z".to_string(),
+            prospects_json: "[]".to_string(),
+            strategy_context_json: Some("{\"target_segments\":[]}".to_string()),
+            calendar_slots_json: Some("[]".to_string()),
+            actor_name: Some("Kenneth".to_string()),
+        };
+
+        assert_eq!(stable_scope_id(&inputs), stable_scope_id(&inputs));
+
+        let mut shifted_window = inputs.clone();
+        shifted_window.window_end = "2026-06-08T17:00:00Z".to_string();
+        assert_ne!(stable_scope_id(&inputs), stable_scope_id(&shifted_window));
     }
 
     #[tokio::test]
@@ -943,7 +973,7 @@ mod tests {
             .find(|f| f.id() == SLATE_FACT_ID)
             .expect("slate fact should exist");
         let slate: MeetingSlatePayload =
-            serde_json::from_str(&slate_fact.text().unwrap_or_default())
+            serde_json::from_str(slate_fact.text().unwrap_or_default())
                 .expect("slate should deserialize");
         assert_eq!(slate.proposals.len(), 3);
         assert_eq!(slate.proposals[0].rank, 1);

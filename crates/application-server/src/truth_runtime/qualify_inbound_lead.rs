@@ -486,7 +486,12 @@ impl Suggestor for LeadRoutingAgent {
                     "archive with explicit disqualification reason",
                     "disqualified lead should be archived with traceable reason",
                 ),
-                Some(LeadQualificationStatus::ManualReviewRequired) | _ if review_pending => (
+                Some(LeadQualificationStatus::ManualReviewRequired) => (
+                    "manual-review-queue",
+                    "manual review required before qualification",
+                    "qualification remained ambiguous and requires human review",
+                ),
+                _ if review_pending => (
                     "manual-review-queue",
                     "manual review required before qualification",
                     "qualification remained ambiguous and requires human review",
@@ -1462,7 +1467,7 @@ mod tests {
             .get(ContextKey::Evaluations)
             .iter()
             .find(|fact| fact.id() == QUALIFICATION_FACT_ID)
-            .map(|fact| serde_json::from_str(&fact.text().unwrap_or_default()))
+            .map(|fact| serde_json::from_str(fact.text().unwrap_or_default()))
             .unwrap();
         assert!(
             decode_result.is_err(),
@@ -1530,7 +1535,7 @@ mod tests {
             .expect("qualification fact should exist");
 
         let payload: LeadQualificationPayload =
-            serde_json::from_str(&qualification_fact.text().unwrap_or_default())
+            serde_json::from_str(qualification_fact.text().unwrap_or_default())
                 .expect("should decode");
         assert_eq!(
             payload.confidence_bps, 100,

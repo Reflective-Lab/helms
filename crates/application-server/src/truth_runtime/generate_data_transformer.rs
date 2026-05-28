@@ -153,7 +153,7 @@ impl Suggestor for CodeVerifierSuggestor {
         };
 
         let parsed: serde_json::Value =
-            match serde_json::from_str(&source_fact.text().unwrap_or_default()) {
+            match serde_json::from_str(source_fact.text().unwrap_or_default()) {
                 Ok(v) => v,
                 Err(e) => {
                     return verification_failure(
@@ -429,7 +429,7 @@ mod tests {
             .find(|f| f.id() == "artifact:verification:transformer")
             .unwrap();
         let v: serde_json::Value =
-            serde_json::from_str(&verification.text().unwrap_or_default()).unwrap();
+            serde_json::from_str(verification.text().unwrap_or_default()).unwrap();
         assert_eq!(v["verdict"], "pass");
 
         // Should have promoted verified artifact
@@ -447,7 +447,7 @@ mod tests {
             .find(|f| f.id() == "artifact:verified:transformer")
             .unwrap();
         let a: serde_json::Value =
-            serde_json::from_str(&artifact.text().unwrap_or_default()).unwrap();
+            serde_json::from_str(artifact.text().unwrap_or_default()).unwrap();
         assert_eq!(a["provenance"]["generated_by"], "codegen");
         assert_eq!(a["provenance"]["verified_by"], "code-verifier");
         assert!(

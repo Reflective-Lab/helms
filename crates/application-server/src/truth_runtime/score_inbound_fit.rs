@@ -337,7 +337,7 @@ impl Suggestor for FitScoringAgent {
             return AgentEffect::empty();
         };
         let payload = match serde_json::from_str::<BehavioralFeaturesPayload>(
-            &feature_fact.text().unwrap_or_default(),
+            feature_fact.text().unwrap_or_default(),
         ) {
             Ok(payload) => payload,
             Err(error) => {
@@ -450,15 +450,6 @@ fn extract_behavioral_features(
     let temporal = feature_rows
         .into_iter()
         .find(|row| row.entity_id == visitor_id)
-        .or_else(|| {
-            usage_events.first().and_then(|first| {
-                if first.visitor_id == visitor_id {
-                    None
-                } else {
-                    None
-                }
-            })
-        })
         .unwrap_or_else(|| TemporalFeatures {
             entity_id: visitor_id.to_string(),
             event_count: 0,

@@ -34,7 +34,7 @@ pub(super) fn payload_from_result<T: DeserializeOwned>(
         .ok_or_else(|| {
             Status::failed_precondition(format!("missing fact in converge context: {fact_id}"))
         })?;
-    serde_json::from_str(&fact.text().unwrap_or_default())
+    serde_json::from_str(fact.text().unwrap_or_default())
         .map_err(|error| Status::internal(format!("invalid {fact_id} payload: {error}")))
 }
 

@@ -373,7 +373,7 @@ enum ProcessedBillingEvent {
         truth_key: String,
         idempotency_key: String,
     },
-    Completed(BillingIngressResponse),
+    Completed(Box<BillingIngressResponse>),
 }
 
 pub fn app_router<S>(state: HttpState<S>) -> Router
@@ -959,7 +959,7 @@ where
         match processed.entry(normalized.idempotency_key.clone()) {
             Entry::Occupied(entry) => match entry.get() {
                 ProcessedBillingEvent::Completed(response) => {
-                    let mut duplicate = response.clone();
+                    let mut duplicate = response.as_ref().clone();
                     duplicate.duplicate = true;
                     return Ok(Json(duplicate));
                 }
@@ -1039,7 +1039,7 @@ where
     })?;
     processed.insert(
         normalized.idempotency_key.clone(),
-        ProcessedBillingEvent::Completed(response.clone()),
+        ProcessedBillingEvent::Completed(Box::new(response.clone())),
     );
 
     Ok(Json(response))
@@ -1403,11 +1403,7 @@ fn parse_truth_kind(value: &str) -> Result<TruthKind, ApiError> {
 }
 
 fn normalize_name(value: &str) -> String {
-    value
-        .trim()
-        .to_ascii_lowercase()
-        .replace('_', "-")
-        .replace(' ', "-")
+    value.trim().to_ascii_lowercase().replace(['_', ' '], "-")
 }
 
 fn billing_response_from_execution(

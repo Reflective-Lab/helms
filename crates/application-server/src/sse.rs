@@ -109,6 +109,12 @@ impl PipelineState {
     }
 }
 
+impl Default for PipelineState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ── Router ──────────────────────────────────────────────────────────
 
 pub fn pipeline_routes<S>() -> Router<HttpState<S>>
@@ -117,11 +123,11 @@ where
 {
     Router::new()
         .route("/v1/realtime/stream", get(stream_realtime))
-        .route("/v1/pipeline/showcase/stream", get(stream_pipeline::<S>))
+        .route("/v1/pipeline/showcase/stream", get(stream_pipeline))
         .route("/v1/pipeline/showcase/run", post(run_pipeline::<S>))
-        .route("/v1/pipeline/showcase/status", get(pipeline_status::<S>))
-        .route("/v1/pipeline/showcase/reset", post(reset_pipeline::<S>))
-        .route("/v1/approvals/pending", get(list_pending_approvals::<S>))
+        .route("/v1/pipeline/showcase/status", get(pipeline_status))
+        .route("/v1/pipeline/showcase/reset", post(reset_pipeline))
+        .route("/v1/approvals/pending", get(list_pending_approvals))
         .route(
             "/v1/approvals/{approval_ref}/approve",
             post(approve_step::<S>),
@@ -151,14 +157,11 @@ async fn stream_realtime(
     Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15)))
 }
 
-async fn stream_pipeline<S>(
+async fn stream_pipeline(
     Query(query): Query<RealtimeStreamQuery>,
     headers: HeaderMap,
     axum::Extension(state): axum::Extension<PipelineState>,
-) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>>
-where
-    S: KernelStore + Clone + Send + Sync + 'static,
-{
+) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
     let subscription = state
         .realtime
         .subscribe(realtime_cursor(query, &headers))
@@ -344,12 +347,9 @@ where
 
 // ── Pipeline Status ─────────────────────────────────────────────────
 
-async fn pipeline_status<S>(
+async fn pipeline_status(
     axum::Extension(state): axum::Extension<PipelineState>,
-) -> impl IntoResponse
-where
-    S: KernelStore + Clone + Send + Sync + 'static,
-{
+) -> impl IntoResponse {
     let result = state.current_result.read().await;
     match result.as_ref() {
         Some(r) => Json(serde_json::to_value(r).unwrap_or_default()).into_response(),
@@ -359,12 +359,9 @@ where
 
 // ── Reset ───────────────────────────────────────────────────────────
 
-async fn reset_pipeline<S>(
+async fn reset_pipeline(
     axum::Extension(state): axum::Extension<PipelineState>,
-) -> impl IntoResponse
-where
-    S: KernelStore + Clone + Send + Sync + 'static,
-{
+) -> impl IntoResponse {
     let mut result = state.current_result.write().await;
     *result = None;
     let mut approvals = state.pending_approvals.write().await;
@@ -374,12 +371,9 @@ where
 
 // ── Approvals ───────────────────────────────────────────────────────
 
-async fn list_pending_approvals<S>(
+async fn list_pending_approvals(
     axum::Extension(state): axum::Extension<PipelineState>,
-) -> impl IntoResponse
-where
-    S: KernelStore + Clone + Send + Sync + 'static,
-{
+) -> impl IntoResponse {
     let approvals = state.pending_approvals.read().await;
     Json(approvals.clone())
 }
@@ -622,10 +616,10 @@ where
             .unwrap_or(0);
 
         for event in subscription.replay {
-            if filter(&event) {
-                if let Some(frame) = encode(&event) {
-                    yield Ok(frame);
-                }
+            if filter(&event)
+                && let Some(frame) = encode(&event)
+            {
+                yield Ok(frame);
             }
         }
 
@@ -637,10 +631,10 @@ where
                     }
                     last_sequence = event.sequence;
 
-                    if filter(&event) {
-                        if let Some(frame) = encode(&event) {
-                            yield Ok(frame);
-                        }
+                    if filter(&event)
+                        && let Some(frame) = encode(&event)
+                    {
+                        yield Ok(frame);
                     }
                 }
                 Err(broadcast::error::RecvError::Lagged(_)) => continue,

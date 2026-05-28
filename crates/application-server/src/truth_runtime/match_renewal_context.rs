@@ -436,7 +436,7 @@ impl Suggestor for RenewalTermsAgent {
             return AgentEffect::empty();
         };
         let brief = match serde_json::from_str::<RenewalBriefPayload>(
-            &brief_fact.text().unwrap_or_default(),
+            brief_fact.text().unwrap_or_default(),
         ) {
             Ok(brief) => brief,
             Err(error) => {
@@ -674,7 +674,7 @@ fn renewal_signals_from_result(
         .iter()
         .filter(|fact| fact.id().starts_with("renewal:signal:"))
         .map(|fact| {
-            serde_json::from_str::<RenewalSignalPayload>(&fact.text().unwrap_or_default()).map_err(
+            serde_json::from_str::<RenewalSignalPayload>(fact.text().unwrap_or_default()).map_err(
                 |error| {
                     Status::internal(format!(
                         "invalid renewal signal payload {}: {error}",
@@ -692,7 +692,7 @@ fn renewal_signals_from_context(ctx: &dyn ContextView) -> Vec<RenewalSignalPaylo
         .iter()
         .filter(|fact| fact.id().starts_with("renewal:signal:"))
         .filter_map(|fact| {
-            serde_json::from_str::<RenewalSignalPayload>(&fact.text().unwrap_or_default()).ok()
+            serde_json::from_str::<RenewalSignalPayload>(fact.text().unwrap_or_default()).ok()
         })
         .collect()
 }
