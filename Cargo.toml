@@ -12,6 +12,7 @@ members = [
 
     # Helm extraction modules.
     "crates/helm-operator-control",
+    "crates/helm-governed-jobs",
 
     # Capability and truth crates.
     "crates/capability-core",
