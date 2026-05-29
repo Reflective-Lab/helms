@@ -8,6 +8,7 @@ members = [
     "crates/application-kernel",
     "crates/application-storage",
     "crates/application-server",
+    "crates/helm-truth-execution",
     "crates/plugin-runtime",
 
     # Capability and truth crates.
