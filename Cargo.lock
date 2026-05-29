@@ -5748,6 +5748,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "helm-governed-jobs"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum 0.8.8",
+ "runway-app-host",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "helm-operator-control"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "application-kernel",
+ "application-storage",
+ "async-trait",
+ "axum 0.8.8",
+ "prio-agent-ops",
+ "runway-app-host",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "workbench-backend",
+]
+
+[[package]]
 name = "helm-plugin-runtime"
 version = "0.2.0"
 dependencies = [

@@ -11,6 +11,10 @@ members = [
     "crates/helm-truth-execution",
     "crates/plugin-runtime",
 
+    # Helm extraction modules.
+    "crates/helm-operator-control",
+    "crates/helm-governed-jobs",
+
     # Capability and truth crates.
     "crates/capability-core",
     "crates/capability-registry",
