@@ -5770,6 +5770,8 @@ dependencies = [
  "application-storage",
  "async-trait",
  "axum 0.8.8",
+ "helm-truth-execution",
+ "polars",
  "prio-agent-ops",
  "runway-app-host",
  "serde",
