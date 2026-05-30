@@ -18,6 +18,7 @@ This vault is the documentation surface for Helm.
 - [[Architecture/Foundation Contracts]]
 - [[Architecture/Runway Execution Container Boundary]]
 - [[Architecture/Operator Control Common Module]]
+- [[Architecture/Receipt Backed Console]]
 - [[Architecture/Agent Architecture Brief]]
 - [[Architecture/Module Map]]
 - [[Architecture/Truths Layer]]

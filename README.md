@@ -18,3 +18,12 @@ Start here:
 - `CLAUDE.md` for Claude-specific workspace notes
 - `GEMINI.md` for Gemini-specific notes
 - `kb/Home.md` for the vault index
+
+## Operator Console Package
+
+`packages/helm-console` is the shared receipt-backed console layer for
+Marquee apps. It provides the `ConsoleAdapter` descriptor schema, command
+cards, event timelines, connection bar, proof artifact panel, and first app
+profiles for Quorum, Atlas, and Warden. The package owns reusable operator UX;
+apps keep their domain nouns, command payloads, evidence rules, and custom
+panels.

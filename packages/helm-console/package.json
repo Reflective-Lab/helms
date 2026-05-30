@@ -1,0 +1,45 @@
+{
+  "name": "@reflective/helm-console",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client.js",
+      "types": "./dist/client.d.ts"
+    },
+    "./profiles": {
+      "import": "./dist/profiles/index.js",
+      "types": "./dist/profiles/index.d.ts"
+    },
+    "./types": {
+      "import": "./dist/types.js",
+      "types": "./dist/types.d.ts"
+    },
+    "./CommandCard.svelte": "./src/CommandCard.svelte",
+    "./ConnectionBar.svelte": "./src/ConnectionBar.svelte",
+    "./EventTimeline.svelte": "./src/EventTimeline.svelte",
+    "./ProofArtifactPanel.svelte": "./src/ProofArtifactPanel.svelte",
+    "./ReceiptBackedConsole.svelte": "./src/ReceiptBackedConsole.svelte"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@reflective/helm-flow": "file:../helm-flow",
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "@reflective/helm-flow": "file:../helm-flow",
+    "svelte": "^5.0.0",
+    "typescript": "^5.7.0"
+  }
+}
