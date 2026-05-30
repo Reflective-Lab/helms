@@ -5752,13 +5752,25 @@ name = "helm-governed-jobs"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "application-kernel",
+ "application-storage",
+ "async-stream",
  "async-trait",
  "axum 0.8.8",
+ "chrono",
+ "converge-core",
+ "futures",
+ "helm-truth-execution",
+ "organism-pack",
  "runway-app-host",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-stream",
+ "tonic 0.12.3",
  "tracing",
+ "truth-catalog",
+ "uuid",
 ]
 
 [[package]]

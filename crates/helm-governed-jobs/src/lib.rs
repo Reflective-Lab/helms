@@ -1,15 +1,10 @@
 //! helm-governed-jobs — governed job stream as a mountable HelmModule.
 //!
-//! # Phase 4b — real implementation
+//! # Phase 4b redo — uses runway_app_host::EventHubHandle
 //!
-//! The `/v1/jobs/{key}/stream` SSE route now lives here.  The three blockers
-//! from earlier phases have been resolved:
-//!
-//! 1. `crate::truth_runtime::execute_truth` → `helm_truth_execution::dispatcher::execute_truth`
-//! 2. `crate::realtime::RealtimeHub` → local `hub` module (verbatim copy;
-//!    `runway_app_host::EventHubHandle` lacks the sequence/replay semantics needed
-//!    for per-run SSE delivery — full upstream merge is a future phase)
-//! 3. `crate::http_api::HttpState<S>` → self-contained `JobStreamState`
+//! The `/v1/jobs/{key}/stream` SSE route lives here. Phase 1.6 landed the
+//! missing pieces on runway-app-host (replay buffer + cursor subscribe +
+//! `EventEnvelope.job_id`), so there is no local hub copy. No `hub.rs`.
 //!
 //! # Routes mounted
 //!
@@ -20,17 +15,16 @@
 //! # Zero-arg constructor
 //!
 //! `GovernedJobsModule::new()` constructs a default `JobStreamState` with an
-//! empty truth registry and in-memory stores.  Routes built with this default
-//! state will return `501 Not Implemented` for every truth key (no truths are
-//! registered).  Use `GovernedJobsModule::with_state(state)` when real wiring
-//! is needed.
+//! empty truth registry and a freestanding in-memory `EventHub`. Routes built
+//! with this default state will return `501 Not Implemented` for every truth
+//! key (no truths are registered). Use `GovernedJobsModule::with_state(state)`
+//! when real wiring is needed.
 //!
 //! This preserves the zero-arg constructor contract that `quorum-server` and
 //! `atlas-server` rely on.
 
 #![allow(clippy::result_large_err)]
 
-mod hub;
 mod job_stream;
 
 use std::sync::Arc;
