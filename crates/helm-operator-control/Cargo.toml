@@ -17,5 +17,7 @@ tracing.workspace = true
 
 application-kernel = { path = "../application-kernel" }
 application-storage = { path = "../application-storage" }
+helm-truth-execution = { path = "../helm-truth-execution" }
 workbench-backend = { path = "../workbench-backend" }
 prio-agent-ops = { path = "../prio-agent-ops" }
+polars = { version = "0.51", features = ["lazy", "parquet"] }
