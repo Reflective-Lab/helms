@@ -7,10 +7,22 @@ publish.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+async-stream.workspace = true
 async-trait = "0.1"
 axum.workspace = true
+chrono.workspace = true
+converge-core.workspace = true
+futures = "0.3"
+helm-truth-execution = { path = "../helm-truth-execution" }
+application-kernel = { path = "../application-kernel" }
+application-storage = { path = "../application-storage" }
+organism-pack = { workspace = true }
 runway-app-host = { path = "../../../../../runway/crates/runway-app-host" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+tokio-stream = { workspace = true }
+tonic.workspace = true
 tracing.workspace = true
+truth-catalog = { path = "../truth-catalog" }
+uuid.workspace = true
