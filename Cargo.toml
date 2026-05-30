@@ -7,7 +7,6 @@ members = [
     "crates/workbench-backend",
     "crates/application-kernel",
     "crates/application-storage",
-    "crates/application-server",
     "crates/helm-truth-execution",
     "crates/plugin-runtime",
 
