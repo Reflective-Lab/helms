@@ -7,9 +7,9 @@ ready, what is missing, and which receipt chain explains the current state.
 
 The first code slice lives in `crates/prio-agent-ops`.
 
-This module should be hostable inside the Runway app execution container. The
+This module should be hostable inside the Runtime Runway app execution container. The
 current Helm `application-server` remains a useful reference host, but it should
-not become the permanent generic backend for every marquee app. Runway owns the
+not become the permanent generic backend for every marquee app. Runtime Runway owns the
 server/container substrate; Helm owns the operator-control and governed-job
 semantics that the container mounts.
 

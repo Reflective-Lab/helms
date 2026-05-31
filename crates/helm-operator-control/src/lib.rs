@@ -66,7 +66,7 @@ pub use prio_agent_ops::{
 /// the showcase pipeline routes.
 ///
 /// The generic parameter `S` is the `KernelStore` implementation. For most
-/// Runway-hosted deployments this will be `InMemoryKernelStore` (the default)
+/// Runtime Runway-hosted deployments this will be `InMemoryKernelStore` (the default)
 /// or a remote-backed store wired up at startup via
 /// [`OperatorControlModule::with_store`].
 ///

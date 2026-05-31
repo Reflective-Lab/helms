@@ -1,8 +1,8 @@
-# Runway Execution Container Boundary
+# Runtime Runway Execution Container Boundary
 
 Helm should not become the platform server container for every marquee app.
 
-Helm owns operator-control semantics. Runway owns the execution container that
+Helm owns operator-control semantics. Runtime Runway owns the execution container that
 hosts app backends. Marquee apps instantiate that container with domain packets.
 
 ## Decision
@@ -19,13 +19,13 @@ Today:
     -> app probes
 
 Target:
-  Runway execution container
+  Runtime Runway execution container
     -> auth, middleware, telemetry, secrets, storage, health, deploy
     -> mounted Helm operator-control/job module
     -> app packet with truths, subject refs, projections, fixtures, copy
 ```
 
-New generic host work should move toward Runway. New operator-control work stays
+New generic host work should move toward Runtime Runway. New operator-control work stays
 in Helm.
 
 ## Helm Owns
@@ -39,7 +39,7 @@ in Helm.
 - app-neutral routes such as `/v1/jobs/{key}/stream` when they express governed
   work rather than deployment substrate.
 
-## Runway Owns
+## Runtime Runway Owns
 
 - process lifecycle and ports;
 - health checks;
@@ -68,7 +68,7 @@ Before adding to `application-server`, classify the change:
 
 | Change | Destination |
 |---|---|
-| health, auth, middleware, telemetry, secrets, storage, deploy, event-log backend | Runway |
+| health, auth, middleware, telemetry, secrets, storage, deploy, event-log backend | Runtime Runway |
 | operator packet, approval, readiness, receipt, job stream, workbench state | Helm |
 | app vocabulary, copy, fixture, domain projection, product route | app packet or app repo |
 | convergence, promotion, runtime receipt semantics | Converge |
@@ -77,18 +77,18 @@ Before adding to `application-server`, classify the change:
 
 If the change is generic host machinery, avoid deepening Helm. Add only the
 small adapter needed to keep the current proof working, then extract the host
-concern to Runway.
+concern to Runtime Runway.
 
 ## Current Application-Server Split
 
 | Current Helm area | Future owner | Notes |
 |---|---|---|
-| `main.rs` HTTP listener, CORS, trace layer, route prefix concerns | Runway | Replace with `runway-app-host` once Helm routes are mountable. |
+| `main.rs` HTTP listener, CORS, trace layer, route prefix concerns | Runtime Runway | Replace with `runway-app-host` once Helm routes are mountable. |
 | `main.rs` gRPC service assembly for Helm application APIs | Helm module or internal service | Keep only if the typed service is genuinely Helm-specific. |
-| `realtime.rs` event envelope and replay hub | Helm module, backed by Runway event log | Semantics remain Helm/Converge-facing; durable backend comes from Runway. |
+| `realtime.rs` event envelope and replay hub | Helm module, backed by Runtime Runway event log | Semantics remain Helm/Converge-facing; durable backend comes from Runtime Runway. |
 | `job_stream.rs` `/v1/jobs/{key}/stream` | Helm governed-job module | This is the first route to expose as a mountable router. |
 | `sse.rs` operator-control/pipeline compatibility routes | Helm operator-control module | Keep compatibility, but avoid owning the process host. |
-| `http_api.rs` workbench/operator-control endpoints | Helm workbench/operator module | Route module should mount into Runway host. |
+| `http_api.rs` workbench/operator-control endpoints | Helm workbench/operator module | Route module should mount into Runtime Runway host. |
 | `truth_runtime/*` product truth executors | Helm truth module until Axiom/Organism packet path takes over | Do not copy into apps. |
 
 ## Immediate Target
@@ -97,7 +97,7 @@ Catalyst is the first proof. The next backend shape should be:
 
 ```text
 Catalyst UI
-  -> Runway-hosted app backend
+  -> Runtime Runway-hosted app backend
   -> Helm operator-control/job module
   -> Catalyst app packet
   -> Axiom/Organism/Converge/Mosaic lower-layer contracts
