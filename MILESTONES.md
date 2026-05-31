@@ -8,20 +8,6 @@
 
 ---
 
-## Immediate priority: Runtime Runway execution-container boundary
-**Deadline:** today | **Epic:** E5
-Stop generic server ownership from accumulating in Helm. Classify
-`application-server` work into Runtime Runway host concerns, Helm operator-control
-modules, and app packet concerns. Catalyst should prove the target shape:
-Runtime Runway container + Helm module + app packet.
-
-- [x] Document the Runtime Runway/Helm/app execution-container boundary
-- [x] Classify the current `application-server` areas into Runtime Runway host,
-      Helm module, and transitional truth-runtime ownership
-- [x] Expose Helm governed-job routes as a mountable router (2026-05-30, Phase 4 / 4b)
-- [x] Expose Helm operator-control routes as a mountable router (2026-05-30, Phase 3 / 3b)
-- [x] Mount those routers in the Runtime Runway-hosted Catalyst path (2026-05-30, Phase 12)
-
 ## Current: Stage 1.5 — Notes & Intelligence Daily Driver
 **Deadline:** TBD | **Epic:** E5
 Notes app fully implemented: Google import, social capture (LinkedIn/X/Instagram/Facebook), OCR, PDF extraction, object detection. Expenses integrated with OCR pipeline.
@@ -45,6 +31,9 @@ Convergence loops that generate, verify, and deploy executable code (Wasm via Ax
 ---
 
 ## Shipped
+
+### Runtime Runway execution-container boundary (2026-05-30)
+Generic server ownership decoupled from Helm. `application-server` work classified and rehomed: host concerns (auth, middleware, telemetry, storage, deploy) into `runtime-runway`; operator-control + governed-job routes extracted into `helm-operator-control` and `helm-governed-jobs` as mountable `HelmModule`s; domain truths into per-app packets. Catalyst, Quorum, and Atlas backends all migrated to `RunwayAppHost`. `application-server` deleted (Phase 9).
 
 ### Stage 1 — Desktop End-to-End Showcase (v0.1.1, 2026-04-25)
 Governed multi-truth pipeline (score → qualify → schedule) with live convergence visibility and HITL approvals. SSE endpoint, desktop pipeline page, helm-notes capture, EXP-001/EXP-002 confirmed.
