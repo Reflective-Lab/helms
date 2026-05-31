@@ -18,9 +18,9 @@ Runtime Runway container + Helm module + app packet.
 - [x] Document the Runtime Runway/Helm/app execution-container boundary
 - [x] Classify the current `application-server` areas into Runtime Runway host,
       Helm module, and transitional truth-runtime ownership
-- [ ] Expose Helm governed-job routes as a mountable router
-- [ ] Expose Helm operator-control routes as a mountable router
-- [ ] Mount those routers in the Runtime Runway-hosted Catalyst path
+- [x] Expose Helm governed-job routes as a mountable router (2026-05-30, Phase 4 / 4b)
+- [x] Expose Helm operator-control routes as a mountable router (2026-05-30, Phase 3 / 3b)
+- [x] Mount those routers in the Runtime Runway-hosted Catalyst path (2026-05-30, Phase 12)
 
 ## Current: Stage 1.5 — Notes & Intelligence Daily Driver
 **Deadline:** TBD | **Epic:** E5
