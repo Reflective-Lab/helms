@@ -111,12 +111,20 @@ pub struct JobStreamState {
     pub truths: Arc<TruthExecutionModule>,
     pub hub: EventHubHandle,
     pub app_id: String,
-    gate_waiters: Arc<Mutex<HashMap<String, JobGateWaiter>>>,
+    /// HITL gate wait timeout. Defaults to 600s (10 minutes) — preserved from
+    /// the original RealtimeHub. Override via struct-literal + `..default()`
+    /// when shorter timeouts are needed (e.g. integration tests).
+    pub gate_timeout: Duration,
+    #[doc(hidden)]
+    pub gate_waiters: Arc<Mutex<HashMap<String, JobGateWaiter>>>,
     /// Sequence counter for events published through this state.
     /// `EventHubHandle::publish` takes envelopes as-is (no auto-sequence),
     /// so we stamp them here.
-    next_sequence: Arc<AtomicU64>,
+    #[doc(hidden)]
+    pub next_sequence: Arc<AtomicU64>,
 }
+
+const DEFAULT_GATE_TIMEOUT: Duration = Duration::from_secs(600);
 
 impl JobStreamState {
     pub fn new(
@@ -132,6 +140,7 @@ impl JobStreamState {
             truths,
             hub,
             app_id: app_id.into(),
+            gate_timeout: DEFAULT_GATE_TIMEOUT,
             gate_waiters: Arc::new(Mutex::new(HashMap::new())),
             next_sequence: Arc::new(AtomicU64::new(1)),
         }
@@ -200,6 +209,7 @@ impl Default for JobStreamState {
             truths: Arc::new(TruthExecutionModule::new()),
             hub: hub.handle(),
             app_id: "helm.governed-jobs".into(),
+            gate_timeout: DEFAULT_GATE_TIMEOUT,
             gate_waiters: Arc::new(Mutex::new(HashMap::new())),
             next_sequence: Arc::new(AtomicU64::new(1)),
         }
@@ -367,15 +377,21 @@ async fn stream_job(
 
 // ── Background Job Task ───────────────────────────────────────────────
 
-struct JobRunTask {
-    state: Arc<JobStreamState>,
-    run_id: String,
-    truth_key: String,
-    app_id: String,
-    inputs: HashMap<String, String>,
+/// Inputs for `run_job_task`. Exposed so integration tests can drive the
+/// job loop directly without going through the HTTP layer.
+pub struct JobRunTask {
+    pub state: Arc<JobStreamState>,
+    pub run_id: String,
+    pub truth_key: String,
+    pub app_id: String,
+    pub inputs: HashMap<String, String>,
 }
 
-async fn run_job_task(task: JobRunTask) {
+/// Drive a single governed job to completion (or gate-failure) end-to-end.
+///
+/// Mirrors what the `/v1/jobs/{key}/stream` HTTP handler spawns, minus the
+/// SSE wiring. Pub so integration tests can call it directly.
+pub async fn run_job_task(task: JobRunTask) {
     let JobRunTask {
         state,
         run_id,
@@ -470,12 +486,27 @@ async fn run_job_task(task: JobRunTask) {
         }),
     );
 
-    let decision = match tokio::time::timeout(Duration::from_secs(600), decision_rx).await {
+    let decision = match tokio::time::timeout(state.gate_timeout, decision_rx).await {
         Ok(Ok(d)) => d,
-        Ok(Err(_)) | Err(_) => {
+        Ok(Err(_)) => {
             pub_.emit(
                 "job.failed",
-                json!({ "error": "gate waiter expired or cancelled" }),
+                json!({ "error": "gate waiter cancelled" }),
+            );
+            return;
+        }
+        Err(_) => {
+            pub_.emit(
+                "gate.timeout",
+                json!({
+                    "ref_id": gate_ref.clone(),
+                    "runtime_ref": runtime_ref.clone(),
+                    "timeout_ms": state.gate_timeout.as_millis() as u64,
+                }),
+            );
+            pub_.emit(
+                "job.failed",
+                json!({ "error": "gate waiter timed out" }),
             );
             return;
         }

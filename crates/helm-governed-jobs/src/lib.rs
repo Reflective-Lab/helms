@@ -33,7 +33,7 @@ use async_trait::async_trait;
 use axum::Router;
 use runway_app_host::{HelmModule, HostContext};
 
-pub use job_stream::{GateDecision, JobGateWaiter, JobStreamState};
+pub use job_stream::{GateDecision, JobGateWaiter, JobRunTask, JobStreamState, run_job_task};
 
 // ── Module ────────────────────────────────────────────────────────────────────
 
