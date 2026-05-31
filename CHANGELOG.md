@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `helm-governed-jobs::JobStreamState::gate_timeout` (Duration) — configurable HITL gate wait timeout. Defaults to 600s, preserving the original RealtimeHub contract for `quorum-server` / `atlas-server`. Integration tests can override via struct-literal + `..default()`.
+- `helm-governed-jobs` now emits a `gate.timeout` event before `job.failed` when the gate-wait timeout fires, distinct from the cancellation path.
+- `helm-governed-jobs::{JobRunTask, run_job_task}` pub so integration tests can drive the governed-job loop directly without going through the HTTP layer.
+- `helm-governed-jobs/tests/gate_test.rs` — integration coverage for gate-rejected and gate-timeout paths preserved by the Phase 4b redo. Both tests run in <500ms.
+- `experiments/code/EXP-002/generate_data_transformer.rs` — preserved the convergence-step proof from `a63811c^` (pre-Phase-6a) after `application-server` deletion. Includes revival README pointing back at `experiments/EXP-002.md`.
 - `prio-agent-ops` operator-control common module slice: deterministic `JobReadinessPacket`, clause-level evidence readiness, receipt families, non-authoritative `OperatorLedgerEntry`, content-addressed ids, and unit tests for replay stability and authority boundaries.
 - Workbench operator-control preview surface: `/v1/workbench/operator-control/preview` exposes a sample readiness packet, matching non-authoritative ledger entry, and receipt-family catalog for Helm UI integration.
 - Workbench operator-control previews surface: `/v1/workbench/operator-control/previews` returns the readiness-packet list so Tally, Quorum, Fathom, Folio, and later app packets can share the same UI/API contract.
