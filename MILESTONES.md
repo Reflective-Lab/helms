@@ -8,11 +8,23 @@
 
 ---
 
-## Current: Stage 1.5 — Notes & Intelligence Daily Driver
+## Current: Boundary refactor closeout
 **Deadline:** TBD | **Epic:** E5
-Notes app fully implemented: Google import, social capture (LinkedIn/X/Instagram/Facebook), OCR, PDF extraction, object detection. Expenses integrated with OCR pipeline.
+Tie off the trailing work from the just-shipped Runtime Runway boundary refactor: get Quorum/Atlas running in production, restore CI on the post-rename workspace, and close the recovery audit on what the application-server deletion may have collaterally removed.
 
-## Next: Stage 1.75 — Surface Alignment
+- [ ] Phase 10 — Cloud Run deploy for Quorum and Atlas (not Catalyst)
+- [ ] CI repair — replace `actions/checkout` `path: ../X` with direct git clone for sibling-repo path-deps
+- [ ] Recovery audit A — `http_api.rs` route-by-route consumer survey (~2,200 deleted lines)
+- [ ] Recovery audit B — `IdentityGrpc` / `TruthCatalogGrpc` / `ModuleRegistryGrpc` consumer survey
+- [ ] Recovery audit C — 5 subscription truth bodies: decide commerce-rails-truths vs plain operations
+
+Detailed steps for recovery items A–C live in `runtime-runway/docs/superpowers/plans/2026-05-30-recover-lost-functionality.md`.
+
+## Next: Stage 1.5 — Notes & Intelligence Daily Driver
+**Deadline:** TBD | **Epic:** E5
+Notes app on the runway after platform-polish closes. Core vault is live; source imports (Google, web, LinkedIn, IG, FB, X), intelligence enrichment (OCR, PDF, vision, entity extraction), desktop UX, and receipt-OCR for expenses are still open. Full deliverable list in `kb/Planning/Milestones.md`.
+
+## Future: Stage 1.75 — Surface Alignment
 **Deadline:** TBD | **Epic:** E5
 Align code, API, and CLI to the Helm Surface Model. CLI command taxonomy from truth catalog, surface-neutral API namespaces, crm-* → helm-* renames.
 
