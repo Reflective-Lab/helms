@@ -84,4 +84,4 @@ just desktop-build-web
 
 ## Milestones
 
-Read `MILESTONES.md` at the start of every session. Scope all work to the current milestone. See `~/dev/reflective/stack/bedrock-platform/EPIC.md` for the strategic context (this project = E5).
+Read `MILESTONES.md` at the start of every session. Scope all work to the current milestone. See `~/dev/reflective/bedrock-platform/EPIC.md` for the strategic context (this project = E5).

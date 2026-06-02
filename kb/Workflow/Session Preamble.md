@@ -22,7 +22,7 @@ You are helping me build Helm, a JTBD-driven operator workbench built as an appl
 - Never push to main without confirmation. Never commit secrets.
 
 ### Architecture
-- crates/ — 30 Rust crates in 7 module suites
+- crates/ — 35 Rust workspace members across application, Helm, capability, truth, notes, and utility modules
 - apps/desktop/ — Svelte/Tauri operator UI
 - proto/ — gRPC definitions
 - truths/ — Gherkin feature files (jobs, policies, invariants)
@@ -32,7 +32,7 @@ You are helping me build Helm, a JTBD-driven operator workbench built as an appl
 - Legacy `crm-*` and `prio-*` names still exist in code. Treat them as temporary implementation names, not target architecture names.
 
 ### Key conventions
-- Converge is the governance layer — prefer `converge-kernel`, `converge-model`, `converge-pack`, and `converge-provider-api` over `converge-core` unless you are working inside a legacy boundary
+- Converge is the governance layer — prefer `converge-kernel`, `converge-model`, `converge-pack`, and `converge-provider` over `converge-core` unless you are working inside a legacy boundary
 - The kernel is a projection store, not the orchestration layer
 - Agents emit proposals, not direct facts
 - Every mutation emits DomainEvent + AuditEntry + TimelineEntry

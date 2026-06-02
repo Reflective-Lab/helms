@@ -41,4 +41,4 @@ Monday:     /audit
 
 Justfile equivalents: `just git-hygiene`, `just worktrees`
 
-For the full reference: `~/dev/reflective/stack/bedrock-platform/kb/Workflow/Cheat Sheet.md`
+For the full reference: `~/dev/reflective/bedrock-platform/kb/Workflow/Cheat Sheet.md`

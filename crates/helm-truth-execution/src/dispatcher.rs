@@ -363,9 +363,11 @@ pub async fn execute_truth(
     truth_key: &str,
     ctx: TruthExecutionContext,
 ) -> Result<TruthExecutionArtifacts, Status> {
-    let body = module
-        .lookup(truth_key)
-        .ok_or_else(|| Status::unimplemented(format!("truth execution is not implemented yet for {truth_key}")))?;
+    let body = module.lookup(truth_key).ok_or_else(|| {
+        Status::unimplemented(format!(
+            "truth execution is not implemented yet for {truth_key}"
+        ))
+    })?;
     body.execute(ctx).await
 }
 

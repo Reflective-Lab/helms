@@ -6,7 +6,7 @@ use organism_intelligence::pdf::PdfIngester;
 use organism_notes::vault::ObsidianVault;
 
 use super::format;
-use super::{CaptureKind, CaptureReport};
+use super::{CaptureKind, CaptureProvenance, CaptureReport};
 
 pub fn capture_pdf(vault: &ObsidianVault, path: &Path) -> Result<CaptureReport, String> {
     let filename = path
@@ -47,6 +47,6 @@ pub fn capture_pdf(vault: &ObsidianVault, path: &Path) -> Result<CaptureReport, 
         title: doc.title.unwrap_or_else(|| filename.to_string()),
         vault_path,
         extracted_fields: doc.chunks.len(),
-        provenance: "pdf-extract (local)".into(),
+        provenance: CaptureProvenance::PdfLocalExtract,
     })
 }

@@ -8,7 +8,7 @@ use organism_intelligence::web::HttpWebCaptureProvider;
 use organism_notes::vault::ObsidianVault;
 
 use super::format;
-use super::{CaptureKind, CaptureReport};
+use super::{CaptureKind, CaptureProvenance, CaptureReport};
 
 pub fn capture_social(vault: &ObsidianVault, url: &str) -> Result<CaptureReport, String> {
     let web = HttpWebCaptureProvider::new().map_err(|e| format!("web provider: {e}"))?;
@@ -56,7 +56,10 @@ pub fn capture_social(vault: &ObsidianVault, url: &str) -> Result<CaptureReport,
             .unwrap_or_else(|| url.to_string()),
         vault_path,
         extracted_fields: count_fields(profile),
-        provenance: format!("{} via {}", platform, response.profile.vendor),
+        provenance: CaptureProvenance::SocialExtract {
+            platform,
+            vendor: response.profile.vendor,
+        },
     })
 }
 

@@ -7,7 +7,7 @@ use organism_intelligence::ocr::{OcrInput, OcrOutputFormat, OcrProvider, OcrRequ
 use organism_notes::vault::ObsidianVault;
 
 use super::format;
-use super::{CaptureKind, CaptureReport};
+use super::{CaptureKind, CaptureProvenance, CaptureReport};
 
 pub fn capture_image(vault: &ObsidianVault, path: &Path) -> Result<CaptureReport, String> {
     let bytes = std::fs::read(path).map_err(|e| format!("read file: {e}"))?;
@@ -46,9 +46,9 @@ pub fn capture_image(vault: &ObsidianVault, path: &Path) -> Result<CaptureReport
         title: format!("OCR: {filename}"),
         vault_path,
         extracted_fields: 1,
-        provenance: format!(
-            "{} ({})",
-            result.provenance.provider, result.provenance.version
-        ),
+        provenance: CaptureProvenance::Ocr {
+            provider: result.provenance.provider,
+            version: result.provenance.version,
+        },
     })
 }

@@ -11,7 +11,7 @@ redefine them.
 | Governed execution in-process | `converge-kernel` | `converge-model`, `converge-pack` | `converge-core` |
 | Governed execution out-of-process | `converge-client` | `converge-protocol` for typed wire access | runtime internals |
 | App server execution container | Runtime Runway app execution container | Helm mounted as operator-control/job module | app-owned HTTP/gRPC/GraphQL servers |
-| Capability contracts for chat and routing | `converge-provider-api` | `converge-provider` for ready-made adapters | direct vendor HTTP spread across product code |
+| Capability contracts for chat and routing | `converge-provider` | Manifold adapters for concrete provider implementations | direct vendor HTTP spread across product code |
 | Reusable reasoning and planning | `organism-pack`, `organism-runtime` | `organism-domain`, `organism-intelligence`, `organism-notes` | Organism phase crates |
 | Application plugin execution | `helm-plugin-runtime` | Axiom-produced WASM/manifests and Converge contracts | embedding plugin machinery in Converge |
 
@@ -42,7 +42,7 @@ it through public kernel/pack contracts.
 
 ## Extension Locations
 
-Converge v3.8 extracts implementation-heavy capabilities out of the foundation
+Converge v3.9 keeps implementation-heavy capabilities out of the foundation
 repository. Helm should resolve those capabilities from extension repositories
 and keep the foundation dependencies focused on contracts.
 
@@ -53,12 +53,13 @@ to tagged release branches, not day-to-day local composition.
 
 | Capability | Current location | Helm dependency rule |
 |---|---|---|
-| Policy gates / Cedar PDP | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/arbiter-policy` | Use Arbiter through Organism formations or explicit policy contracts. Do not build local policy engines. |
-| Provider adapters / external tools / storage / vector / search / fetch / feed | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/manifold-adapters` | Keep Helm coupled to capability contracts, not vendor types. Do not spread direct vendor HTTP across product code. |
-| Source-specific connectors | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/embassy-ports` | Use Embassy when the external source identity is part of the type. Do not hide source semantics behind ad hoc product connectors. |
-| Knowledge, recall, memory | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/mnemos-knowledge` | Use Mnemos for recall and evidence seeding. Do not create product-local vector recall or memory layers. |
-| Analytics and ML pipelines | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/prism-analytics` | Use Prism for regression, fuzzy inference, ranking, forecasting, anomaly detection, classification, feature extraction, and ML critique. |
-| Native optimization solvers | `/Users/kpernyer/dev/reflective/stack/mosaic-extensions/ferrox-solvers` | Use Ferrox for scheduling, routing, allocation, feasibility, and solver-backed optimization. Do not reintroduce OR-Tools or local optimizers into Helm. |
+| Policy gates / Cedar PDP | `/Users/kpernyer/dev/reflective/mosaic-extensions/arbiter-policy` | Use Arbiter through Organism formations or explicit policy contracts. Do not build local policy engines. |
+| Provider adapters / external tools / storage / vector / search / fetch / feed | `/Users/kpernyer/dev/reflective/mosaic-extensions/manifold-adapters` | Keep Helm coupled to capability contracts, not vendor types. Do not spread direct vendor HTTP across product code. |
+| Source-specific connectors | `/Users/kpernyer/dev/reflective/mosaic-extensions/embassy-ports` | Use Embassy when the external source identity is part of the type. Do not hide source semantics behind ad hoc product connectors. |
+| Knowledge, recall, memory | `/Users/kpernyer/dev/reflective/mosaic-extensions/mnemos-knowledge` | Use Mnemos for recall and evidence seeding. Do not create product-local vector recall or memory layers. |
+| Closed-form analytics and fuzzy inference | `/Users/kpernyer/dev/reflective/mosaic-extensions/prism-analytics` | Use Prism for regression, fuzzy inference, ranking, forecasting, anomaly detection, classification, and feature extraction. |
+| Trained models and model-training pipelines | `/Users/kpernyer/dev/reflective/mosaic-extensions/crucible-models` | Use Crucible for trained artifacts, training loops, registry/deployment agents, and classifier Suggestors. |
+| Native optimization solvers | `/Users/kpernyer/dev/reflective/mosaic-extensions/ferrox-solvers` | Use Ferrox for scheduling, routing, allocation, feasibility, and solver-backed optimization. Do not reintroduce OR-Tools or local optimizers into Helm. |
 
 ## No Local Specialist Cores
 
@@ -68,6 +69,7 @@ reusable specialist cores that already belong to Mosaic.
 
 Forbidden local cores include:
 
+- model-training pipelines
 - regression engines
 - fuzzy-logic engines
 - generic ranking frameworks
@@ -146,6 +148,6 @@ Only keep it in Helm if it is truly product-specific.
 
 ## References
 
-- `~/dev/reflective/stack/bedrock-platform/converge/kb/Architecture/Golden Path Matrix.md`
+- `~/dev/reflective/bedrock-platform/converge/kb/Architecture/Golden Path Matrix.md`
 - [[Architecture/Converge Application]]
 - [[Architecture/Naming Migration Map]]

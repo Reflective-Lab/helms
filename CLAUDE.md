@@ -6,7 +6,7 @@ Read `AGENTS.md` first. It is the canonical project entrypoint.
 
 - **Milestones:** Read `MILESTONES.md` at the start of every session. Scope work to the current milestone.
 - **Changelog:** Update `CHANGELOG.md` when shipping notable changes.
-- **Strategic context:** `~/dev/reflective/stack/bedrock-platform/EPIC.md`
+- **Strategic context:** `~/dev/reflective/bedrock-platform/EPIC.md`
 
 ## Claude-Specific Notes
 

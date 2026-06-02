@@ -21,7 +21,9 @@ impl TruthBody for StubTruth {
         // Construct a minimal artifact.  ConvergeResult has no Default impl
         // in the test environment, so we verify the registry path separately
         // in `registered_truth_is_dispatchable` without executing.
-        Err(tonic::Status::unimplemented("stub — not callable in unit tests"))
+        Err(tonic::Status::unimplemented(
+            "stub — not callable in unit tests",
+        ))
     }
 }
 
@@ -60,6 +62,12 @@ fn registered_count_reflects_registrations() {
 #[test]
 fn supports_truth_execution_matches_registry() {
     let m = TruthExecutionModule::new().register(Arc::new(StubTruth));
-    assert!(helm_truth_execution::supports_truth_execution(&m, "test.stub"));
-    assert!(!helm_truth_execution::supports_truth_execution(&m, "score-inbound-fit"));
+    assert!(helm_truth_execution::supports_truth_execution(
+        &m,
+        "test.stub"
+    ));
+    assert!(!helm_truth_execution::supports_truth_execution(
+        &m,
+        "score-inbound-fit"
+    ));
 }

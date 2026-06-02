@@ -31,7 +31,7 @@
 ### Bun Installation
 The projects declare dependencies using `file:` protocol:
 ```json
-"@reflective/helm-flow-ui": "file:../../../../work/helms/packages/helm-flow-ui"
+"@reflective/helm-flow-ui": "file:<relative-path-to>/stack/bedrock-platform/2/packages/helm-flow-ui"
 ```
 
 **Issue**: Bun v1.3.11 fails to resolve file: dependencies with error:
@@ -39,7 +39,7 @@ The projects declare dependencies using `file:` protocol:
 GET https://registry.npmjs.org/@reflective%2fhelm-flow - 404
 ```
 
-**Root Cause**: Bun attempts to fetch from npm despite file: protocol in package.json. The relative path is correct (verified: 4 levels up from `apps/desktop` to `dev`, then `work/helms/packages/helm-flow-ui`).
+**Root Cause**: Bun attempts to fetch from npm despite file: protocol in package.json. The package's current checkout path is `~/dev/reflective/bedrock-platform/2/packages/helm-flow-ui`; each consuming app must calculate its own relative `file:` path from that location.
 
 **Status**: Package structure is correct; the issue is bun's dependency resolution, not the package itself.
 

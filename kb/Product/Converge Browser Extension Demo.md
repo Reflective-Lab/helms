@@ -134,7 +134,9 @@ Converge shows them the state of their work. Imagine both together."*
 ### What exists today
 
 - Full HTTP API: truths, timeline, workflow, billing ingress, account summaries
-- 9 executable truths running through Converge engine
+- 4 workbench-executable truth paths running through the current backend:
+  `qualify-inbound-lead`, `submit-expense-report`,
+  `activate-subscription`, and `refill-prepaid-ai-credits`
 - SurrealDB persistence, 109 tests green
 - Svelte component library (desktop app — reusable in extension)
 

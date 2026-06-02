@@ -30,7 +30,7 @@ pub struct CaptureReport {
     pub title: String,
     pub vault_path: String,
     pub extracted_fields: usize,
-    pub provenance: String,
+    pub provenance: CaptureProvenance,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -41,6 +41,15 @@ pub enum CaptureKind {
     Pdf,
     Image,
     Unknown,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "source", rename_all = "kebab-case")]
+pub enum CaptureProvenance {
+    WebHttp { vendor: String },
+    SocialExtract { platform: String, vendor: String },
+    PdfLocalExtract,
+    Ocr { provider: String, version: String },
 }
 
 // ── Main Entry Point ────────────────────────────────────────────────
@@ -78,7 +87,7 @@ fn capture_url(vault: &ObsidianVault, url: &str) -> Result<CaptureReport, String
     }
 }
 
-fn capture_file(vault: &ObsidianVault, path: &Path) -> Result<CaptureReport, String> {
+fn capture_file(_vault: &ObsidianVault, path: &Path) -> Result<CaptureReport, String> {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -87,9 +96,9 @@ fn capture_file(vault: &ObsidianVault, path: &Path) -> Result<CaptureReport, Str
 
     match ext.as_str() {
         #[cfg(feature = "pdf")]
-        "pdf" => pdf::capture_pdf(vault, path),
+        "pdf" => pdf::capture_pdf(_vault, path),
         #[cfg(feature = "ocr")]
-        "jpg" | "jpeg" | "png" | "heic" | "webp" => ocr::capture_image(vault, path),
+        "jpg" | "jpeg" | "png" | "heic" | "webp" => ocr::capture_image(_vault, path),
         _ => Err(format!("unsupported file type: .{ext}")),
     }
 }

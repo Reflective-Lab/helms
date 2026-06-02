@@ -183,7 +183,7 @@ Target for new work:
 - `converge-kernel` for execution
 - `converge-model` for governed semantic types
 - `converge-pack` for authoring contracts
-- `converge-provider-api` + `converge-provider` for capability access
+- `converge-provider` for capability access
 
 Legacy `converge-core` usage remains until the truth runtime is migrated. Today it is used for:
 

@@ -467,11 +467,8 @@ pub async fn run_job_task(task: JobRunTask) {
     let progress_at_gate = (emitted * 100 / total) as u32;
     let gate_ref = scoped_gate_ref(&run_id, &runtime_ref);
     let runtime_scope_id = first.runtime_scope_id.clone();
-    let decision_rx = state.register_gate_waiter(
-        &gate_ref,
-        runtime_ref.clone(),
-        runtime_scope_id.clone(),
-    );
+    let decision_rx =
+        state.register_gate_waiter(&gate_ref, runtime_ref.clone(), runtime_scope_id.clone());
 
     pub_.emit(
         "gate.paused",
@@ -489,10 +486,7 @@ pub async fn run_job_task(task: JobRunTask) {
     let decision = match tokio::time::timeout(state.gate_timeout, decision_rx).await {
         Ok(Ok(d)) => d,
         Ok(Err(_)) => {
-            pub_.emit(
-                "job.failed",
-                json!({ "error": "gate waiter cancelled" }),
-            );
+            pub_.emit("job.failed", json!({ "error": "gate waiter cancelled" }));
             return;
         }
         Err(_) => {
@@ -504,10 +498,7 @@ pub async fn run_job_task(task: JobRunTask) {
                     "timeout_ms": state.gate_timeout.as_millis() as u64,
                 }),
             );
-            pub_.emit(
-                "job.failed",
-                json!({ "error": "gate waiter timed out" }),
-            );
+            pub_.emit("job.failed", json!({ "error": "gate waiter timed out" }));
             return;
         }
     };
@@ -518,7 +509,10 @@ pub async fn run_job_task(task: JobRunTask) {
                 "gate.rejected",
                 json!({ "ref_id": gate_ref.clone(), "runtime_ref": runtime_ref.clone() }),
             );
-            pub_.emit("job.failed", json!({ "error": "gate rejected by operator" }));
+            pub_.emit(
+                "job.failed",
+                json!({ "error": "gate rejected by operator" }),
+            );
             return;
         }
         GateDecision::Approved => {

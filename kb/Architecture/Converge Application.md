@@ -130,7 +130,7 @@ Trust Core and Intelligence Core reuse converge-native pack names where the runt
 
 ## Upstream Primitives
 
-These currently arrive through `converge-core` in live code, but the target teaching surface for new work is `converge-kernel` + `converge-model` + `converge-pack`, and `converge-provider-api`/`converge-provider` where capability access is needed:
+These currently arrive through `converge-core` in live code, but the target teaching surface for new work is `converge-kernel` + `converge-model` + `converge-pack`, and `converge-provider` where capability access is needed:
 
 - `TypesRootIntent.active_packs` + `engine.run_with_types_intent_and_hooks()` for intent-driven pack activation
 - `TruthCatalog` trait + `TruthDefinition` for platform-native truth shape

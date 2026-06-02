@@ -13,7 +13,7 @@ chrono.workspace = true
 converge-core.workspace = true
 converge-kernel.workspace = true
 converge-pack.workspace = true
-runway-app-host = { path = "../../../../../runtime-runway/crates/runway-app-host" }
+runway-app-host = { path = "../../../../runtime-runway/crates/runway-app-host" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

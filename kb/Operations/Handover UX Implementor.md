@@ -4,7 +4,7 @@ You are the UX implementor for Helm. You work alongside a main implementor (back
 
 ## Context
 
-Helm is a JTBD-driven application layer built as a Converge application. The backend has 9 executable truths, 20 capability modules, and a full domain model — but everything is in-memory, there are limited query surfaces, and the desktop app is a static shell.
+Helm is a JTBD-driven application layer built as a Converge application. The backend has 23 cataloged truth definitions, 4 executable truth bodies, 21 capability modules, and a full domain model — but everything is in-memory, there are limited query surfaces, and the desktop app is a static shell.
 
 Your job is to build the shared application layer and the desktop operator cockpit. The TUI (Ratatui) comes later, but the shared layer must support both from the start.
 

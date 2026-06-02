@@ -6,6 +6,25 @@ The repo and some code names still reflect the earlier `Outcome Workbench` namin
 
 Long-form documentation now lives in the Obsidian knowledgebase under `kb/`.
 
+## Current Code-Backed Shape
+
+- Workspace version: `0.2.0`.
+- Rust workspace members: 35 crates, including the desktop Tauri shell,
+  workbench backend, application kernel/storage, Helm operator modules,
+  capability crates, the truth catalog, notes, and seed tooling.
+- Truth catalog: 23 registered definitions in `crates/truth-catalog`.
+- Truth keys exposed through `workbench-backend` today: `qualify-inbound-lead`,
+  `submit-expense-report`, `activate-subscription`, and
+  `refill-prepaid-ai-credits`.
+- Wire compatibility: proto packages still live under `proto/prio/*/v1` while
+  naming migrates in stages.
+
+Helm owns operator UX, app projections, plugin hosting, and product-specific
+truth composition. Axiom owns truth compilation and run verification, Organism
+owns formation selection, Converge owns promotion authority, Mosaic owns
+specialist capabilities, Runtime Runway owns deployment/runtime plumbing, and
+Commerce Rails owns commercial truth.
+
 ## A New World
 
 Software was built around the assumption that humans operate workflows. Models and orchestration invert that: humans declare intent, the system converges on it, and the human surface becomes a place to author invariants, set bounds, approve irreversibles, and redirect when the world changes. Helm is that surface.

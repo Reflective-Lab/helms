@@ -39,21 +39,17 @@ Receipt-to-expense pipeline with OCR extraction and governed approval.
 
 ## Truth Execution Engine
 
-Declarative jobs that compile to Converge intents. 9 executable truths spanning CRM, billing, and operations.
+Declarative jobs that compile to Converge intents. The catalog currently holds
+23 truth definitions; four have executable workbench bodies today.
 
 | Truth | What it does |
 |---|---|
 | `qualify-inbound-lead` | Capture demand, verify fit, assign next step |
-| `score-inbound-fit` | Behavioral fit scoring from Parquet analytics |
-| `plan-outbound-campaign` | Prospect assignment with capacity planning |
 | `activate-subscription` | Order → entitlements lifecycle |
-| `upgrade-subscription-plan` | Plan change with HITL approval gate |
-| `suspend-service-on-payment-failure` | Payment failure → graceful degradation |
 | `refill-prepaid-ai-credits` | Top-up with payment verification |
-| `reconcile-model-usage-against-customer-ledger` | Usage audit and billing reconciliation |
-| `schedule-strategic-meetings` | Calendar-aware meeting optimization |
+| `submit-expense-report` | Expense report capture, document workflow, and approval path |
 
-## 24 Capability Modules
+## 21 Capability Modules
 
 Reusable CRM/ERP building blocks organized into 8 suites:
 

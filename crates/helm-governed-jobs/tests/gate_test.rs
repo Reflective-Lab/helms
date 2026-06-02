@@ -22,15 +22,14 @@ use std::time::Duration;
 
 use application_storage::{AppKernelStore, AppRuntimeStores, InMemoryKernelStore};
 use async_trait::async_trait;
+use converge_core::integrity::{ContentHash, IntegrityProof, MerkleRoot};
 use converge_core::{
     ApprovalPointId, ContextState, ConvergeResult, Criterion, CriterionId, CriterionOutcome,
     CriterionResult, StopReason,
 };
-use converge_core::integrity::{ContentHash, IntegrityProof, MerkleRoot};
 use helm_governed_jobs::{GateDecision, JobRunTask, JobStreamState, run_job_task};
 use helm_truth_execution::{
-    TruthBody, TruthExecutionArtifacts, TruthExecutionModule,
-    dispatcher::TruthExecutionContext,
+    TruthBody, TruthExecutionArtifacts, TruthExecutionModule, dispatcher::TruthExecutionContext,
 };
 use runway_app_host::{EventEnvelope, EventHub};
 
@@ -96,9 +95,7 @@ impl TruthBody for GateRequiringTruth {
 
 fn state_with_timeout(timeout: Duration) -> Arc<JobStreamState> {
     let hub = EventHub::with_capacity(128);
-    let truths = Arc::new(
-        TruthExecutionModule::new().register(Arc::new(GateRequiringTruth)),
-    );
+    let truths = Arc::new(TruthExecutionModule::new().register(Arc::new(GateRequiringTruth)));
     Arc::new(JobStreamState {
         store: AppKernelStore::Memory(InMemoryKernelStore::default_local()),
         runtime_stores: AppRuntimeStores::default(),
@@ -166,7 +163,10 @@ async fn gate_rejected_emits_rejection_event_and_fails_job() {
 
     // Reject the gate.
     let signalled = state.signal_gate(&ref_id, GateDecision::Rejected);
-    assert!(signalled, "signal_gate should find the waiter and signal it");
+    assert!(
+        signalled,
+        "signal_gate should find the waiter and signal it"
+    );
 
     // Assert event sequence: gate.rejected then job.failed.
     let _gate_rejected = wait_for_event(&mut rx, "gate.rejected", Duration::from_secs(5))

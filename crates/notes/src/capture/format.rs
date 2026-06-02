@@ -71,6 +71,7 @@ pub fn web_note(
     note
 }
 
+#[cfg(feature = "ocr")]
 pub fn ocr_note(
     source_filename: &str,
     extracted_text: &str,
@@ -91,6 +92,7 @@ pub fn ocr_note(
     note
 }
 
+#[cfg(feature = "pdf")]
 pub fn pdf_note(
     source_filename: &str,
     title: Option<&str>,

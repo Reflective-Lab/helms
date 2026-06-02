@@ -18,7 +18,7 @@ pub fn proposed_text_fact(
     key: ContextKey,
     id: impl Into<ProposalId>,
     text: impl Into<String>,
-    provenance: impl Into<Provenance>,
+    provenance: Provenance,
 ) -> ProposedFact {
     ProposedFact::new(key, id, TextPayload::new(text), provenance)
 }
@@ -81,10 +81,7 @@ pub fn required_datetime(
     })
 }
 
-pub fn optional_uuid(
-    inputs: &HashMap<String, String>,
-    key: &str,
-) -> Result<Option<Uuid>, Status> {
+pub fn optional_uuid(inputs: &HashMap<String, String>, key: &str) -> Result<Option<Uuid>, Status> {
     optional_input(inputs, key)
         .map(|value| {
             Uuid::parse_str(&value).map_err(|error| {

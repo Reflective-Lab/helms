@@ -26,6 +26,7 @@ test-workbench-backend:
     cargo test -p workbench-backend
 
 test-crm-app:
+    @echo "Compatibility alias for test-workbench-backend."
     cargo test -p workbench-backend
 
 # ── Lint & Format ──────────────────────────────────────────────────────
@@ -48,7 +49,7 @@ desktop-rust-check-remote:
 # ── Dev ────────────────────────────────────────────────────────────────
 
 dev-server:
-    cargo run -p application-server
+    @echo "No standalone application-layer server crate exists now; use dev-desktop or test-workbench-backend."
 
 dev-desktop-install:
     cd apps/desktop && bun install
@@ -72,7 +73,7 @@ dev-import-apple-notes:
     CARGO_TARGET_DIR=/tmp/prio-apple-notes-cli cargo run -p prio-apple-notes-cli
 
 dev-truth-resolution:
-    cargo run -p prio-truths --example real-truth-resolution --
+    cargo run -p truth-catalog --example real-truth-resolution --
 
 dev-seed-data:
     cargo run -p seed-gen

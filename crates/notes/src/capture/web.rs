@@ -7,7 +7,7 @@ use organism_intelligence::web::{
 use organism_notes::vault::ObsidianVault;
 
 use super::format;
-use super::{CaptureKind, CaptureReport};
+use super::{CaptureKind, CaptureProvenance, CaptureReport};
 
 pub fn capture_web(vault: &ObsidianVault, url: &str) -> Result<CaptureReport, String> {
     let provider = HttpWebCaptureProvider::new().map_err(|e| format!("web provider: {e}"))?;
@@ -47,7 +47,9 @@ pub fn capture_web(vault: &ObsidianVault, url: &str) -> Result<CaptureReport, St
         title: doc.title.clone().unwrap_or_else(|| url.to_string()),
         vault_path,
         extracted_fields: 3 + doc.links.len().min(1),
-        provenance: format!("http via {}", response.capture.vendor),
+        provenance: CaptureProvenance::WebHttp {
+            vendor: response.capture.vendor,
+        },
     })
 }
 
