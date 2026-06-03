@@ -3,6 +3,7 @@ name = "outcome-workbench-desktop"
 version = "0.1.0"
 edition = "2024"
 default-run = "outcome-workbench-desktop"
+publish = false  # Tauri app binary — not crates.io material. Enforced by RP-LAYERING (`just project-doctor` check 2).
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
