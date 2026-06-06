@@ -563,7 +563,7 @@ dependencies = [
 
 [[package]]
 name = "axiom-truth"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "async-trait",
  "chrono",
@@ -835,7 +835,7 @@ dependencies = [
  "bitflags 2.11.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.11.0",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -855,7 +855,7 @@ dependencies = [
  "bitflags 2.11.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.11.0",
  "proc-macro2",
  "quote",
  "regex",
@@ -2142,7 +2142,7 @@ version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "faf9468729b8cbcea668e36183cb69d317348c2e08e994829fb56ebfdfbaac34"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -3762,7 +3762,7 @@ version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab8ecd87370524b461f8557c119c405552c396ed91fc0a8eec68679eab26f94a"
 dependencies = [
- "libloading 0.8.9",
+ "libloading 0.7.4",
 ]
 
 [[package]]
@@ -5333,7 +5333,7 @@ dependencies = [
  "log",
  "presser",
  "thiserror 2.0.18",
- "windows 0.62.2",
+ "windows 0.61.3",
 ]
 
 [[package]]
@@ -6054,7 +6054,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.6.3",
+ "socket2 0.5.10",
  "system-configuration 0.7.0",
  "tokio",
  "tower-service",
@@ -6117,7 +6117,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.61.2",
 ]
 
 [[package]]
@@ -7666,7 +7666,7 @@ version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "680998035259dcfcafe653688bf2aa6d3e2dc05e98be6ab46afb089dc84f1df8"
 dependencies = [
- "proc-macro-crate 3.5.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -8229,7 +8229,7 @@ dependencies = [
 
 [[package]]
 name = "organism-domain"
-version = "1.0.0"
+version = "1.0.2"
 dependencies = [
  "async-trait",
  "converge-pack",
@@ -9885,7 +9885,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27c6023962132f4b30eb4c172c91ce92d933da334c59c23cddee82358ddafb0b"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.11.0",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -10053,7 +10053,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.2",
  "rustls 0.23.37",
- "socket2 0.6.3",
+ "socket2 0.5.10",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -10091,7 +10091,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.6.3",
+ "socket2 0.5.10",
  "tracing",
  "windows-sys 0.60.2",
 ]
@@ -11025,7 +11025,7 @@ dependencies = [
 
 [[package]]
 name = "runway-app-host"
-version = "3.4.1"
+version = "3.4.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11047,7 +11047,7 @@ dependencies = [
 
 [[package]]
 name = "runway-auth"
-version = "3.4.1"
+version = "3.4.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11064,7 +11064,7 @@ dependencies = [
 
 [[package]]
 name = "runway-middleware"
-version = "3.4.1"
+version = "3.4.2"
 dependencies = [
  "anyhow",
  "axum 0.8.8",
@@ -11080,7 +11080,7 @@ dependencies = [
 
 [[package]]
 name = "runway-secrets"
-version = "3.4.1"
+version = "3.4.2"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -11096,7 +11096,7 @@ dependencies = [
 
 [[package]]
 name = "runway-storage"
-version = "3.4.1"
+version = "3.4.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11118,7 +11118,7 @@ dependencies = [
 
 [[package]]
 name = "runway-telemetry"
-version = "3.4.1"
+version = "3.4.2"
 dependencies = [
  "anyhow",
  "opentelemetry",
@@ -13185,7 +13185,7 @@ dependencies = [
  "serde_with",
  "swift-rs",
  "thiserror 2.0.18",
- "toml 1.1.2+spec-1.1.0",
+ "toml 0.9.12+spec-1.1.0",
  "url",
  "urlpattern",
  "uuid",
@@ -15785,7 +15785,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -16886,7 +16886,7 @@ version = "2.0.2"
 
 [[patch.unused]]
 name = "converge-atelier-domain"
-version = "1.0.0"
+version = "1.0.2"
 
 [[patch.unused]]
 name = "converge-client"
