@@ -454,6 +454,19 @@ fn ollama_extract(
     config: &OllamaReceiptConfig,
 ) -> Result<ExtractionOutput, ReceiptExtractorError> {
     let provider = OllamaReceiptOcrProvider::with_config(config.clone());
+    // Default HTTP client for the direct-text path. The provider used in the
+    // OCR branch owns its own client via the DI pattern (organism's
+    // RP-HERMETIC-UNIT migration); this one covers the text-only branch.
+    // Tests that exercise `send_ollama_request` / `query_ollama_with_text`
+    // construct their own stub client and call the helpers directly.
+    #[allow(clippy::disallowed_methods)]
+    let client = reqwest::blocking::Client::builder().build().map_err(|error| {
+        ReceiptExtractorError::EngineFailed {
+            engine: "ollama-glm-ocr",
+            path: config.base_url.clone(),
+            message: error.to_string(),
+        }
+    })?;
     let mut fields = canonical_name_extract(sample).fields;
     let prompt = json_prompt();
     let mut metadata = BTreeMap::new();
@@ -466,7 +479,7 @@ fn ollama_extract(
             direct_text_source_kind(sample).to_string(),
         );
         metadata.insert("ocr_skipped".to_string(), "true".to_string());
-        query_ollama_with_text(&text, config, &prompt)?
+        query_ollama_with_text(&client, &text, config, &prompt)?
     } else {
         let request = ocr_request_for_path(&sample.document_path, OcrOutputFormat::Json, vec![])
             .map_err(|error| map_ocr_error(sample, "ollama-glm-ocr", error))?;
@@ -820,6 +833,7 @@ fn extend_metadata_with_ocr_result(metadata: &mut BTreeMap<String, String>, resu
 }
 
 fn query_ollama_with_text(
+    client: &reqwest::blocking::Client,
     text: &str,
     config: &OllamaReceiptConfig,
     prompt: &str,
@@ -830,20 +844,14 @@ fn query_ollama_with_text(
         "stream": false,
         "format": "json",
     });
-    send_ollama_request(config, request)
+    send_ollama_request(client, config, request)
 }
 
 fn send_ollama_request(
+    client: &reqwest::blocking::Client,
     config: &OllamaReceiptConfig,
     request: Value,
 ) -> Result<String, ReceiptExtractorError> {
-    let client = reqwest::blocking::Client::builder()
-        .build()
-        .map_err(|error| ReceiptExtractorError::EngineFailed {
-            engine: "ollama-glm-ocr",
-            path: config.base_url.clone(),
-            message: error.to_string(),
-        })?;
     let response = client
         .post(format!(
             "{}/api/generate",

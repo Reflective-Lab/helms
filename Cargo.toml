@@ -109,6 +109,23 @@ uuid = { version = "1", features = ["serde", "v4"] }
 wasmtime = "43"
 proptest = "1"
 
+[workspace.lints.clippy]
+# RP-HERMETIC-UNIT (Reflective QUALITY_BACKLOG.md → QF-2026-06-02-05):
+# denies `reqwest::Client::new` / `reqwest::blocking::Client::new` /
+# `reqwest::Client::builder` / `reqwest::blocking::Client::builder` so
+# unit tests can't accidentally hit the network. Configured list lives
+# in `clippy.toml` at the workspace root.
+#
+# Production callsites either thread a `client: &reqwest::blocking::Client`
+# parameter through the call path (see KB standard
+# `hermetic-unit-tests.md`) or annotate the construction with
+# `#[allow(clippy::disallowed_methods)]` + a justification comment.
+# Set to `deny` 2026-06-07 after the single helms callsite
+# (prio-expenses/src/receipt_extractor.rs send_ollama_request /
+# query_ollama_with_text / ollama_extract) was migrated to the
+# threaded-client pattern.
+disallowed_methods = "deny"
+
 # Redirect transitive crates.io converge/organism/extension deps to local head
 # until the next tag ships. Local-only — remove before publishing.
 [patch.crates-io]

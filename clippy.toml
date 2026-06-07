@@ -1,0 +1,29 @@
+# Workspace-level clippy configuration for Helms.
+#
+# RP-HERMETIC-UNIT enforcement (Reflective QUALITY_BACKLOG.md →
+# QF-2026-06-02-05): the methods listed below construct HTTP/network
+# clients with implicit defaults, making it impossible for a test to
+# substitute a stub without the test author noticing.
+#
+# Production callsites that legitimately need a default client either:
+#
+#   1. Refactor to thread a `client: &reqwest::blocking::Client`
+#      parameter through the call path; the one construction site uses
+#      `#[allow(clippy::disallowed_methods)]` + a justification comment.
+#      Tests can then call the underlying helpers with a stub client.
+#      Pattern documented at Reflective's
+#      KB/05-engineering/standards/hermetic-unit-tests.md.
+#
+#   2. Annotate the callsite directly with
+#      `#[allow(clippy::disallowed_methods)]` and a justification.
+#
+# Includes both `::new` and `::builder` because both bake in network
+# defaults at construction time — helms uses the builder variant in
+# prio-expenses/src/receipt_extractor.rs.
+
+disallowed-methods = [
+    { path = "reqwest::Client::new", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
+    { path = "reqwest::blocking::Client::new", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
+    { path = "reqwest::Client::builder", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
+    { path = "reqwest::blocking::Client::builder", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
+]
