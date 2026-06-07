@@ -25,6 +25,14 @@ owns formation selection, Converge owns promotion authority, Mosaic owns
 specialist capabilities, Runtime Runway owns deployment/runtime plumbing, and
 Commerce Rails owns commercial truth.
 
+## Boundary
+
+> Owns: trust-transfer surfaces, workbench views, operator-facing consequence, manifest intake, operator review, truth-catalog binding, sandbox lifecycle, approval points, audit visibility. Does NOT own: applet authority/schema (→ Axiom); domain mutation in product apps (→ marquee/studio repos); commercial state (→ Commerce Rails).
+
+— Canonical claim: [Helms](https://github.com/Reflective-Lab/reflective/blob/main/KB/04-architecture/current-system-map.md#helms) in the boundary registry. Update there first; this README quotes that source.
+
+The paragraph below ("Helm owns operator UX...") restates the same boundary in narrower prose; the blockquote above is the canonical version.
+
 ## A New World
 
 Software was built around the assumption that humans operate workflows. Models and orchestration invert that: humans declare intent, the system converges on it, and the human surface becomes a place to author invariants, set bounds, approve irreversibles, and redirect when the world changes. Helm is that surface.
