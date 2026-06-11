@@ -460,13 +460,13 @@ fn ollama_extract(
     // Tests that exercise `send_ollama_request` / `query_ollama_with_text`
     // construct their own stub client and call the helpers directly.
     #[allow(clippy::disallowed_methods)]
-    let client = reqwest::blocking::Client::builder().build().map_err(|error| {
-        ReceiptExtractorError::EngineFailed {
+    let client = reqwest::blocking::Client::builder()
+        .build()
+        .map_err(|error| ReceiptExtractorError::EngineFailed {
             engine: "ollama-glm-ocr",
             path: config.base_url.clone(),
             message: error.to_string(),
-        }
-    })?;
+        })?;
     let mut fields = canonical_name_extract(sample).fields;
     let prompt = json_prompt();
     let mut metadata = BTreeMap::new();
