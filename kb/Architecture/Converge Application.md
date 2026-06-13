@@ -4,7 +4,8 @@
 
 Helm is a Converge application, not a parallel runtime.
 
-- Converge owns proposals, facts, authority, promotion, budgets, and convergence
+- Converge owns proposals, facts, authority, promotion, budgets, subject identity,
+  and convergence
 - Helm owns business-domain state, module boundaries, and the public application surfaces
 - truths are the translation layer between business jobs and Converge execution
 
@@ -128,6 +129,30 @@ Pack mapping:
 
 Trust Core and Intelligence Core reuse converge-native pack names where the runtime already has constitutional responsibility.
 
+## Subject Identity
+
+Converge exposes `SubjectRef` as the typed subject marker on proposals, facts,
+admission requests, and context queries. Helm should attach it whenever a truth,
+readiness packet, or Mosaic-backed Suggestor run is about a durable app subject:
+organization, opportunity, subscription, note, job, package, integration target,
+or app-local resource.
+
+Helm owns the vocabulary. Schemes, kinds, and ids come from Helm or the owning
+app (`helm://...`, `atlas://...`, `quorum://...`). Converge validates and
+preserves the reference; it does not interpret readiness, ownership, or domain
+authority from the string.
+
+Rules:
+
+- truth execution/admission attaches a `SubjectRef` when the subject is known
+  before the first proposal;
+- Mosaic-backed Suggestors preserve incoming subject refs on proposed facts and
+  may emit scoped proposals for derived evidence;
+- projection code uses subject refs for correlation, replay, and audit, not as
+  authorization;
+- operator-control readiness packets may render subject refs, but they do not
+  become domain authority.
+
 ## Upstream Primitives
 
 These currently arrive through `converge-core` in live code, but the target teaching surface for new work is `converge-kernel` + `converge-model` + `converge-pack`, and `converge-provider` where capability access is needed:
@@ -138,6 +163,9 @@ These currently arrive through `converge-core` in live code, but the target teac
 - `CriterionResult::Blocked` + `StopReason::HumanInterventionRequired` for post-convergence approval-needed outcomes
 - `TypesRunHooks` with optional criterion evaluator and event observer
 - `ContextStore` trait for durable context snapshots across runs
+- `SubjectRef` plus `ProposedFact::with_subject(...)`,
+  `ContextFact::subject()`, and subject-scoped context queries for app-owned
+  subject correlation
 - `ConvergeError::stop_reason()` for application-level error projection
 
 ## Next Revenue Truths

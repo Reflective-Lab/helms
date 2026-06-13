@@ -10,6 +10,7 @@ redefine them.
 | Truth authoring and validation | Axiom CLI/library | live LLM validation through Converge provider surfaces | product-local truth parsers or validators |
 | Governed execution in-process | `converge-kernel` | `converge-model`, `converge-pack` | `converge-core` |
 | Governed execution out-of-process | `converge-client` | `converge-protocol` for typed wire access | runtime internals |
+| Durable app subject identity | `converge-pack::SubjectRef` through `converge-kernel` / `converge-model` | app-owned scheme/kind vocabulary | raw URI strings in Converge-facing metadata |
 | App server execution container | Runtime Runway app execution container | Helm mounted as operator-control/job module | app-owned HTTP/gRPC/GraphQL servers |
 | Capability contracts for chat and routing | `converge-provider` | Manifold adapters for concrete provider implementations | direct vendor HTTP spread across product code |
 | Reusable reasoning and planning | `organism-pack`, `organism-runtime` | `organism-domain`, `organism-intelligence`, `organism-notes` | Organism phase crates |
@@ -61,6 +62,19 @@ to tagged release branches, not day-to-day local composition.
 | Trained models and model-training pipelines | `/Users/kpernyer/dev/reflective/mosaic-extensions/crucible-models` | Use Crucible for trained artifacts, training loops, registry/deployment agents, and classifier Suggestors. |
 | Native optimization solvers | `/Users/kpernyer/dev/reflective/mosaic-extensions/ferrox-solvers` | Use Ferrox for scheduling, routing, allocation, feasibility, and solver-backed optimization. Do not reintroduce OR-Tools or local optimizers into Helm. |
 
+## SubjectRef Boundary
+
+`SubjectRef` is a Converge contract that Helm, apps, Organism paths, and Mosaic
+extensions can all share without sharing domain semantics. Use it whenever a
+proposal, fact, readiness packet, or specialist result is scoped to a durable
+app subject.
+
+Helm and the owning app define the subject vocabulary. Mosaic extensions accept,
+preserve, query, and emit `SubjectRef` where their proposals/facts are about a
+subject, but they must not hard-code Helm readiness rules, app state machines,
+or authority semantics from the ref. Converge remains responsible only for the
+typed carrier and promotion boundary.
+
 ## No Local Specialist Cores
 
 This is a hard boundary. Helm may compose specialist capabilities, configure
@@ -88,8 +102,8 @@ Allowed Helm work:
 - tenant policy choices, thresholds, credentials, and cost caps
 - application plugin lifecycle, signing, quotas, and sandbox host policy
 - executable factory registration and capability assembly
-- thin glue that maps Helm data into an Organism/Mosaic contract and maps the
-  result back into Helm projections
+- thin glue that maps Helm data and `SubjectRef`s into an Organism/Mosaic
+  contract and maps the result back into Helm projections
 
 If Helm appears to need a reusable specialist core, first check Organism
 formation support and the Mosaic bench. If the capability is missing, record an

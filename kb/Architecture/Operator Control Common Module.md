@@ -48,7 +48,7 @@ The next packets widen the contract across the app portfolio:
 
 `JobReadinessPacket` is the generic read model repeated across the app probes:
 
-- package id, truth version, domain hint, job key, and app subject ref;
+- package id, truth version, domain hint, job key, and app `SubjectRef`;
 - adapter receipt id and adapter status;
 - optional verifier verdict;
 - clause-level evidence readiness;
@@ -61,6 +61,13 @@ The next packets widen the contract across the app portfolio:
 The packet is content-addressed. Its id changes when evidence readiness,
 forbidden actions, or operator actions change. It rejects construction if a
 caller tries to mark the packet as domain-action authority.
+
+The app `SubjectRef` is the same Converge subject identity carried by
+Converge-backed proposals and facts. Helm may display it and use it for packet
+correlation, audit backlinks, and replay lookup. Helm must not infer approval,
+writeback, readiness, or domain authority from the ref alone; those remain in
+the readiness clauses, receipts, app state machine, and Converge promotion
+outcome.
 
 `OperatorLedgerEntry` is the deterministic journal entry for operator-control
 receipts:
@@ -95,7 +102,7 @@ Helm ledger module hosts them.
 
 Helm may:
 
-- compose Axiom reports, adapter receipts, app subject refs, and operator
+- compose Axiom reports, adapter receipts, app `SubjectRef`s, and operator
   actions into readiness views;
 - journal receipt chains with deterministic ids and payload hashes;
 - show missing evidence, concerns, approvals, and next actions.

@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Operator Control readiness packets can now carry optional fuzzy traces. The Plumb preview shows drift-severity memberships and activated rules produced by the app's Prism-backed Suggestor path, while Helm remains display-only.
 - Fuzzy readiness traces can now include an optional typed defuzzified score, including method, score basis points, output domain, and domain steps. Helm hashes and validates the scalar beside memberships/rules without turning it into domain authority.
 - `kb/Architecture/Operator Control Common Module.md` documents the Helm side of the Axiom app-probe extraction: long-running job receipts, temporal-evidence receipts, and content/publication receipts share deterministic backlink mechanics while app payloads remain local.
+- Helm architecture docs now recognize Converge `SubjectRef` as the typed subject identity bridge for truth execution, operator-control readiness packets, and Mosaic-backed Suggestor results while keeping subject vocabulary and authority semantics app-owned.
 
 ### Fixed
 - Desktop Tauri Rust crate now belongs to the root Helms workspace, uses the same local Organism/Converge dependency graph, and relies on the root `Cargo.lock`; this removes the duplicate `converge_core` / `converge_model` type identity split in embedded desktop checks.
