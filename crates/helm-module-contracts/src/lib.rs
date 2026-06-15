@@ -21,6 +21,12 @@ impl HelmModuleState {
     }
 }
 
+pub trait HelmModuleReadiness {
+    fn module_state(&self) -> HelmModuleState;
+
+    fn readiness_status(&self) -> HelmModuleStatus;
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HelmModuleStatus {
     pub module_id: String,
@@ -76,7 +82,7 @@ impl HelmModuleStatus {
 
 #[cfg(test)]
 mod tests {
-    use super::{HelmModuleState, HelmModuleStatus};
+    use super::{HelmModuleReadiness, HelmModuleState, HelmModuleStatus};
     use serde_json::json;
 
     #[test]
@@ -145,5 +151,24 @@ mod tests {
         assert_eq!(value["state"], "live");
         assert_eq!(value["live_requirements"], json!(["truth_registry"]));
         assert!(value.get("missing_live_requirements").is_none());
+    }
+
+    #[test]
+    fn readiness_trait_exposes_state_and_status() {
+        struct TestModule;
+
+        impl HelmModuleReadiness for TestModule {
+            fn module_state(&self) -> HelmModuleState {
+                HelmModuleState::ShellDefault
+            }
+
+            fn readiness_status(&self) -> HelmModuleStatus {
+                HelmModuleStatus::new("helm.test", self.module_state(), "test shell")
+            }
+        }
+
+        let module = TestModule;
+        assert_eq!(module.module_state(), HelmModuleState::ShellDefault);
+        assert_eq!(module.readiness_status().module_id, "helm.test");
     }
 }

@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use crate::{OperatorControlPreview, OperatorControlReadinessFeed};
 use application_storage::{AppConfig, InMemoryKernelStore, KernelStore};
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -14,7 +15,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde::Serialize;
-use workbench_backend::{OperatorApp, OperatorAppError, OperatorControlPreview};
+use workbench_backend::{OperatorApp, OperatorAppError};
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ use workbench_backend::{OperatorApp, OperatorAppError, OperatorControlPreview};
 #[derive(Clone)]
 pub struct OperatorControlState<S = InMemoryKernelStore> {
     pub operator: OperatorApp<S>,
+    readiness_feed: Option<Arc<dyn OperatorControlReadinessFeed>>,
 }
 
 impl<S> OperatorControlState<S>
@@ -35,7 +37,46 @@ where
     pub fn new(config: AppConfig, store: S) -> Self {
         Self {
             operator: OperatorApp::new(config, store),
+            readiness_feed: None,
         }
+    }
+
+    pub fn with_readiness_feed(mut self, feed: Arc<dyn OperatorControlReadinessFeed>) -> Self {
+        self.readiness_feed = Some(feed);
+        self
+    }
+
+    pub fn operator_control_preview(&self) -> Result<OperatorControlPreview, OperatorAppError> {
+        if let Some(mut previews) = self.live_previews()? {
+            return Ok(previews.remove(0));
+        }
+
+        self.operator.operator_control_preview()
+    }
+
+    pub fn operator_control_previews(
+        &self,
+    ) -> Result<Vec<OperatorControlPreview>, OperatorAppError> {
+        if let Some(previews) = self.live_previews()? {
+            return Ok(previews);
+        }
+
+        self.operator.operator_control_previews()
+    }
+
+    fn live_previews(&self) -> Result<Option<Vec<OperatorControlPreview>>, OperatorAppError> {
+        let Some(feed) = &self.readiness_feed else {
+            return Ok(None);
+        };
+
+        let snapshots = feed
+            .previews()
+            .map_err(|error| OperatorAppError::OperatorControl(error.to_string()))?;
+        if snapshots.is_empty() {
+            return Ok(None);
+        }
+
+        Ok(Some(snapshots.into_iter().map(Into::into).collect()))
     }
 }
 
@@ -72,7 +113,6 @@ where
     S: KernelStore + Clone + Send + Sync + 'static,
 {
     state
-        .operator
         .operator_control_preview()
         .map(Json)
         .map_err(api_error_from_operator)
@@ -85,7 +125,6 @@ where
     S: KernelStore + Clone + Send + Sync + 'static,
 {
     state
-        .operator
         .operator_control_previews()
         .map(Json)
         .map_err(api_error_from_operator)

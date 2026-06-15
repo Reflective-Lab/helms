@@ -3,8 +3,10 @@ use std::sync::Arc;
 use application_storage::{AppConfig, InMemoryKernelStore};
 use helm_operator_control::{
     AdapterReceiptStatus, AuthorityEffect, EvidenceReadinessStatus, JobEvidenceStatus,
-    JobReadinessPacket, JobReadinessPacketInput, JobVerdict, LiveReadinessEvidence,
-    OperatorControlModule, OperatorControlModuleState, OperatorLedgerRecordKind, ReceiptFamily,
+    JobReadinessPacket, JobReadinessPacketInput, JobVerdict, LiveOperatorControlSnapshot,
+    LiveReadinessEvidence, OperatorControlModule, OperatorControlModuleState,
+    OperatorControlPreview, OperatorControlPreviewBacking, OperatorControlReadinessFeed,
+    OperatorControlState, OperatorLedgerRecordKind, ReceiptFamily,
     job_readiness_packet_ledger_entry, job_readiness_packet_payload_hash,
 };
 use runway_app_host::HelmModule;
@@ -12,6 +14,65 @@ use serde_json::json;
 
 fn test_config() -> AppConfig {
     AppConfig::default()
+}
+
+#[derive(Clone)]
+struct StaticReadinessFeed {
+    evidence: LiveReadinessEvidence,
+    snapshots: Vec<LiveOperatorControlSnapshot>,
+}
+
+impl OperatorControlReadinessFeed for StaticReadinessFeed {
+    fn live_evidence(&self) -> LiveReadinessEvidence {
+        self.evidence
+    }
+
+    fn previews(
+        &self,
+    ) -> Result<Vec<LiveOperatorControlSnapshot>, helm_operator_control::OperatorControlError> {
+        Ok(self.snapshots.clone())
+    }
+}
+
+fn sample_packet() -> JobReadinessPacket {
+    JobReadinessPacket::new(JobReadinessPacketInput {
+        package_id: "pkg-quorum-001".to_string(),
+        truth_version: "truth-v1".to_string(),
+        domain_hint: "quorum-sense".to_string(),
+        job_key: "adaptive-inquiry".to_string(),
+        subject_ref: "quorum:inquiry:123".to_string(),
+        adapter_receipt_id: "receipt:adapter:123".to_string(),
+        adapter_status: AdapterReceiptStatus::Succeeded,
+        verdict: Some(JobVerdict::Blocked),
+        authorizes_domain_action: false,
+        evidence_status: vec![JobEvidenceStatus {
+            clause_id: "clause-1".to_string(),
+            clause_key: "participant-consent".to_string(),
+            label: "Participant consent is present".to_string(),
+            status: EvidenceReadinessStatus::Present,
+            fact_ids: vec!["fact-1".to_string()],
+            evidence_refs: vec!["evidence-1".to_string()],
+            trace_links: Vec::new(),
+            concern_record_ids: Vec::new(),
+        }],
+        fuzzy_trace: None,
+        verifier_forbidden_actions: vec!["authorize_domain_action".to_string()],
+        operator_actions: vec!["review_packet".to_string()],
+    })
+    .expect("packet builds")
+}
+
+fn sample_snapshot() -> LiveOperatorControlSnapshot {
+    let packet = sample_packet();
+    let ledger_entry = job_readiness_packet_ledger_entry(
+        1,
+        &packet,
+        vec!["receipt:adapter:123".to_string()],
+        "Quorum readiness packet recorded",
+    )
+    .expect("ledger entry builds");
+
+    LiveOperatorControlSnapshot::new(packet, vec![ledger_entry])
 }
 
 #[test]
@@ -111,32 +172,71 @@ fn readiness_status_serializes_live_without_missing_requirements() {
 }
 
 #[test]
+fn live_readiness_feed_reports_live_when_evidence_and_snapshot_exist() {
+    let feed = Arc::new(StaticReadinessFeed {
+        evidence: LiveReadinessEvidence::complete(),
+        snapshots: vec![sample_snapshot()],
+    });
+    let m: OperatorControlModule<InMemoryKernelStore> =
+        OperatorControlModule::new(test_config()).with_live_readiness_feed(feed);
+    let status = m.readiness_status();
+
+    assert_eq!(m.module_state(), OperatorControlModuleState::Live);
+    assert_eq!(status.state, OperatorControlModuleState::Live);
+    assert!(
+        status
+            .live_requirements
+            .contains(&"readiness_feed".to_string())
+    );
+    assert!(status.missing_live_requirements.is_empty());
+}
+
+#[test]
+fn live_readiness_feed_requires_at_least_one_snapshot() {
+    let feed = Arc::new(StaticReadinessFeed {
+        evidence: LiveReadinessEvidence::complete(),
+        snapshots: Vec::new(),
+    });
+    let m: OperatorControlModule<InMemoryKernelStore> =
+        OperatorControlModule::new(test_config()).with_live_readiness_feed(feed);
+    let status = m.readiness_status();
+
+    assert_eq!(m.module_state(), OperatorControlModuleState::ShellDefault);
+    assert_eq!(status.state, OperatorControlModuleState::ShellDefault);
+    assert!(
+        status
+            .missing_live_requirements
+            .contains(&"readiness_feed".to_string())
+    );
+}
+
+#[test]
+fn operator_control_state_uses_live_feed_previews_when_present() {
+    let feed = Arc::new(StaticReadinessFeed {
+        evidence: LiveReadinessEvidence::complete(),
+        snapshots: vec![sample_snapshot()],
+    });
+    let store = InMemoryKernelStore::default_local();
+    let state = OperatorControlState::new(store.config.clone(), store).with_readiness_feed(feed);
+    let preview = state
+        .operator_control_preview()
+        .expect("live feed preview is available");
+
+    assert_eq!(preview.backing, OperatorControlPreviewBacking::LiveAppFeed);
+    assert_eq!(preview.packet.domain_hint, "quorum-sense");
+}
+
+#[test]
+fn live_snapshot_converts_to_live_app_feed_preview() {
+    let preview: OperatorControlPreview = sample_snapshot().into();
+
+    assert_eq!(preview.backing, OperatorControlPreviewBacking::LiveAppFeed);
+    assert_eq!(preview.ledger_entries.len(), 1);
+}
+
+#[test]
 fn helm_crate_exports_operator_control_contracts() {
-    let packet = JobReadinessPacket::new(JobReadinessPacketInput {
-        package_id: "pkg-quorum-001".to_string(),
-        truth_version: "truth-v1".to_string(),
-        domain_hint: "quorum-sense".to_string(),
-        job_key: "adaptive-inquiry".to_string(),
-        subject_ref: "quorum:inquiry:123".to_string(),
-        adapter_receipt_id: "receipt:adapter:123".to_string(),
-        adapter_status: AdapterReceiptStatus::Succeeded,
-        verdict: Some(JobVerdict::Blocked),
-        authorizes_domain_action: false,
-        evidence_status: vec![JobEvidenceStatus {
-            clause_id: "clause-1".to_string(),
-            clause_key: "participant-consent".to_string(),
-            label: "Participant consent is present".to_string(),
-            status: EvidenceReadinessStatus::Present,
-            fact_ids: vec!["fact-1".to_string()],
-            evidence_refs: vec!["evidence-1".to_string()],
-            trace_links: Vec::new(),
-            concern_record_ids: Vec::new(),
-        }],
-        fuzzy_trace: None,
-        verifier_forbidden_actions: vec!["authorize_domain_action".to_string()],
-        operator_actions: vec!["review_packet".to_string()],
-    })
-    .expect("packet builds from Helm export");
+    let packet = sample_packet();
 
     let hash = job_readiness_packet_payload_hash(&packet);
     assert!(hash.starts_with("sha256:"));

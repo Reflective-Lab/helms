@@ -19,8 +19,8 @@ semantics that the container mounts.
 
 ## Mount Liveness Contract
 
-Helm modules expose a small liveness vocabulary through
-`crates/helm-module-contracts`:
+Helm modules expose a small liveness vocabulary and the
+`HelmModuleReadiness` trait through `crates/helm-module-contracts`:
 
 - `shell-default`: routes may exist, but the module is serving default, static,
   demo, or otherwise incomplete state;
@@ -30,6 +30,12 @@ This vocabulary exists so Runtime Runway's manifest verifier can reject a
 manifest that presents a default Helm shell as live. Route reachability is not
 enough.
 
+RR D1 check 2 should inspect `HelmModuleReadiness::module_state()` or
+`HelmModuleReadiness::readiness_status()`. It should not infer liveness from
+`runway_app_host::HelmModule`; that trait proves a router can mount, not that
+the mounted surface is live. A mounted router is not proof of live module
+state.
+
 Current module behavior:
 
 - `OperatorControlModule::new(...)`, `with_store(...)`, and `with_truths(...)`
@@ -38,6 +44,11 @@ Current module behavior:
 - `OperatorControlModule::with_live_readiness_evidence(...)` reports `live`
   only when the evidence marker contains process receipt, integrity proof,
   adapter receipt, and Axiom report.
+- `OperatorControlModule::with_live_readiness_feed(...)` is the live Quorum
+  handoff contract. The feed is app-owned and returns already-derived
+  `JobReadinessPacket` / `OperatorLedgerEntry` snapshots plus the same evidence
+  completeness marker. The module reports `live` only when the feed evidence is
+  complete and the feed returns at least one snapshot.
 - `GovernedJobsModule::new()` reports `shell-default` because no truth bodies
   are registered.
 - `GovernedJobsModule::with_state(...)` reports `live` only when its
@@ -76,6 +87,13 @@ the live operator-control evidence feed and Runtime Runway's verifier checks the
 module status. Helm readiness remains advisory even when the module reports
 `live`; it never authorizes domain action, commerce action, deployment, claim
 refresh, or app writeback.
+
+The live feed boundary is packet-based, not domain-state-based. Quorum owns
+process receipts, integrity proofs, adapter receipts, Axiom reports, subject
+refs, and packet construction. Helm consumes the packet/ledger snapshots and
+renders operator readiness. Helm must not read raw inquiry transcripts,
+entitlement state, deployment state, or Quorum write authority through this
+feed.
 
 The first host-facing list lives at
 `GET /v1/workbench/operator-control/previews`. It returns the current

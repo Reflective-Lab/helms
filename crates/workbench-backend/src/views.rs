@@ -27,6 +27,32 @@ pub struct OperatorControlPreview {
     pub backing: OperatorControlPreviewBacking,
 }
 
+impl OperatorControlPreview {
+    pub fn static_portfolio_demo(
+        packet: JobReadinessPacket,
+        ledger_entries: Vec<OperatorLedgerEntry>,
+    ) -> Self {
+        Self {
+            packet,
+            ledger_entries,
+            receipt_families: operator_receipt_families(),
+            backing: OperatorControlPreviewBacking::StaticPortfolioDemo,
+        }
+    }
+
+    pub fn live_app_feed(
+        packet: JobReadinessPacket,
+        ledger_entries: Vec<OperatorLedgerEntry>,
+    ) -> Self {
+        Self {
+            packet,
+            ledger_entries,
+            receipt_families: operator_receipt_families(),
+            backing: OperatorControlPreviewBacking::LiveAppFeed,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum OperatorControlPreviewBacking {
@@ -39,6 +65,53 @@ pub struct OperatorReceiptFamilyView {
     pub family: ReceiptFamily,
     pub purpose: String,
     pub record_kinds: Vec<OperatorLedgerRecordKind>,
+}
+
+pub fn operator_receipt_families() -> Vec<OperatorReceiptFamilyView> {
+    vec![
+        OperatorReceiptFamilyView {
+            family: ReceiptFamily::Common,
+            purpose: "shared adapter and readiness receipts used by every app probe".to_string(),
+            record_kinds: vec![
+                OperatorLedgerRecordKind::ObservationAdapterReceipt,
+                OperatorLedgerRecordKind::JobReadinessPacket,
+            ],
+        },
+        OperatorReceiptFamilyView {
+            family: ReceiptFamily::LongRunningJob,
+            purpose: "approval, decision, plan, execution, action, and outcome milestones"
+                .to_string(),
+            record_kinds: vec![
+                OperatorLedgerRecordKind::OperatorDecisionReceipt,
+                OperatorLedgerRecordKind::ApprovalReceipt,
+                OperatorLedgerRecordKind::PlanReceipt,
+                OperatorLedgerRecordKind::ExecutionReceipt,
+                OperatorLedgerRecordKind::ActionReceipt,
+                OperatorLedgerRecordKind::OutcomeReceipt,
+            ],
+        },
+        OperatorReceiptFamilyView {
+            family: ReceiptFamily::TemporalEvidence,
+            purpose: "corpus snapshots, evidence windows, preserved disagreements, analyst review, and cited narrative claims".to_string(),
+            record_kinds: vec![
+                OperatorLedgerRecordKind::CorpusSnapshotReceipt,
+                OperatorLedgerRecordKind::EvidenceWindowReceipt,
+                OperatorLedgerRecordKind::DisagreementReceipt,
+                OperatorLedgerRecordKind::AnalystReviewReceipt,
+                OperatorLedgerRecordKind::NarrativeClaimReceipt,
+            ],
+        },
+        OperatorReceiptFamilyView {
+            family: ReceiptFamily::ContentPublication,
+            purpose: "canonical story, claim review, editorial approval, and publication boundary receipts".to_string(),
+            record_kinds: vec![
+                OperatorLedgerRecordKind::CanonicalStoryReceipt,
+                OperatorLedgerRecordKind::ClaimReviewReceipt,
+                OperatorLedgerRecordKind::EditorialApprovalReceipt,
+                OperatorLedgerRecordKind::PublicationBoundaryReceipt,
+            ],
+        },
+    ]
 }
 
 #[derive(Debug, Clone, Serialize)]

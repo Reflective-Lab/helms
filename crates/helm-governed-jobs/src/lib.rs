@@ -31,11 +31,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::Router;
-use helm_module_contracts::{HelmModuleState, HelmModuleStatus};
+use helm_module_contracts::{HelmModuleReadiness, HelmModuleState, HelmModuleStatus};
 use runway_app_host::{HelmModule, HostContext};
 
 pub use helm_module_contracts::{
-    HelmModuleState as GovernedJobsModuleState, HelmModuleStatus as GovernedJobsModuleStatus,
+    HelmModuleReadiness as GovernedJobsModuleReadiness, HelmModuleState as GovernedJobsModuleState,
+    HelmModuleStatus as GovernedJobsModuleStatus,
 };
 pub use job_stream::{GateDecision, JobGateWaiter, JobRunTask, JobStreamState, run_job_task};
 
@@ -104,6 +105,16 @@ impl GovernedJobsModule {
 impl Default for GovernedJobsModule {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl HelmModuleReadiness for GovernedJobsModule {
+    fn module_state(&self) -> HelmModuleState {
+        GovernedJobsModule::module_state(self)
+    }
+
+    fn readiness_status(&self) -> HelmModuleStatus {
+        GovernedJobsModule::readiness_status(self)
     }
 }
 

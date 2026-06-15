@@ -21,8 +21,7 @@ use organism_runtime::Registry;
 use prio_agent_ops::{
     AdapterReceiptStatus, EvidenceReadinessStatus, FuzzyDefuzzifiedScore, FuzzyMembership,
     FuzzyReadinessTrace, FuzzyRuleActivation, JobEvidenceStatus, JobReadinessPacket,
-    JobReadinessPacketInput, JobVerdict, OperatorControlError, OperatorLedgerRecordKind,
-    ReceiptFamily, job_readiness_packet_ledger_entry,
+    JobReadinessPacketInput, JobVerdict, OperatorControlError, job_readiness_packet_ledger_entry,
 };
 use thiserror::Error;
 use truth_catalog::{
@@ -45,6 +44,7 @@ pub use views::{
     TruthExecutionResult, TruthExecutionSession, TruthListItem, TruthModuleTouchItem,
     TruthReadinessConfirmationView, TruthReadinessGapView, TruthReadinessView, WorkbenchAppKind,
     WorkbenchAppManifest, WorkbenchAppStatus, WorkflowCaseFilter, WorkflowCaseListItem,
+    operator_receipt_families,
 };
 
 const QUALIFY_INBOUND_LEAD: &str = "qualify-inbound-lead";
@@ -857,59 +857,10 @@ fn operator_control_preview_from_packet(
         summary,
     )?;
 
-    Ok(OperatorControlPreview {
+    Ok(OperatorControlPreview::static_portfolio_demo(
         packet,
-        ledger_entries: vec![ledger_entry],
-        receipt_families: operator_receipt_families(),
-        backing: OperatorControlPreviewBacking::StaticPortfolioDemo,
-    })
-}
-
-fn operator_receipt_families() -> Vec<OperatorReceiptFamilyView> {
-    vec![
-        OperatorReceiptFamilyView {
-            family: ReceiptFamily::Common,
-            purpose: "shared adapter and readiness receipts used by every app probe".to_string(),
-            record_kinds: vec![
-                OperatorLedgerRecordKind::ObservationAdapterReceipt,
-                OperatorLedgerRecordKind::JobReadinessPacket,
-            ],
-        },
-        OperatorReceiptFamilyView {
-            family: ReceiptFamily::LongRunningJob,
-            purpose: "approval, decision, plan, execution, action, and outcome milestones"
-                .to_string(),
-            record_kinds: vec![
-                OperatorLedgerRecordKind::OperatorDecisionReceipt,
-                OperatorLedgerRecordKind::ApprovalReceipt,
-                OperatorLedgerRecordKind::PlanReceipt,
-                OperatorLedgerRecordKind::ExecutionReceipt,
-                OperatorLedgerRecordKind::ActionReceipt,
-                OperatorLedgerRecordKind::OutcomeReceipt,
-            ],
-        },
-        OperatorReceiptFamilyView {
-            family: ReceiptFamily::TemporalEvidence,
-            purpose: "corpus snapshots, evidence windows, preserved disagreements, analyst review, and cited narrative claims".to_string(),
-            record_kinds: vec![
-                OperatorLedgerRecordKind::CorpusSnapshotReceipt,
-                OperatorLedgerRecordKind::EvidenceWindowReceipt,
-                OperatorLedgerRecordKind::DisagreementReceipt,
-                OperatorLedgerRecordKind::AnalystReviewReceipt,
-                OperatorLedgerRecordKind::NarrativeClaimReceipt,
-            ],
-        },
-        OperatorReceiptFamilyView {
-            family: ReceiptFamily::ContentPublication,
-            purpose: "canonical story, claim review, editorial approval, and publication boundary receipts".to_string(),
-            record_kinds: vec![
-                OperatorLedgerRecordKind::CanonicalStoryReceipt,
-                OperatorLedgerRecordKind::ClaimReviewReceipt,
-                OperatorLedgerRecordKind::EditorialApprovalReceipt,
-                OperatorLedgerRecordKind::PublicationBoundaryReceipt,
-            ],
-        },
-    ]
+        vec![ledger_entry],
+    ))
 }
 
 impl<S> OperatorApp<S>

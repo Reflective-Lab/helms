@@ -44,15 +44,19 @@ use std::sync::Arc;
 use application_storage::{AppConfig, InMemoryKernelStore, KernelStore};
 use async_trait::async_trait;
 use axum::Router;
-use helm_module_contracts::{HelmModuleState, HelmModuleStatus};
+use helm_module_contracts::{HelmModuleReadiness, HelmModuleState, HelmModuleStatus};
 use helm_truth_execution::TruthExecutionModule;
 use runway_app_host::{HelmModule, HostContext};
 
 pub use helm_module_contracts::{
+    HelmModuleReadiness as OperatorControlModuleReadiness,
     HelmModuleState as OperatorControlModuleState, HelmModuleStatus as OperatorControlModuleStatus,
 };
 pub use http_api::OperatorControlState;
 pub use pipeline::PipelineRouteState;
+pub use workbench_backend::{
+    OperatorControlPreview, OperatorControlPreviewBacking, OperatorReceiptFamilyView,
+};
 
 // Re-export types that downstream apps (Phase 8 Quorum, etc.) will consume
 // without needing to depend on prio-agent-ops directly.
@@ -86,6 +90,7 @@ pub struct OperatorControlModule<S = InMemoryKernelStore> {
     state: Arc<OperatorControlState<S>>,
     pipeline: Arc<PipelineRouteState>,
     live_evidence: Option<LiveReadinessEvidence>,
+    readiness_feed: Option<Arc<dyn OperatorControlReadinessFeed>>,
 }
 
 const LIVE_REQUIREMENTS: [&str; 4] = [
@@ -94,6 +99,45 @@ const LIVE_REQUIREMENTS: [&str; 4] = [
     "adapter_receipt",
     "axiom_report",
 ];
+const READINESS_FEED_REQUIREMENT: &str = "readiness_feed";
+
+/// App-supplied live operator-control packet and ledger chain.
+///
+/// Quorum should build these snapshots from app-owned process receipts,
+/// integrity proofs, adapter receipts, and Axiom reports. Helm stores and
+/// renders the packet/ledger shape; it does not read Quorum domain state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LiveOperatorControlSnapshot {
+    pub packet: JobReadinessPacket,
+    pub ledger_entries: Vec<OperatorLedgerEntry>,
+}
+
+impl LiveOperatorControlSnapshot {
+    pub fn new(packet: JobReadinessPacket, ledger_entries: Vec<OperatorLedgerEntry>) -> Self {
+        Self {
+            packet,
+            ledger_entries,
+        }
+    }
+}
+
+impl From<LiveOperatorControlSnapshot> for OperatorControlPreview {
+    fn from(snapshot: LiveOperatorControlSnapshot) -> Self {
+        OperatorControlPreview::live_app_feed(snapshot.packet, snapshot.ledger_entries)
+    }
+}
+
+/// Provider contract for live operator-control readiness.
+///
+/// The provider is app-owned. Helm calls it to obtain already-derived
+/// packet/ledger snapshots and the evidence-completeness marker needed for RR's
+/// module liveness check. Implementations must not expose raw app transcripts,
+/// entitlement state, deployment authority, or domain write authority.
+pub trait OperatorControlReadinessFeed: Send + Sync + 'static {
+    fn live_evidence(&self) -> LiveReadinessEvidence;
+
+    fn previews(&self) -> Result<Vec<LiveOperatorControlSnapshot>, OperatorControlError>;
+}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct LiveReadinessEvidence {
@@ -147,6 +191,7 @@ impl OperatorControlModule<InMemoryKernelStore> {
             state: Arc::new(OperatorControlState::new(config, store)),
             pipeline: Arc::new(PipelineRouteState::new()),
             live_evidence: None,
+            readiness_feed: None,
         }
     }
 
@@ -174,6 +219,7 @@ impl OperatorControlModule<InMemoryKernelStore> {
             state: Arc::new(OperatorControlState::new(config, store)),
             pipeline: Arc::new(PipelineRouteState::with_truths(truths)),
             live_evidence: None,
+            readiness_feed: None,
         }
     }
 }
@@ -188,6 +234,7 @@ where
             state: Arc::new(OperatorControlState::new(config, store)),
             pipeline: Arc::new(PipelineRouteState::new()),
             live_evidence: None,
+            readiness_feed: None,
         }
     }
 
@@ -201,19 +248,30 @@ where
         self
     }
 
+    /// Attach an app-owned live readiness feed.
+    ///
+    /// This is the H-01 contract Quorum should use to feed real
+    /// `JobReadinessPacket` / `OperatorLedgerEntry` snapshots into
+    /// `helm.operator-control`. The module reports `live` only when the feed
+    /// evidence is complete and the feed returns at least one snapshot.
+    pub fn with_live_readiness_feed(mut self, feed: Arc<dyn OperatorControlReadinessFeed>) -> Self {
+        self.state = Arc::new((*self.state).clone().with_readiness_feed(feed.clone()));
+        self.readiness_feed = Some(feed);
+        self
+    }
+
     pub fn module_state(&self) -> HelmModuleState {
-        match self.live_evidence {
-            Some(evidence) if evidence.is_complete() => HelmModuleState::Live,
-            _ => HelmModuleState::ShellDefault,
+        if self.current_live_evidence().is_complete() && self.readiness_feed_ready() {
+            HelmModuleState::Live
+        } else {
+            HelmModuleState::ShellDefault
         }
     }
 
     pub fn readiness_status(&self) -> HelmModuleStatus {
         let registered_truths = self.pipeline.truths.registered_count();
-        let missing = self
-            .live_evidence
-            .unwrap_or_default()
-            .missing_requirements();
+        let missing = self.missing_live_requirements();
+        let requirements = self.live_requirements();
         let state = self.module_state();
         let reason = match state {
             HelmModuleState::Live => "live app evidence is wired; readiness remains advisory only",
@@ -224,8 +282,52 @@ where
 
         HelmModuleStatus::new(self.module_id(), state, reason)
             .with_registered_truths(registered_truths)
-            .with_live_requirements(LIVE_REQUIREMENTS)
+            .with_live_requirements(requirements)
             .with_missing_live_requirements(missing)
+    }
+
+    fn current_live_evidence(&self) -> LiveReadinessEvidence {
+        self.readiness_feed.as_ref().map_or_else(
+            || self.live_evidence.unwrap_or_default(),
+            |feed| feed.live_evidence(),
+        )
+    }
+
+    fn readiness_feed_ready(&self) -> bool {
+        self.readiness_feed.as_ref().is_none_or(|feed| {
+            feed.previews()
+                .map(|previews| !previews.is_empty())
+                .unwrap_or(false)
+        })
+    }
+
+    fn live_requirements(&self) -> Vec<&'static str> {
+        let mut requirements = LIVE_REQUIREMENTS.to_vec();
+        if self.readiness_feed.is_some() {
+            requirements.push(READINESS_FEED_REQUIREMENT);
+        }
+        requirements
+    }
+
+    fn missing_live_requirements(&self) -> Vec<&'static str> {
+        let mut missing = self.current_live_evidence().missing_requirements();
+        if self.readiness_feed.is_some() && !self.readiness_feed_ready() {
+            missing.push(READINESS_FEED_REQUIREMENT);
+        }
+        missing
+    }
+}
+
+impl<S> HelmModuleReadiness for OperatorControlModule<S>
+where
+    S: KernelStore + Clone + Send + Sync + 'static,
+{
+    fn module_state(&self) -> HelmModuleState {
+        OperatorControlModule::module_state(self)
+    }
+
+    fn readiness_status(&self) -> HelmModuleStatus {
+        OperatorControlModule::readiness_status(self)
     }
 }
 
