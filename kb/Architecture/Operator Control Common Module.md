@@ -5,7 +5,11 @@ app transcripts. This module is not a new truth engine and not a promotion
 authority. It is the common control-plane surface that lets Helm show what is
 ready, what is missing, and which receipt chain explains the current state.
 
-The first code slice lives in `crates/prio-agent-ops`.
+The public app-facing import surface now lives in `crates/helm-operator-control`.
+That crate re-exports the packet, ledger, receipt-family, hash, and ledger-entry
+helpers that downstream apps need. `crates/prio-agent-ops` is still the legacy
+implementation crate for this slice and should not be treated as the marquee-app
+contract.
 
 This module should be hostable inside the Runtime Runway app execution container. The
 current Helm `application-server` remains a useful reference host, but it should
@@ -13,16 +17,84 @@ not become the permanent generic backend for every marquee app. Runtime Runway o
 server/container substrate; Helm owns the operator-control and governed-job
 semantics that the container mounts.
 
+## Mount Liveness Contract
+
+Helm modules expose a small liveness vocabulary through
+`crates/helm-module-contracts`:
+
+- `shell-default`: routes may exist, but the module is serving default, static,
+  demo, or otherwise incomplete state;
+- `live`: the module is backed by live app evidence or executable truth wiring.
+
+This vocabulary exists so Runtime Runway's manifest verifier can reject a
+manifest that presents a default Helm shell as live. Route reachability is not
+enough.
+
+Current module behavior:
+
+- `OperatorControlModule::new(...)`, `with_store(...)`, and `with_truths(...)`
+  report `shell-default` until the caller explicitly supplies complete live
+  readiness evidence.
+- `OperatorControlModule::with_live_readiness_evidence(...)` reports `live`
+  only when the evidence marker contains process receipt, integrity proof,
+  adapter receipt, and Axiom report.
+- `GovernedJobsModule::new()` reports `shell-default` because no truth bodies
+  are registered.
+- `GovernedJobsModule::with_state(...)` reports `live` only when its
+  `TruthExecutionModule` registry has at least one registered truth body.
+
+`HelmModuleStatus` is the host-facing shape RR can inspect:
+
+```json
+{
+  "module_id": "helm.operator-control",
+  "state": "shell-default",
+  "reason": "default/static operator-control shell; live app evidence is not fully wired",
+  "registered_truths": 0,
+  "live_requirements": [
+    "process_receipt",
+    "integrity_proof",
+    "adapter_receipt",
+    "axiom_report"
+  ],
+  "missing_live_requirements": [
+    "process_receipt",
+    "integrity_proof",
+    "adapter_receipt",
+    "axiom_report"
+  ]
+}
+```
+
+For `live` modules, `state` serializes as `"live"` and
+`missing_live_requirements` is omitted when empty. Tests in
+`helm-module-contracts`, `helm-operator-control`, and `helm-governed-jobs`
+pin this shape.
+
+For quorum-sense, `mount_kind: "planned"` remains correct until Quorum wires
+the live operator-control evidence feed and Runtime Runway's verifier checks the
+module status. Helm readiness remains advisory even when the module reports
+`live`; it never authorizes domain action, commerce action, deployment, claim
+refresh, or app writeback.
+
 The first host-facing list lives at
 `GET /v1/workbench/operator-control/previews`. It returns the current
 `JobReadinessPacket` previews, each with the packet's matching
 `OperatorLedgerEntry` and the receipt-family catalog Helm can render before
 app-specific receipt payloads are standardized. The singular
 `GET /v1/workbench/operator-control/preview` endpoint remains as a compatibility
-view over the first packet. The current first packet is Tally escrow-release
-readiness: it shows buyer authorization, release-condition evidence,
+view over the first packet. Current portfolio previews are serialized with
+`backing: "static-portfolio-demo"` until an app supplies a live feed; callers
+must not present them as live application state. The current first packet is
+Tally escrow-release readiness: it shows buyer authorization, release-condition evidence,
 policy-gate evidence, idempotency, custody receipt, and double-release guard
 coverage while keeping release authority inside Tally.
+
+Import rule: marquee apps should depend on `helm-operator-control` for
+`JobReadinessPacket`, `OperatorLedgerEntry`, `ReceiptFamily`, and the
+`job_readiness_packet_*` helpers. New app code importing `prio-agent-ops`
+directly for operator-control contracts is transitional boundary debt and should
+be rejected during review.
 
 The second packet is Quorum adaptive inquiry readiness. It demonstrates the
 same list contract on a softer, sensemaking-shaped job: the inquiry question,

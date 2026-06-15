@@ -17,6 +17,7 @@ Tie off the trailing work from the just-shipped Runtime Runway boundary refactor
 - [ ] Recovery audit A — `http_api.rs` route-by-route consumer survey (~2,200 deleted lines)
 - [ ] Recovery audit B — `IdentityGrpc` / `TruthCatalogGrpc` / `ModuleRegistryGrpc` consumer survey
 - [ ] Recovery audit C — 5 subscription truth bodies: decide commerce-rails-truths vs plain operations
+- [ ] Quorum boundary Wave 1 — execute HELMS `H-2026-06-15-01` through `H-2026-06-15-05` in `QUALITY_BACKLOG.md`
 
 Detailed steps for recovery items A–C live in `runtime-runway/docs/superpowers/plans/2026-05-30-recover-lost-functionality.md`.
 

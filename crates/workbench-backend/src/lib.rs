@@ -37,14 +37,14 @@ pub use views::{
     AccountWorkspaceSummary, ApprovalFilter, ApprovalListItem, AxiomIntentView,
     CatalogItemListItem, ConvergeTruthResolutionView, CriteriaOutcomeItem, CriterionStatus,
     EntitlementListItem, ExecutionState, FeatureToggles, FormationSelectionView,
-    OperatorControlPreview, OperatorDashboard, OperatorReceiptFamilyView, OpportunityListItem,
-    OrganismCapabilityRequirementView, OrganismPackRequirementView, OrganismTruthResolutionView,
-    OrganizationListItem, OrganizationWorkspaceItem, PersonWorkspaceItem, RecordReferenceItem,
-    SubscriptionListItem, SystemProfile, TimelineEventItem, TruthDetailItem,
-    TruthExecutionProjection, TruthExecutionResult, TruthExecutionSession, TruthListItem,
-    TruthModuleTouchItem, TruthReadinessConfirmationView, TruthReadinessGapView,
-    TruthReadinessView, WorkbenchAppKind, WorkbenchAppManifest, WorkbenchAppStatus,
-    WorkflowCaseFilter, WorkflowCaseListItem,
+    OperatorControlPreview, OperatorControlPreviewBacking, OperatorDashboard,
+    OperatorReceiptFamilyView, OpportunityListItem, OrganismCapabilityRequirementView,
+    OrganismPackRequirementView, OrganismTruthResolutionView, OrganizationListItem,
+    OrganizationWorkspaceItem, PersonWorkspaceItem, RecordReferenceItem, SubscriptionListItem,
+    SystemProfile, TimelineEventItem, TruthDetailItem, TruthExecutionProjection,
+    TruthExecutionResult, TruthExecutionSession, TruthListItem, TruthModuleTouchItem,
+    TruthReadinessConfirmationView, TruthReadinessGapView, TruthReadinessView, WorkbenchAppKind,
+    WorkbenchAppManifest, WorkbenchAppStatus, WorkflowCaseFilter, WorkflowCaseListItem,
 };
 
 const QUALIFY_INBOUND_LEAD: &str = "qualify-inbound-lead";
@@ -861,6 +861,7 @@ fn operator_control_preview_from_packet(
         packet,
         ledger_entries: vec![ledger_entry],
         receipt_families: operator_receipt_families(),
+        backing: OperatorControlPreviewBacking::StaticPortfolioDemo,
     })
 }
 
@@ -3267,7 +3268,10 @@ mod tests {
     };
     use uuid::Uuid;
 
-    use super::{ApprovalFilter, ExecutionState, OperatorApp, WorkflowCaseFilter};
+    use super::{
+        ApprovalFilter, ExecutionState, OperatorApp, OperatorControlPreviewBacking,
+        WorkflowCaseFilter,
+    };
 
     struct RevenueSeed {
         organization_id: String,
@@ -3459,6 +3463,10 @@ mod tests {
         assert_eq!(preview.packet.domain_hint, "tally-escrow.release");
         assert_eq!(preview.packet.job_key, "escrow-release");
         assert_eq!(preview.packet.verdict, Some(JobVerdict::Satisfied));
+        assert_eq!(
+            preview.backing,
+            OperatorControlPreviewBacking::StaticPortfolioDemo
+        );
         assert!(!preview.packet.authorizes_domain_action);
         assert!(
             preview
@@ -3654,6 +3662,11 @@ mod tests {
             previews
                 .iter()
                 .all(|preview| !preview.packet.authorizes_domain_action)
+        );
+        assert!(
+            previews.iter().all(
+                |preview| preview.backing == OperatorControlPreviewBacking::StaticPortfolioDemo
+            )
         );
     }
 

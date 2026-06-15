@@ -8,6 +8,18 @@ The transport layer now reflects those boundaries directly through module-specif
 
 Truths are not modules. They sit above these capabilities and compose them into declarative jobs, policies, and local invariants.
 
+> Boundary note (2026-06-15): commercial and revenue modules listed here are
+> historical scaffolding, not Helm authority. Subscriptions, plans,
+> entitlements, payments, metering used for billing, provider refs, commercial
+> ledger authority, and plan-to-app grants belong to Commerce-Rails. Helm may
+> keep read-only operator projections or historical/demo fixtures only. See
+> [[Operating Authority Boundary]], [[Commercial Authority Inventory]], and
+> [[ADRs/HELMS-ADR-001 Commercial Authority Migration]]. Implementors should
+> start with `/Users/kpernyer/dev/reflective/BOUNDARY_REGISTRY.md` and the
+> active handoff at
+> `/Users/kpernyer/dev/reflective/HANDOFF_quorum-sense_2026-06-15.md` before
+> treating any module listed here as reusable.
+
 ## First-Wave Capability Crates
 
 - `prio-identity`: auth, roles, tenancy, workspace membership
@@ -41,18 +53,25 @@ Truths are not modules. They sit above these capabilities and compose them into 
 
 - `parties`
 
-### Commercial Core
+### Commercial Core (Transitional Boundary Debt)
 
 - `catalog`
 - `opportunities`
 - `subscriptions`
 
-### Usage And Revenue Core
+These entries must be audited under `H-2026-06-15-02`. Any source-of-truth
+commercial authority moves to Commerce-Rails or becomes a CR-backed Helm
+projection.
+
+### Usage And Revenue Core (Transitional Boundary Debt)
 
 - `metering`
 - `ledger`
 - `entitlements`
 - `payments`
+
+These entries must be audited under `H-2026-06-15-02`. They are not reusable
+commercial contracts for marquee apps.
 
 ### Work Core
 
@@ -74,10 +93,11 @@ Truths are not modules. They sit above these capabilities and compose them into 
 - `memory`
 - `agent-ops`
 
-`agent-ops` now owns the first Helm common-module slice for operator control:
-`JobReadinessPacket`, `OperatorLedgerEntry`, receipt families, and the
-non-authority invariant for readiness views. See
-[[Operator Control Common Module]].
+`agent-ops` still contains the legacy implementation for the first Helm
+operator-control slice. The public app-facing contract is
+`helm-operator-control`: `JobReadinessPacket`, `OperatorLedgerEntry`, receipt
+families, and the non-authority invariant for readiness views are imported
+through that Helm-named crate. See [[Operator Control Common Module]].
 
 ## API Naming Convention
 

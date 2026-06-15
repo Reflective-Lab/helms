@@ -4,10 +4,9 @@
 //!
 //! Wraps the operator-control HTTP routes under `/v1/workbench/operator-control/`
 //! and the showcase pipeline routes under `/v1/pipeline/showcase/` into a HelmModule
-//! for runway-app-host. Underlying packet types (`JobReadinessPacket`,
-//! `OperatorControlPreview`, `FuzzyReadinessTrace`, and the full portfolio of
-//! `*_packet()` constructors) stay in `prio-agent-ops` and `workbench-backend`
-//! — this crate CONSUMES, never moves them.
+//! for runway-app-host. Downstream apps should import operator-control packet
+//! and ledger contracts from this crate, not from the legacy `prio-agent-ops`
+//! implementation crate.
 //!
 //! # Routes exposed
 //!
@@ -45,19 +44,24 @@ use std::sync::Arc;
 use application_storage::{AppConfig, InMemoryKernelStore, KernelStore};
 use async_trait::async_trait;
 use axum::Router;
+use helm_module_contracts::{HelmModuleState, HelmModuleStatus};
 use helm_truth_execution::TruthExecutionModule;
 use runway_app_host::{HelmModule, HostContext};
 
+pub use helm_module_contracts::{
+    HelmModuleState as OperatorControlModuleState, HelmModuleStatus as OperatorControlModuleStatus,
+};
 pub use http_api::OperatorControlState;
 pub use pipeline::PipelineRouteState;
 
 // Re-export types that downstream apps (Phase 8 Quorum, etc.) will consume
 // without needing to depend on prio-agent-ops directly.
 pub use prio_agent_ops::{
-    AdapterReceiptStatus, EvidenceReadinessStatus, FuzzyDefuzzifiedScore, FuzzyMembership,
-    FuzzyReadinessTrace, FuzzyRuleActivation, JobEvidenceStatus, JobReadinessPacket,
-    JobReadinessPacketInput, JobVerdict, OperatorControlError, OperatorLedgerEntry,
-    OperatorLedgerRecordKind, ReceiptFamily,
+    AdapterReceiptStatus, AuthorityEffect, EvidenceReadinessStatus, FuzzyDefuzzifiedScore,
+    FuzzyMembership, FuzzyReadinessTrace, FuzzyRuleActivation, JobEvidenceStatus,
+    JobReadinessPacket, JobReadinessPacketInput, JobVerdict, OperatorControlError,
+    OperatorLedgerEntry, OperatorLedgerEntryInput, OperatorLedgerRecordKind, ReceiptFamily,
+    job_readiness_packet_ledger_entry, job_readiness_packet_payload_hash,
 };
 
 // ── Module ────────────────────────────────────────────────────────────────────
@@ -81,6 +85,54 @@ pub use prio_agent_ops::{
 pub struct OperatorControlModule<S = InMemoryKernelStore> {
     state: Arc<OperatorControlState<S>>,
     pipeline: Arc<PipelineRouteState>,
+    live_evidence: Option<LiveReadinessEvidence>,
+}
+
+const LIVE_REQUIREMENTS: [&str; 4] = [
+    "process_receipt",
+    "integrity_proof",
+    "adapter_receipt",
+    "axiom_report",
+];
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LiveReadinessEvidence {
+    pub process_receipt: bool,
+    pub integrity_proof: bool,
+    pub adapter_receipt: bool,
+    pub axiom_report: bool,
+}
+
+impl LiveReadinessEvidence {
+    pub const fn complete() -> Self {
+        Self {
+            process_receipt: true,
+            integrity_proof: true,
+            adapter_receipt: true,
+            axiom_report: true,
+        }
+    }
+
+    pub const fn is_complete(self) -> bool {
+        self.process_receipt && self.integrity_proof && self.adapter_receipt && self.axiom_report
+    }
+
+    fn missing_requirements(self) -> Vec<&'static str> {
+        let mut missing = Vec::new();
+        if !self.process_receipt {
+            missing.push("process_receipt");
+        }
+        if !self.integrity_proof {
+            missing.push("integrity_proof");
+        }
+        if !self.adapter_receipt {
+            missing.push("adapter_receipt");
+        }
+        if !self.axiom_report {
+            missing.push("axiom_report");
+        }
+        missing
+    }
 }
 
 impl OperatorControlModule<InMemoryKernelStore> {
@@ -94,6 +146,7 @@ impl OperatorControlModule<InMemoryKernelStore> {
         Self {
             state: Arc::new(OperatorControlState::new(config, store)),
             pipeline: Arc::new(PipelineRouteState::new()),
+            live_evidence: None,
         }
     }
 
@@ -120,6 +173,7 @@ impl OperatorControlModule<InMemoryKernelStore> {
         Self {
             state: Arc::new(OperatorControlState::new(config, store)),
             pipeline: Arc::new(PipelineRouteState::with_truths(truths)),
+            live_evidence: None,
         }
     }
 }
@@ -133,7 +187,45 @@ where
         Self {
             state: Arc::new(OperatorControlState::new(config, store)),
             pipeline: Arc::new(PipelineRouteState::new()),
+            live_evidence: None,
         }
+    }
+
+    /// Mark the operator-control module as backed by live app evidence.
+    ///
+    /// This is an explicit opt-in because registered truth bodies alone do not
+    /// prove live app readiness. Quorum must provide the four evidence signals
+    /// before a Runtime Runway verifier can treat this module as live.
+    pub fn with_live_readiness_evidence(mut self, evidence: LiveReadinessEvidence) -> Self {
+        self.live_evidence = Some(evidence);
+        self
+    }
+
+    pub fn module_state(&self) -> HelmModuleState {
+        match self.live_evidence {
+            Some(evidence) if evidence.is_complete() => HelmModuleState::Live,
+            _ => HelmModuleState::ShellDefault,
+        }
+    }
+
+    pub fn readiness_status(&self) -> HelmModuleStatus {
+        let registered_truths = self.pipeline.truths.registered_count();
+        let missing = self
+            .live_evidence
+            .unwrap_or_default()
+            .missing_requirements();
+        let state = self.module_state();
+        let reason = match state {
+            HelmModuleState::Live => "live app evidence is wired; readiness remains advisory only",
+            HelmModuleState::ShellDefault => {
+                "default/static operator-control shell; live app evidence is not fully wired"
+            }
+        };
+
+        HelmModuleStatus::new(self.module_id(), state, reason)
+            .with_registered_truths(registered_truths)
+            .with_live_requirements(LIVE_REQUIREMENTS)
+            .with_missing_live_requirements(missing)
     }
 }
 

@@ -2,6 +2,12 @@
 
 This vault is the documentation surface for Helm.
 
+> Quorum-sense implementor reading order: start with
+> `/Users/kpernyer/dev/reflective/BOUNDARY_REGISTRY.md`, then
+> `/Users/kpernyer/dev/reflective/HANDOFF_quorum-sense_2026-06-15.md`, then
+> the owning boundary document for the layer you are touching. The frozen review
+> is historical evidence, not the action surface.
+
 ## Start Here
 
 - [[Ecosystem]]
@@ -16,11 +22,15 @@ This vault is the documentation surface for Helm.
 - [[Architecture/Current Architecture]]
 - [[Architecture/Converge Application]]
 - [[Architecture/Foundation Contracts]]
+- [[Architecture/Operating Authority Boundary]]
+- [[Architecture/Commercial Authority Inventory]]
+- [[Architecture/Registry Authority Field Proposal]]
 - [[Architecture/Runway Execution Container Boundary]]
 - [[Architecture/Operator Control Common Module]]
 - [[Architecture/Receipt Backed Console]]
 - [[Architecture/Agent Architecture Brief]]
 - [[Architecture/Module Map]]
+- [[Architecture/ADRs/HELMS-ADR-001 Commercial Authority Migration]]
 - [[Architecture/Truths Layer]]
 - [[Architecture/Port Capability Taxonomy]]
 - [[Architecture/OCR Organism Converge Migration]]

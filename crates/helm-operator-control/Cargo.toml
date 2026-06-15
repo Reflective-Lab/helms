@@ -17,6 +17,7 @@ tracing.workspace = true
 
 application-kernel = { path = "../application-kernel" }
 application-storage = { path = "../application-storage" }
+helm-module-contracts = { path = "../helm-module-contracts" }
 helm-truth-execution = { path = "../helm-truth-execution" }
 workbench-backend = { path = "../workbench-backend" }
 prio-agent-ops = { path = "../prio-agent-ops" }

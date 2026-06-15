@@ -24,6 +24,14 @@ pub struct OperatorControlPreview {
     pub packet: JobReadinessPacket,
     pub ledger_entries: Vec<OperatorLedgerEntry>,
     pub receipt_families: Vec<OperatorReceiptFamilyView>,
+    pub backing: OperatorControlPreviewBacking,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum OperatorControlPreviewBacking {
+    StaticPortfolioDemo,
+    LiveAppFeed,
 }
 
 #[derive(Debug, Clone, Serialize)]

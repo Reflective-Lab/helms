@@ -12,6 +12,7 @@ redefine them.
 | Governed execution out-of-process | `converge-client` | `converge-protocol` for typed wire access | runtime internals |
 | Durable app subject identity | `converge-pack::SubjectRef` through `converge-kernel` / `converge-model` | app-owned scheme/kind vocabulary | raw URI strings in Converge-facing metadata |
 | App server execution container | Runtime Runway app execution container | Helm mounted as operator-control/job module | app-owned HTTP/gRPC/GraphQL servers |
+| Commercial authority | Commerce-Rails contracts | Helm read-only operator projections over Commerce-Rails receipts | subscriptions, plans, entitlements, payments, provider refs, or plan-to-app grants in Helm |
 | Capability contracts for chat and routing | `converge-provider` | Manifold adapters for concrete provider implementations | direct vendor HTTP spread across product code |
 | Reusable reasoning and planning | `organism-pack`, `organism-runtime` | `organism-domain`, `organism-intelligence`, `organism-notes` | Organism phase crates |
 | Application plugin execution | `helm-plugin-runtime` | Axiom-produced WASM/manifests and Converge contracts | embedding plugin machinery in Converge |
@@ -145,6 +146,8 @@ Prism, and Ferrox were used or intentionally omitted.
 - the Converge runtime or promotion gate
 - the generic app server container, deployment host, auth, secrets, telemetry,
   health, or storage/event-log substrate that belongs in Runtime Runway
+- subscriptions, plans, entitlements, payments, revenue ledger, provider refs,
+  webhook receipts, or plan-to-app grants that belong in Commerce-Rails
 - regression, fuzzy logic, ranking, forecasting, anomaly detection, or ML
   implementations that belong in Prism
 - optimization, scheduling, routing, allocation, or feasibility implementations
@@ -163,5 +166,7 @@ Only keep it in Helm if it is truly product-specific.
 ## References
 
 - `~/dev/reflective/bedrock-platform/converge/kb/Architecture/Golden Path Matrix.md`
+- `/Users/kpernyer/dev/reflective/BOUNDARY_REGISTRY.md`
 - [[Architecture/Converge Application]]
+- [[Architecture/Operating Authority Boundary]]
 - [[Architecture/Naming Migration Map]]

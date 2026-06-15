@@ -4,6 +4,7 @@ notes:
   - "The current crm-kernel remains integrated while these boundaries are extracted."
   - "Each module owns gRPC, OpenAPI, and GraphQL naming from day one."
   - "Truths sit above the modules and are exposed separately through prio.truths.v1."
+  - "Commercial and usage-revenue entries are transitional boundary debt as of 2026-06-15; see kb/Architecture/Commercial Authority Inventory.md before reusing them."
 modules:
   - key: catalog
     suite: commercial-core

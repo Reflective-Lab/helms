@@ -1,3 +1,10 @@
+//! Helm-owned adjacent module manifest.
+//!
+//! Opportunity and pipeline state may remain Helm-owned, but pricing, plan
+//! grants, payments, entitlements, and commercial ledger authority must resolve
+//! through Commerce-Rails. See
+//! kb/Architecture/Commercial Authority Inventory.md.
+
 use capability_core::{ApiSurface, CapabilityModule, ModuleManifest, ModuleSuite};
 
 pub struct OpportunitiesModule;

@@ -1,3 +1,9 @@
+//! Transitional commercial module manifest.
+//!
+//! Boundary debt under H-2026-06-15-02: do not use this crate as new
+//! marquee-app entitlement authority. See
+//! kb/Architecture/Commercial Authority Inventory.md.
+
 use capability_core::{ApiSurface, CapabilityModule, ModuleManifest, ModuleSuite};
 
 pub struct EntitlementsModule;

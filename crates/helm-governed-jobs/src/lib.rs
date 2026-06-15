@@ -31,8 +31,12 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::Router;
+use helm_module_contracts::{HelmModuleState, HelmModuleStatus};
 use runway_app_host::{HelmModule, HostContext};
 
+pub use helm_module_contracts::{
+    HelmModuleState as GovernedJobsModuleState, HelmModuleStatus as GovernedJobsModuleStatus,
+};
 pub use job_stream::{GateDecision, JobGateWaiter, JobRunTask, JobStreamState, run_job_task};
 
 // ── Module ────────────────────────────────────────────────────────────────────
@@ -65,6 +69,35 @@ impl GovernedJobsModule {
     /// (e.g. operator-control approval handler).
     pub fn state(&self) -> Arc<JobStreamState> {
         self.state.clone()
+    }
+
+    pub fn module_state(&self) -> HelmModuleState {
+        if self.state.truths.registered_count() == 0 {
+            HelmModuleState::ShellDefault
+        } else {
+            HelmModuleState::Live
+        }
+    }
+
+    pub fn readiness_status(&self) -> HelmModuleStatus {
+        let registered_truths = self.state.truths.registered_count();
+        let state = self.module_state();
+        let reason = match state {
+            HelmModuleState::Live => "truth registry is populated for governed job execution",
+            HelmModuleState::ShellDefault => {
+                "default governed-jobs shell; no truth bodies are registered"
+            }
+        };
+        let missing = if registered_truths == 0 {
+            vec!["truth_registry"]
+        } else {
+            Vec::new()
+        };
+
+        HelmModuleStatus::new(self.module_id(), state, reason)
+            .with_registered_truths(registered_truths)
+            .with_live_requirements(["truth_registry"])
+            .with_missing_live_requirements(missing)
     }
 }
 

@@ -24,6 +24,9 @@ use prio_tasks::MODULE as TASKS;
 use prio_workflow::MODULE as WORKFLOW;
 
 pub const MODULES: &[CapabilityModule] = &[
+    // Commercial/revenue modules are transitional boundary debt as of 2026-06-15.
+    // Do not expose them as app commercial contracts; see:
+    // kb/Architecture/Commercial Authority Inventory.md
     CATALOG,
     IDENTITY,
     PARTIES,
