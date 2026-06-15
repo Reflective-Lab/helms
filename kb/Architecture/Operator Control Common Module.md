@@ -30,11 +30,10 @@ This vocabulary exists so Runtime Runway's manifest verifier can reject a
 manifest that presents a default Helm shell as live. Route reachability is not
 enough.
 
-RR D1 check 2 should inspect `HelmModuleReadiness::module_state()` or
-`HelmModuleReadiness::readiness_status()`. It should not infer liveness from
-`runway_app_host::HelmModule`; that trait proves a router can mount, not that
-the mounted surface is live. A mounted router is not proof of live module
-state.
+RR D1 check 2 reads Runway's `HelmModule::module_state()` on mounted modules.
+Helm derives that value from `HelmModuleReadiness::module_state()` and exposes
+the bridged `Shell` / `Live` value through the Runway mount trait. A mounted
+router is not proof of live module state.
 
 Current module behavior:
 

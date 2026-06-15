@@ -9,7 +9,7 @@ use helm_operator_control::{
     OperatorControlState, OperatorLedgerRecordKind, ReceiptFamily,
     job_readiness_packet_ledger_entry, job_readiness_packet_payload_hash,
 };
-use runway_app_host::HelmModule;
+use runway_app_host::{HelmModule, ModuleState};
 use serde_json::json;
 
 fn test_config() -> AppConfig {
@@ -96,6 +96,10 @@ fn default_module_reports_shell_default() {
     let status = m.readiness_status();
 
     assert_eq!(m.module_state(), OperatorControlModuleState::ShellDefault);
+    assert_eq!(
+        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        ModuleState::Shell
+    );
     assert_eq!(status.state, OperatorControlModuleState::ShellDefault);
     assert_eq!(status.registered_truths, Some(0));
     assert!(
@@ -127,6 +131,10 @@ fn complete_live_evidence_reports_live() {
     let status = m.readiness_status();
 
     assert_eq!(m.module_state(), OperatorControlModuleState::Live);
+    assert_eq!(
+        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        ModuleState::Live
+    );
     assert_eq!(status.state, OperatorControlModuleState::Live);
     assert!(status.missing_live_requirements.is_empty());
 }
@@ -182,6 +190,10 @@ fn live_readiness_feed_reports_live_when_evidence_and_snapshot_exist() {
     let status = m.readiness_status();
 
     assert_eq!(m.module_state(), OperatorControlModuleState::Live);
+    assert_eq!(
+        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        ModuleState::Live
+    );
     assert_eq!(status.state, OperatorControlModuleState::Live);
     assert!(
         status
@@ -202,6 +214,10 @@ fn live_readiness_feed_requires_at_least_one_snapshot() {
     let status = m.readiness_status();
 
     assert_eq!(m.module_state(), OperatorControlModuleState::ShellDefault);
+    assert_eq!(
+        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        ModuleState::Shell
+    );
     assert_eq!(status.state, OperatorControlModuleState::ShellDefault);
     assert!(
         status
@@ -224,6 +240,24 @@ fn operator_control_state_uses_live_feed_previews_when_present() {
 
     assert_eq!(preview.backing, OperatorControlPreviewBacking::LiveAppFeed);
     assert_eq!(preview.packet.domain_hint, "quorum-sense");
+}
+
+#[test]
+fn operator_control_state_falls_back_to_static_demo_when_live_feed_is_empty() {
+    let feed = Arc::new(StaticReadinessFeed {
+        evidence: LiveReadinessEvidence::complete(),
+        snapshots: Vec::new(),
+    });
+    let store = InMemoryKernelStore::default_local();
+    let state = OperatorControlState::new(store.config.clone(), store).with_readiness_feed(feed);
+    let preview = state
+        .operator_control_preview()
+        .expect("static preview fallback is available");
+
+    assert_eq!(
+        preview.backing,
+        OperatorControlPreviewBacking::StaticPortfolioDemo
+    );
 }
 
 #[test]

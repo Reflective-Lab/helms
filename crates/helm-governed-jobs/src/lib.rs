@@ -32,7 +32,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use axum::Router;
 use helm_module_contracts::{HelmModuleReadiness, HelmModuleState, HelmModuleStatus};
-use runway_app_host::{HelmModule, HostContext};
+use runway_app_host::{HelmModule, HostContext, ModuleState};
 
 pub use helm_module_contracts::{
     HelmModuleReadiness as GovernedJobsModuleReadiness, HelmModuleState as GovernedJobsModuleState,
@@ -136,5 +136,12 @@ impl HelmModule for GovernedJobsModule {
 
     fn router(self: Arc<Self>) -> Router {
         job_stream::router(self.state.clone())
+    }
+
+    fn module_state(&self) -> ModuleState {
+        match <Self as HelmModuleReadiness>::module_state(self) {
+            HelmModuleState::ShellDefault => ModuleState::Shell,
+            HelmModuleState::Live => ModuleState::Live,
+        }
     }
 }

@@ -46,7 +46,7 @@ use async_trait::async_trait;
 use axum::Router;
 use helm_module_contracts::{HelmModuleReadiness, HelmModuleState, HelmModuleStatus};
 use helm_truth_execution::TruthExecutionModule;
-use runway_app_host::{HelmModule, HostContext};
+use runway_app_host::{HelmModule, HostContext, ModuleState};
 
 pub use helm_module_contracts::{
     HelmModuleReadiness as OperatorControlModuleReadiness,
@@ -354,5 +354,12 @@ where
         let operator_routes = http_api::router(self.state.clone());
         let pipeline_routes = pipeline::pipeline_router(self.pipeline.clone());
         operator_routes.merge(pipeline_routes)
+    }
+
+    fn module_state(&self) -> ModuleState {
+        match <Self as HelmModuleReadiness>::module_state(self) {
+            HelmModuleState::ShellDefault => ModuleState::Shell,
+            HelmModuleState::Live => ModuleState::Live,
+        }
     }
 }

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use helm_governed_jobs::{GovernedJobsModule, GovernedJobsModuleState};
-use runway_app_host::HelmModule;
+use runway_app_host::{HelmModule, ModuleState};
 use serde_json::json;
 
 #[test]
@@ -30,6 +30,10 @@ fn default_module_reports_shell_default() {
     let status = m.readiness_status();
 
     assert_eq!(m.module_state(), GovernedJobsModuleState::ShellDefault);
+    assert_eq!(
+        <GovernedJobsModule as HelmModule>::module_state(&m),
+        ModuleState::Shell
+    );
     assert_eq!(status.state, GovernedJobsModuleState::ShellDefault);
     assert_eq!(status.registered_truths, Some(0));
     assert_eq!(status.missing_live_requirements, vec!["truth_registry"]);

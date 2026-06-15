@@ -121,10 +121,10 @@ For quorum-sense live readiness, the minimum live evidence is:
 The feed contract for that evidence is `OperatorControlReadinessFeed` in
 `helm-operator-control`. Quorum supplies already-derived readiness packets and
 ledger entries; Helm reports `shell-default` or `live` through
-`HelmModuleReadiness`. RR D1 check 2 should use `HelmModuleReadiness`, not
-`runway_app_host::HelmModule`; mounting routes is not live-readiness evidence.
-Until RR observes `live`, Quorum's manifest should keep `helm.operator-control`
-at `mount_kind: "planned"`.
+`HelmModuleReadiness`, then bridges that state into Runway's
+`HelmModule::module_state()` for RR D1 check 2. Mounting routes is not
+live-readiness evidence. Until RR observes `live`, Quorum's manifest should
+keep `helm.operator-control` at `mount_kind: "planned"`.
 
 Raw inquiry state, transcript content, entitlement state, and deployment
 authority stay outside Helm operator-control unless a later dated panel review
