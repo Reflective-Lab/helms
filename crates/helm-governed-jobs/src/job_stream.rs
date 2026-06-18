@@ -350,11 +350,14 @@ async fn stream_job(
     // Subscribe before spawning so no events are missed.
     // Use subscribe_with_cursor filtered to this run_id so replay only
     // returns events belonging to this specific run.
-    let subscription = state.hub.subscribe_with_cursor(EventCursor {
-        last_sequence: None,
-        run_id: Some(run_id.clone()),
-        job_id: None,
-    });
+    let subscription = state
+        .hub
+        .subscribe_with_cursor(EventCursor {
+            last_sequence: None,
+            run_id: Some(run_id.clone()),
+            job_id: None,
+        })
+        .await;
 
     let state_clone = state.clone();
     let run_id_clone = run_id.clone();
