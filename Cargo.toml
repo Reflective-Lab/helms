@@ -19,6 +19,7 @@ members = [
     # Session Intelligence Spine (Plan 1).
     "crates/helm-session-contracts",
     "crates/director-contracts",
+    "crates/helm-client",
 
     # Capability and truth crates.
     "crates/capability-core",
