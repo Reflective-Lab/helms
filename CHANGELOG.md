@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `helm-coordination` crate — multi-operator coordination for Helm's headless surface under an optimistic model: `OperatorPrincipal` + `PrincipalResolver` identity seam (`RequestActorResolver`), workspace-scoped `SessionRegistry` (heartbeat-leased), advisory `PresenceRegistry` (soft-claims, no locks), optimistic `DecisionLedger` (idempotent-agree / divergent-conflict), `AuthorityResolver` (`PermissiveAuthority` default), a `/v1/coordination/` router, a workspace-scoped SSE `/stream`, and a `CoordinationModule` (`helm.coordination`) mountable alongside `GovernedJobsModule`. See `kb/Architecture/Operator Coordination.md`.
+- `helm-coordination` gate front door `POST /v1/coordination/gates/{ref_id}/decision` — authority-checked, deduped gate approvals that record in the ledger and only signal `JobStreamState::signal_gate` on a fresh accepted decision; emits attributed `decision.recorded` / `decision.conflict` / `decision.denied` events.
+- `helm-governed-jobs` now attributes run events: `Publisher` stamps `EventEnvelope.actor` and `JobRunTask.initiator: Option<Actor>` threads an initiating principal through `run_job_task` (falling back to a system actor). `StreamJobRequest` accepts an optional `actor` tag.
 - `helm-governed-jobs::JobStreamState::gate_timeout` (Duration) — configurable HITL gate wait timeout. Defaults to 600s, preserving the original RealtimeHub contract for `quorum-server` / `atlas-server`. Integration tests can override via struct-literal + `..default()`.
 - `helm-governed-jobs` now emits a `gate.timeout` event before `job.failed` when the gate-wait timeout fires, distinct from the cancellation path.
 - `helm-governed-jobs::{JobRunTask, run_job_task}` pub so integration tests can drive the governed-job loop directly without going through the HTTP layer.

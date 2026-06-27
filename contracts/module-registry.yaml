@@ -5,6 +5,7 @@ notes:
   - "Each module owns gRPC, OpenAPI, and GraphQL naming from day one."
   - "Truths sit above the modules and are exposed separately through prio.truths.v1."
   - "Commercial and usage-revenue entries are transitional boundary debt as of 2026-06-15; see kb/Architecture/Commercial Authority Inventory.md before reusing them."
+  - "Helm extraction mount-modules (HelmModule surfaces, not capability modules) are tracked separately from this registry: helm.operator-control, helm.governed-jobs, and helm.coordination (multi-operator sessions/presence + optimistic gate decisions under /v1/coordination/). See kb/Architecture/Operator Coordination.md."
 modules:
   - key: catalog
     suite: commercial-core

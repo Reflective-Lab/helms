@@ -1,0 +1,32 @@
+[package]
+name = "helm-coordination"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-stream.workspace = true
+async-trait = "0.1"
+axum.workspace = true
+chrono.workspace = true
+application-kernel = { path = "../application-kernel" }
+helm-governed-jobs = { path = "../helm-governed-jobs" }
+helm-module-contracts = { path = "../helm-module-contracts" }
+runway-app-host = { path = "../../../../runtime-runway/crates/runway-app-host" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-stream = { workspace = true }
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+application-storage = { path = "../application-storage" }
+converge-core.workspace = true
+helm-truth-execution = { path = "../helm-truth-execution" }
+http-body-util = "0.1"
+tonic.workspace = true
+tower = "0.5"

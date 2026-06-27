@@ -146,6 +146,7 @@ async fn gate_rejected_emits_rejection_event_and_fails_job() {
             truth_key: TRUTH_KEY.to_string(),
             app_id: "test.governed-jobs".to_string(),
             inputs: Default::default(),
+            initiator: None,
         })
         .await;
     });
@@ -204,6 +205,7 @@ async fn gate_timeout_fires_after_configured_duration() {
             truth_key: TRUTH_KEY.to_string(),
             app_id: "test.governed-jobs".to_string(),
             inputs: Default::default(),
+            initiator: None,
         })
         .await;
     });

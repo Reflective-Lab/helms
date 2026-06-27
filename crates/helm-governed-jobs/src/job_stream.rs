@@ -26,8 +26,8 @@
 //!
 //! The full HITL gate flow is preserved: pre-gate execute → gate.paused event →
 //! `oneshot` waiter (10-minute timeout) → post-gate execute → job.completed.
-//! The `JobStreamState` exposes `register_gate_waiter`/`signal_gate` for the
-//! operator-control module (or any caller) to drive approvals.
+//! The `JobStreamState` exposes `register_gate_waiter`/`signal_gate` for callers
+//! such as `helm-coordination` to drive approvals.
 //!
 //! # Zero-arg constructor safety
 //!
@@ -42,7 +42,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use application_kernel::Actor;
+use application_kernel::{Actor, ActorKind};
 use application_storage::{AppKernelStore, AppRuntimeStores, InMemoryKernelStore};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -187,13 +187,20 @@ impl JobStreamState {
         false
     }
 
-    fn publisher(&self, run_id: &str, job_id: &str, app_id: &str) -> Publisher {
+    fn publisher(
+        &self,
+        run_id: &str,
+        job_id: &str,
+        app_id: &str,
+        actor_tag: Option<String>,
+    ) -> Publisher {
         Publisher {
             hub: self.hub.clone(),
             seq: Arc::clone(&self.next_sequence),
             run_id: run_id.to_string(),
             job_id: job_id.to_string(),
             app_id: app_id.to_string(),
+            actor_tag,
         }
     }
 }
@@ -231,6 +238,9 @@ struct Publisher {
     run_id: String,
     job_id: String,
     app_id: String,
+    /// Attribution tag for the operator who initiated this run, stamped onto
+    /// every emitted `EventEnvelope.actor`. `None` for system-initiated runs.
+    actor_tag: Option<String>,
 }
 
 impl Publisher {
@@ -246,7 +256,7 @@ impl Publisher {
             run_id: Some(self.run_id.clone()),
             job_id: Some(self.job_id.clone()),
             correlation_id: None,
-            actor: None,
+            actor: self.actor_tag.clone(),
             payload,
         });
     }
@@ -314,6 +324,10 @@ struct StreamJobRequest {
     #[serde(default)]
     inputs: HashMap<String, String>,
     app_id: Option<String>,
+    /// Optional operator who initiated this run. Used to attribute the run's
+    /// events. Absent for system/automation-initiated runs.
+    #[serde(default)]
+    actor: Option<String>,
 }
 
 // ── Handler ──────────────────────────────────────────────────────────
@@ -362,6 +376,7 @@ async fn stream_job(
     let state_clone = state.clone();
     let run_id_clone = run_id.clone();
     let truth_key_clone = truth_key.clone();
+    let initiator = request.actor.as_deref().and_then(actor_from_tag);
 
     tokio::spawn(async move {
         run_job_task(JobRunTask {
@@ -370,6 +385,7 @@ async fn stream_job(
             truth_key: truth_key_clone,
             app_id,
             inputs: request.inputs,
+            initiator,
         })
         .await;
     });
@@ -380,6 +396,29 @@ async fn stream_job(
 
 // ── Background Job Task ───────────────────────────────────────────────
 
+/// Derive an attribution tag for an actor; `None` for the system actor so that
+/// system-initiated runs stay anonymous (the prior behavior).
+fn actor_tag(actor: &Actor) -> Option<String> {
+    if matches!(actor.kind, ActorKind::System) {
+        None
+    } else {
+        Some(actor.actor_id.clone())
+    }
+}
+
+/// Build an initiating [`Actor`] from a self-declared request tag.
+fn actor_from_tag(tag: &str) -> Option<Actor> {
+    let actor_id = tag.trim();
+    if actor_id.is_empty() {
+        return None;
+    }
+    Some(Actor {
+        actor_id: actor_id.to_string(),
+        display_name: actor_id.to_string(),
+        kind: ActorKind::Human,
+    })
+}
+
 /// Inputs for `run_job_task`. Exposed so integration tests can drive the
 /// job loop directly without going through the HTTP layer.
 pub struct JobRunTask {
@@ -388,6 +427,9 @@ pub struct JobRunTask {
     pub truth_key: String,
     pub app_id: String,
     pub inputs: HashMap<String, String>,
+    /// Operator who initiated this run, used to attribute the run's events.
+    /// `None` falls back to a system actor (the prior behavior).
+    pub initiator: Option<Actor>,
 }
 
 /// Drive a single governed job to completion (or gate-failure) end-to-end.
@@ -401,17 +443,18 @@ pub async fn run_job_task(task: JobRunTask) {
         truth_key,
         app_id,
         inputs,
+        initiator,
     } = task;
 
-    let pub_ = state.publisher(&run_id, &truth_key, &app_id);
+    let actor = initiator.unwrap_or_else(Actor::system);
+    let actor_tag = actor_tag(&actor);
+    let pub_ = state.publisher(&run_id, &truth_key, &app_id, actor_tag);
 
     pub_.emit("job.started", json!({}));
     if let Err(error) = admit_job(&pub_, &truth_key) {
         pub_.emit("job.failed", json!({ "error": error }));
         return;
     }
-
-    let actor = Actor::system();
 
     let first = match execute_truth(
         &state.truths,

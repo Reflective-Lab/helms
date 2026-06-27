@@ -14,6 +14,11 @@ members = [
     # Helm extraction modules.
     "crates/helm-operator-control",
     "crates/helm-governed-jobs",
+    "crates/helm-coordination",
+
+    # Session Intelligence Spine (Plan 1).
+    "crates/helm-session-contracts",
+    "crates/director-contracts",
 
     # Capability and truth crates.
     "crates/capability-core",
