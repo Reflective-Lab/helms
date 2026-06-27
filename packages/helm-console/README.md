@@ -1,8 +1,8 @@
 # @reflective/helm-console
 
-Shared receipt-backed operator-console primitives for Marquee apps.
+Shared receipt-backed operator-console primitives for app-owned adapters.
 
-The package is the Helm home for the pattern first proven in Quorum M4:
+The package is the Helm home for this operator-console pattern:
 
 ```text
 going-in spec -> command -> durable event/receipt -> live projection
@@ -16,44 +16,57 @@ going-in spec -> command -> durable event/receipt -> live projection
   and fetch-SSE streams.
 - Reusable Svelte components for command cards, event timelines, connection
   bars, and proof artifact panels.
-- Starter adapters for Quorum, Atlas, and Warden.
 
-It does not own app meaning. Apps still own nouns, command payloads, decision
-rules, evidence schema, and custom product views.
-
-## First App Profiles
-
-| App | Profile | Purpose |
-|---|---|---|
-| Quorum | `quorumConsoleAdapter` | live inquiry controls, events, aids, process receipt |
-| Atlas | `atlasConsoleAdapter` | acquisition readiness room, Quorum uncertainty, budget checks |
-| Warden | `wardenConsoleAdapter` | rule/gate reads, shadow-analysis boundary, audit-pack proof |
+It does not own app meaning or ship app profiles. Apps, showcases, and tests own
+nouns, command payloads, decision rules, evidence schema, custom product views,
+and concrete `ConsoleAdapter` values.
 
 ## Usage
 
 ```ts
 import {
   HelmConsoleClient,
-  quorumConsoleAdapter,
+  type ConsoleAdapter,
 } from '@reflective/helm-console'
 
-const client = new HelmConsoleClient(quorumConsoleAdapter, {
-  baseUrl: '/quorum',
+const adapter: ConsoleAdapter = {
+  appId: 'example',
+  displayName: 'Example',
+  routePrefix: '/example',
+  subjectRefKind: 'example://',
+  nouns: {
+    run: 'run',
+    spec: 'spec',
+    event: 'event',
+    artifact: 'artifact',
+  },
+  connection: { defaultBaseUrl: '/example' },
+  run: {
+    load: { id: 'example.load', label: 'Load run', path: '/runs/{id}' },
+  },
+  controls: [],
+  aids: [],
+  artifacts: [],
+  safety: [],
+}
+
+const client = new HelmConsoleClient(adapter, {
+  baseUrl: '/example',
   bearerToken: 'dev',
 })
 
-const view = await client.read(quorumConsoleAdapter.run.load, {
-  id: inquiryId,
+const view = await client.read(adapter.run.load, {
+  id: runId,
 })
 ```
 
 ```svelte
 <script lang="ts">
   import ReceiptBackedConsole from '@reflective/helm-console/ReceiptBackedConsole.svelte'
-  import { quorumConsoleAdapter } from '@reflective/helm-console/profiles'
+  import { adapter } from './console-adapter'
 </script>
 
-<ReceiptBackedConsole adapter={quorumConsoleAdapter} />
+<ReceiptBackedConsole {adapter} />
 ```
 
 ## Review Rule

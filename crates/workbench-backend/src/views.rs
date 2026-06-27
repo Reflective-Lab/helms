@@ -25,21 +25,10 @@ pub struct OperatorControlPreview {
     pub ledger_entries: Vec<OperatorLedgerEntry>,
     pub receipt_families: Vec<OperatorReceiptFamilyView>,
     pub backing: OperatorControlPreviewBacking,
+    pub backing_label: &'static str,
 }
 
 impl OperatorControlPreview {
-    pub fn static_portfolio_demo(
-        packet: JobReadinessPacket,
-        ledger_entries: Vec<OperatorLedgerEntry>,
-    ) -> Self {
-        Self {
-            packet,
-            ledger_entries,
-            receipt_families: operator_receipt_families(),
-            backing: OperatorControlPreviewBacking::StaticPortfolioDemo,
-        }
-    }
-
     pub fn live_app_feed(
         packet: JobReadinessPacket,
         ledger_entries: Vec<OperatorLedgerEntry>,
@@ -49,6 +38,7 @@ impl OperatorControlPreview {
             ledger_entries,
             receipt_families: operator_receipt_families(),
             backing: OperatorControlPreviewBacking::LiveAppFeed,
+            backing_label: OperatorControlPreviewBacking::LiveAppFeed.label(),
         }
     }
 }
@@ -56,8 +46,16 @@ impl OperatorControlPreview {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum OperatorControlPreviewBacking {
-    StaticPortfolioDemo,
     LiveAppFeed,
+}
+
+impl OperatorControlPreviewBacking {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::LiveAppFeed => "live",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

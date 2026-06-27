@@ -122,6 +122,7 @@
 					</div>
 				</div>
 				<div class="boundary-row">
+					<span class="badge muted">{preview.backing_label}</span>
 					<span class="badge">authority effect: none</span>
 					<span class="badge muted">
 						domain action: {preview.packet.authorizes_domain_action ? 'yes' : 'no'}

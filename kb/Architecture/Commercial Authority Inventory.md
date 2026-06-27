@@ -1,10 +1,11 @@
 # Commercial Authority Inventory
 
 **Owner:** `[HELMS-ARCH]`
-**Status:** `H-2026-06-15-02` in progress - inventory filed; source-of-truth demotion still open.
+**Status:** `H-2026-06-15-02` inventory complete; source-of-truth demotion slices remain open.
 **Filed:** 2026-06-15
-**Source review:** `/Users/kpernyer/dev/reflective/REVIEW_quorum-sense_2026-06-15.md`
+**Workspace registry:** `/Users/kpernyer/dev/reflective/BOUNDARY_REGISTRY.md`
 **Active handoff:** `/Users/kpernyer/dev/reflective/HANDOFF_quorum-sense_2026-06-15.md`
+**Historical review:** `/Users/kpernyer/dev/reflective/REVIEW_quorum-sense_2026-06-15.md` (frozen evidence only; not the implementor action surface)
 **Boundary:** [[Operating Authority Boundary]]
 **ADR:** [[ADRs/HELMS-ADR-001 Commercial Authority Migration]]
 **Schema proposal:** [[Registry Authority Field Proposal]]
@@ -24,8 +25,8 @@ Commerce-Rails. Helm may display operator projections, receipts, and HITL
 review surfaces over those decisions, but it must not make or persist the
 decision itself.
 
-This inventory is the first H-02 implementation artifact. It deliberately does
-not delete or rewrite behavior yet because the existing code is still used by
+This inventory completes H-02's classification pass. It deliberately does not
+delete or rewrite behavior yet because the existing code is still used by
 historical demos and the replacement CR contracts are not all available.
 
 ## Classification Key

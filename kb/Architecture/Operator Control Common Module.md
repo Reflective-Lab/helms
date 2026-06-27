@@ -43,8 +43,8 @@ Current module behavior:
 - `OperatorControlModule::with_live_readiness_evidence(...)` reports `live`
   only when the evidence marker contains process receipt, integrity proof,
   adapter receipt, and Axiom report.
-- `OperatorControlModule::with_live_readiness_feed(...)` is the live Quorum
-  handoff contract. The feed is app-owned and returns already-derived
+- `OperatorControlModule::with_live_readiness_feed(...)` is the live handoff
+  contract. The feed is app-owned and returns already-derived
   `JobReadinessPacket` / `OperatorLedgerEntry` snapshots plus the same evidence
   completeness marker. The module reports `live` only when the feed evidence is
   complete and the feed returns at least one snapshot.
@@ -81,31 +81,27 @@ For `live` modules, `state` serializes as `"live"` and
 `helm-module-contracts`, `helm-operator-control`, and `helm-governed-jobs`
 pin this shape.
 
-For quorum-sense, `mount_kind: "planned"` remains correct until Quorum wires
-the live operator-control evidence feed and Runtime Runway's verifier checks the
+For app mounts, `mount_kind: "planned"` remains correct until the app wires the
+live operator-control evidence feed and Runtime Runway's verifier checks the
 module status. Helm readiness remains advisory even when the module reports
 `live`; it never authorizes domain action, commerce action, deployment, claim
 refresh, or app writeback.
 
-The live feed boundary is packet-based, not domain-state-based. Quorum owns
-process receipts, integrity proofs, adapter receipts, Axiom reports, subject
-refs, and packet construction. Helm consumes the packet/ledger snapshots and
-renders operator readiness. Helm must not read raw inquiry transcripts,
-entitlement state, deployment state, or Quorum write authority through this
-feed.
+The live feed boundary is packet-based, not domain-state-based. Apps own process
+receipts, integrity proofs, adapter receipts, Axiom reports, subject refs, and
+packet construction. Helm consumes the packet/ledger snapshots and renders
+operator readiness. Helm must not read raw app transcripts, entitlement state,
+deployment state, or app write authority through this feed.
 
 The first host-facing list lives at
-`GET /v1/workbench/operator-control/previews`. It returns the current
+`GET /v1/workbench/operator-control/previews`. It returns injected live
 `JobReadinessPacket` previews, each with the packet's matching
 `OperatorLedgerEntry` and the receipt-family catalog Helm can render before
-app-specific receipt payloads are standardized. The singular
+app-specific receipt payloads are standardized. Without an injected live feed it
+returns an empty list. The singular
 `GET /v1/workbench/operator-control/preview` endpoint remains as a compatibility
-view over the first packet. Current portfolio previews are serialized with
-`backing: "static-portfolio-demo"` until an app supplies a live feed; callers
-must not present them as live application state. The current first packet is
-Tally escrow-release readiness: it shows buyer authorization, release-condition evidence,
-policy-gate evidence, idempotency, custody receipt, and double-release guard
-coverage while keeping release authority inside Tally.
+view over the first live packet and returns an operator-control error when no
+live packet is supplied. Helm no longer synthesizes a static app portfolio.
 
 Import rule: marquee apps should depend on `helm-operator-control` for
 `JobReadinessPacket`, `OperatorLedgerEntry`, `ReceiptFamily`, and the
@@ -113,25 +109,9 @@ Import rule: marquee apps should depend on `helm-operator-control` for
 directly for operator-control contracts is transitional boundary debt and should
 be rejected during review.
 
-The second packet is Quorum adaptive inquiry readiness. It demonstrates the
-same list contract on a softer, sensemaking-shaped job: the inquiry question,
-participant consent, signal mass, and adaptive probe are present, while
-competing hypotheses and skewed role coverage keep the packet blocked. Helm can
-show the operator what to inspect next, but it does not declare quorum, approve
-synthesis, or convert sensemaking into organizational action.
-
-The next packets widen the contract across the app portfolio:
-
-- Fathom carries temporal-evidence windows and filing disagreement without
-  granting narrative authority.
-- Warden carries compliance verdicts, shadow-rule diffs, and remediation blocks
-  without granting compliance override authority.
-- Plumb carries strategy anchors, execution telemetry, and Prism-backed fuzzy
-  drift traces from its Organism Suggestor path without granting revision
-  authority. A trace may include both linguistic memberships/rule activations
-  and a typed defuzzified score for sorting or dashboard summaries.
-- Atlas carries integration-candidate evidence, owner-gate gaps, and writeback
-  guards without granting repository writeback authority.
+App examples and portfolios belong in app repos, showcases, or arena tests.
+Helm's invariant is the contract shape: packet plus ledger entries plus receipt
+family metadata, with `authorizes_domain_action: false`.
 
 ## First Shared Types
 
@@ -209,11 +189,11 @@ Helm must not:
 
 This module follows the Axiom contract probe trail:
 
-- Tally through Folio repeated `ObservationAdapterReceipt`.
-- Tally through Folio repeated `JobReadinessPacket`.
-- Warden, Triage, Plumb, and Catalyst repeated long-running job receipts.
-- Fathom proved temporal-evidence receipts.
-- Folio proved content/publication receipts.
+- app probes repeated `ObservationAdapterReceipt`;
+- app probes repeated `JobReadinessPacket`;
+- long-running app probes repeated governed job receipts;
+- temporal-evidence probes proved temporal receipt handling;
+- content/publication probes proved publication receipt handling.
 
 That is enough evidence to stop probing and implement the shared Helm
 operator-control mechanics.

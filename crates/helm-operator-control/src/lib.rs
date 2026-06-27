@@ -10,9 +10,8 @@
 //!
 //! # Routes exposed
 //!
-//! - `GET /v1/workbench/operator-control/preview` — single preview (Tally escrow-release)
-//! - `GET /v1/workbench/operator-control/previews` — portfolio preview list (6 packets:
-//!   Tally, Quorum, Fathom, Warden, Plumb, Atlas)
+//! - `GET /v1/workbench/operator-control/preview` — first injected live preview
+//! - `GET /v1/workbench/operator-control/previews` — injected live preview list
 //!
 //! Pipeline routes (mounted when truths are registered via `with_truths`):
 //! - `POST /v1/pipeline/showcase/run` — run showcase pipeline
@@ -21,8 +20,7 @@
 //!
 //! # Re-extraction notes (Phase 3a / Phase 3b)
 //!
-//! Phase 3a re-extracted the operator-control routes against helms main `5f8d6b6`,
-//! picking up the full operator-control packet portfolio and `FuzzyReadinessTrace`.
+//! Phase 3a re-extracted the operator-control routes against helms main `5f8d6b6`.
 //!
 //! Phase 3b adds `pipeline.rs`: the showcase pipeline coordinator now lives here
 //! instead of `application-server`. The `truth_runtime::execute_truth` dependency
@@ -58,7 +56,7 @@ pub use workbench_backend::{
     OperatorControlPreview, OperatorControlPreviewBacking, OperatorReceiptFamilyView,
 };
 
-// Re-export types that downstream apps (Phase 8 Quorum, etc.) will consume
+// Re-export types that downstream apps consume
 // without needing to depend on prio-agent-ops directly.
 pub use prio_agent_ops::{
     AdapterReceiptStatus, AuthorityEffect, EvidenceReadinessStatus, FuzzyDefuzzifiedScore,
@@ -80,12 +78,11 @@ pub use prio_agent_ops::{
 ///
 /// # Constructors
 ///
-/// - [`OperatorControlModule::new`] — zero-arg default for existing consumers (e.g.
-///   quorum-server). Pipeline routes exist but return "not implemented" because no
-///   truth bodies are registered.
+/// - [`OperatorControlModule::new`] — zero-arg default for existing consumers. Pipeline
+///   routes exist but return "not implemented" because no truth bodies are registered.
 /// - [`OperatorControlModule::with_store`] — explicit store, still no truth registry.
 /// - [`OperatorControlModule::with_truths`] — full constructor for callers that want
-///   the pipeline to actually dispatch truths (e.g. atlas-integration, future apps).
+///   the pipeline to actually dispatch truths.
 pub struct OperatorControlModule<S = InMemoryKernelStore> {
     state: Arc<OperatorControlState<S>>,
     pipeline: Arc<PipelineRouteState>,
@@ -103,9 +100,9 @@ const READINESS_FEED_REQUIREMENT: &str = "readiness_feed";
 
 /// App-supplied live operator-control packet and ledger chain.
 ///
-/// Quorum should build these snapshots from app-owned process receipts,
-/// integrity proofs, adapter receipts, and Axiom reports. Helm stores and
-/// renders the packet/ledger shape; it does not read Quorum domain state.
+/// Apps should build these snapshots from app-owned process receipts, integrity
+/// proofs, adapter receipts, and Axiom reports. Helm stores and renders the
+/// packet/ledger shape; it does not read app domain state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LiveOperatorControlSnapshot {
     pub packet: JobReadinessPacket,
@@ -182,9 +179,9 @@ impl LiveReadinessEvidence {
 impl OperatorControlModule<InMemoryKernelStore> {
     /// Construct using the default in-memory kernel store and an empty truth registry.
     ///
-    /// Suitable for development, demos, and existing consumers (e.g. quorum-server)
-    /// that do not need pipeline truth dispatch. Pipeline routes will respond with
-    /// `501 Not Implemented` for each truth key until bodies are registered.
+    /// Suitable for development, demos, and existing consumers that do not need
+    /// pipeline truth dispatch. Pipeline routes will respond with `501 Not
+    /// Implemented` for each truth key until bodies are registered.
     pub fn new(config: AppConfig) -> Self {
         let store = InMemoryKernelStore::default_local();
         Self {
@@ -241,7 +238,7 @@ where
     /// Mark the operator-control module as backed by live app evidence.
     ///
     /// This is an explicit opt-in because registered truth bodies alone do not
-    /// prove live app readiness. Quorum must provide the four evidence signals
+    /// prove live app readiness. Apps must provide the four evidence signals
     /// before a Runtime Runway verifier can treat this module as live.
     pub fn with_live_readiness_evidence(mut self, evidence: LiveReadinessEvidence) -> Self {
         self.live_evidence = Some(evidence);
@@ -250,7 +247,7 @@ where
 
     /// Attach an app-owned live readiness feed.
     ///
-    /// This is the H-01 contract Quorum should use to feed real
+    /// This is the H-01 contract apps should use to feed real
     /// `JobReadinessPacket` / `OperatorLedgerEntry` snapshots into
     /// `helm.operator-control`. The module reports `live` only when the feed
     /// evidence is complete and the feed returns at least one snapshot.

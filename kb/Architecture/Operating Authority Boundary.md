@@ -2,9 +2,9 @@
 
 **Owner:** `[HELMS-ARCH]`
 **Status:** Canonical Helm boundary document linked from the active quorum-sense handoff.
-**Source review:** `/Users/kpernyer/dev/reflective/REVIEW_quorum-sense_2026-06-15.md`
 **Workspace registry:** `/Users/kpernyer/dev/reflective/BOUNDARY_REGISTRY.md`
 **Active handoff:** `/Users/kpernyer/dev/reflective/HANDOFF_quorum-sense_2026-06-15.md`
+**Historical review:** `/Users/kpernyer/dev/reflective/REVIEW_quorum-sense_2026-06-15.md` (frozen evidence only; not the implementor action surface)
 **Helm ledger:** `QUALITY_BACKLOG.md`
 **Commercial inventory:** [[Commercial Authority Inventory]]
 
@@ -105,13 +105,13 @@ advisory trust-transfer artifacts.
 
 They must not authorize:
 
-- Quorum or other app domain action;
+- app domain action;
 - commerce action or entitlement grant;
 - deployment;
 - claim refresh;
 - app writeback.
 
-For quorum-sense live readiness, the minimum live evidence is:
+For app live readiness, the minimum live evidence is:
 
 - process receipt;
 - integrity proof;
@@ -119,14 +119,14 @@ For quorum-sense live readiness, the minimum live evidence is:
 - Axiom report.
 
 The feed contract for that evidence is `OperatorControlReadinessFeed` in
-`helm-operator-control`. Quorum supplies already-derived readiness packets and
+`helm-operator-control`. Apps supply already-derived readiness packets and
 ledger entries; Helm reports `shell-default` or `live` through
 `HelmModuleReadiness`, then bridges that state into Runway's
 `HelmModule::module_state()` for RR D1 check 2. Mounting routes is not
-live-readiness evidence. Until RR observes `live`, Quorum's manifest should
+live-readiness evidence. Until RR observes `live`, the app manifest should
 keep `helm.operator-control` at `mount_kind: "planned"`.
 
-Raw inquiry state, transcript content, entitlement state, and deployment
+Raw app state, transcript content, entitlement state, and deployment
 authority stay outside Helm operator-control unless a later dated panel review
 grants a projection.
 
@@ -140,13 +140,13 @@ grants a projection.
   `helm.governed-jobs` shell as live is rejected.
 - A readiness packet or operator ledger entry with domain, commerce, deploy, or
   writeback authority is rejected.
-- A static portfolio preview presented as live app state is rejected.
+- A static app portfolio in Helm operator-control is rejected.
 
 ## Cross-Repo Links
 
 - Runtime-Runway boundary: `/Users/kpernyer/dev/reflective/runtime-runway/kb/Architecture/App Execution Container.md`
 - Commerce-Rails boundary: `/Users/kpernyer/dev/reflective/commerce-rails/kb/Architecture/Operating Authority Boundary.md`
 - Workspace registry: `/Users/kpernyer/dev/reflective/BOUNDARY_REGISTRY.md`
-- Review: `/Users/kpernyer/dev/reflective/REVIEW_quorum-sense_2026-06-15.md`
 - Active handoff: `/Users/kpernyer/dev/reflective/HANDOFF_quorum-sense_2026-06-15.md`
+- Historical review: `/Users/kpernyer/dev/reflective/REVIEW_quorum-sense_2026-06-15.md` (frozen evidence only)
 - Local commercial inventory: [[Commercial Authority Inventory]]

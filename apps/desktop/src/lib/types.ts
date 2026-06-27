@@ -475,10 +475,14 @@ export type OperatorReceiptFamilyView = {
 	record_kinds: OperatorLedgerRecordKind[]
 }
 
+export type OperatorControlPreviewBacking = 'live-app-feed'
+
 export type OperatorControlPreview = {
 	packet: JobReadinessPacket
 	ledger_entries: OperatorLedgerEntry[]
 	receipt_families: OperatorReceiptFamilyView[]
+	backing: OperatorControlPreviewBacking
+	backing_label: string
 }
 
 export type TruthExecutionResult = {

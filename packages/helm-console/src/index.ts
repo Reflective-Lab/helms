@@ -24,10 +24,3 @@ export {
   renderPath,
   withQuery,
 } from './client'
-
-export {
-  atlasConsoleAdapter,
-  marqueeConsoleAdapters,
-  quorumConsoleAdapter,
-  wardenConsoleAdapter,
-} from './profiles'

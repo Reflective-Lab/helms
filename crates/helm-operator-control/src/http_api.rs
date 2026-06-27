@@ -47,36 +47,32 @@ where
     }
 
     pub fn operator_control_preview(&self) -> Result<OperatorControlPreview, OperatorAppError> {
-        if let Some(mut previews) = self.live_previews()? {
+        let mut previews = self.live_previews()?;
+        if !previews.is_empty() {
             return Ok(previews.remove(0));
         }
 
-        self.operator.operator_control_preview()
+        Err(OperatorAppError::OperatorControl(
+            "operator-control preview requires an injected live readiness feed".to_string(),
+        ))
     }
 
     pub fn operator_control_previews(
         &self,
     ) -> Result<Vec<OperatorControlPreview>, OperatorAppError> {
-        if let Some(previews) = self.live_previews()? {
-            return Ok(previews);
-        }
-
-        self.operator.operator_control_previews()
+        self.live_previews()
     }
 
-    fn live_previews(&self) -> Result<Option<Vec<OperatorControlPreview>>, OperatorAppError> {
+    fn live_previews(&self) -> Result<Vec<OperatorControlPreview>, OperatorAppError> {
         let Some(feed) = &self.readiness_feed else {
-            return Ok(None);
+            return Ok(Vec::new());
         };
 
         let snapshots = feed
             .previews()
             .map_err(|error| OperatorAppError::OperatorControl(error.to_string()))?;
-        if snapshots.is_empty() {
-            return Ok(None);
-        }
 
-        Ok(Some(snapshots.into_iter().map(Into::into).collect()))
+        Ok(snapshots.into_iter().map(Into::into).collect())
     }
 }
 
@@ -85,9 +81,8 @@ where
 /// Returns the Axum router for operator-control routes.
 ///
 /// Paths exposed:
-/// - `GET /v1/workbench/operator-control/preview`  — single preview (Tally escrow-release)
-/// - `GET /v1/workbench/operator-control/previews` — portfolio list (6 packets as of
-///   helms main `5f8d6b6`: Tally, Quorum, Fathom, Warden, Plumb, Atlas)
+/// - `GET /v1/workbench/operator-control/preview`  — first injected live preview
+/// - `GET /v1/workbench/operator-control/previews` — injected live preview list
 pub fn router<S>(state: Arc<OperatorControlState<S>>) -> Router
 where
     S: KernelStore + Clone + Send + Sync + 'static,

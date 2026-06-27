@@ -36,19 +36,19 @@ impl OperatorControlReadinessFeed for StaticReadinessFeed {
 
 fn sample_packet() -> JobReadinessPacket {
     JobReadinessPacket::new(JobReadinessPacketInput {
-        package_id: "pkg-quorum-001".to_string(),
+        package_id: "pkg-operator-control-001".to_string(),
         truth_version: "truth-v1".to_string(),
-        domain_hint: "quorum-sense".to_string(),
-        job_key: "adaptive-inquiry".to_string(),
-        subject_ref: "quorum:inquiry:123".to_string(),
+        domain_hint: "operator-control.test".to_string(),
+        job_key: "readiness-check".to_string(),
+        subject_ref: "operator-control:test-subject:123".to_string(),
         adapter_receipt_id: "receipt:adapter:123".to_string(),
         adapter_status: AdapterReceiptStatus::Succeeded,
         verdict: Some(JobVerdict::Blocked),
         authorizes_domain_action: false,
         evidence_status: vec![JobEvidenceStatus {
             clause_id: "clause-1".to_string(),
-            clause_key: "participant-consent".to_string(),
-            label: "Participant consent is present".to_string(),
+            clause_key: "required-evidence".to_string(),
+            label: "Required evidence is present".to_string(),
             status: EvidenceReadinessStatus::Present,
             fact_ids: vec!["fact-1".to_string()],
             evidence_refs: vec!["evidence-1".to_string()],
@@ -68,7 +68,7 @@ fn sample_snapshot() -> LiveOperatorControlSnapshot {
         1,
         &packet,
         vec!["receipt:adapter:123".to_string()],
-        "Quorum readiness packet recorded",
+        "Live readiness packet recorded",
     )
     .expect("ledger entry builds");
 
@@ -239,24 +239,43 @@ fn operator_control_state_uses_live_feed_previews_when_present() {
         .expect("live feed preview is available");
 
     assert_eq!(preview.backing, OperatorControlPreviewBacking::LiveAppFeed);
-    assert_eq!(preview.packet.domain_hint, "quorum-sense");
+    assert_eq!(preview.backing_label, "live");
+    assert_eq!(preview.packet.domain_hint, "operator-control.test");
 }
 
 #[test]
-fn operator_control_state_falls_back_to_static_demo_when_live_feed_is_empty() {
+fn operator_control_state_does_not_fall_back_to_static_demo_when_live_feed_is_empty() {
     let feed = Arc::new(StaticReadinessFeed {
         evidence: LiveReadinessEvidence::complete(),
         snapshots: Vec::new(),
     });
     let store = InMemoryKernelStore::default_local();
     let state = OperatorControlState::new(store.config.clone(), store).with_readiness_feed(feed);
-    let preview = state
+    let previews = state
+        .operator_control_previews()
+        .expect("empty live feed returns empty previews");
+    let error = state
         .operator_control_preview()
-        .expect("static preview fallback is available");
+        .expect_err("empty live feed must not synthesize a static preview");
 
-    assert_eq!(
-        preview.backing,
-        OperatorControlPreviewBacking::StaticPortfolioDemo
+    assert!(previews.is_empty());
+    assert!(
+        error
+            .to_string()
+            .contains("operator-control preview requires an injected live readiness feed")
+    );
+}
+
+#[test]
+fn operator_control_state_returns_empty_previews_without_live_feed() {
+    let store = InMemoryKernelStore::default_local();
+    let state = OperatorControlState::new(store.config.clone(), store);
+
+    assert!(
+        state
+            .operator_control_previews()
+            .expect("missing live feed returns empty previews")
+            .is_empty()
     );
 }
 
@@ -265,6 +284,7 @@ fn live_snapshot_converts_to_live_app_feed_preview() {
     let preview: OperatorControlPreview = sample_snapshot().into();
 
     assert_eq!(preview.backing, OperatorControlPreviewBacking::LiveAppFeed);
+    assert_eq!(preview.backing_label, "live");
     assert_eq!(preview.ledger_entries.len(), 1);
 }
 
@@ -279,7 +299,7 @@ fn helm_crate_exports_operator_control_contracts() {
         1,
         &packet,
         vec!["receipt:adapter:123".to_string()],
-        "Quorum readiness packet recorded",
+        "Live readiness packet recorded",
     )
     .expect("ledger entry builds from Helm export");
 

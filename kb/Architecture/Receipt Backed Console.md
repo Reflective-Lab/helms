@@ -5,9 +5,9 @@ type: architecture
 
 # Receipt Backed Console
 
-Helm owns the shared operator-console layer for Marquee apps. The first
-package is `packages/helm-console`, extracted from the Quorum M4 console
-pattern and made directly useful for Quorum, Atlas, and Warden.
+Helm owns the shared operator-console layer for apps. The first package is
+`packages/helm-console`, which carries the generic receipt-backed console
+pattern without shipping app-specific profiles.
 
 ## Boundary
 
@@ -47,15 +47,15 @@ The app can rename the panes, but the responsibilities stay stable.
   handling;
 - `ReceiptBackedConsole.svelte`, `CommandCard.svelte`,
   `EventTimeline.svelte`, `ConnectionBar.svelte`, and
-  `ProofArtifactPanel.svelte`;
-- `quorumConsoleAdapter`, `atlasConsoleAdapter`, and `wardenConsoleAdapter`.
+  `ProofArtifactPanel.svelte`.
 
 ## Why This Belongs In Helm
 
 The pattern is operator-facing and app-facing. It is not a lower-level server
 primitive. Runway should not know how an operator console presents a receipt.
-Quorum, Atlas, and Warden should not copy command/timeline/proof mechanics.
-Helm is the trust-transfer surface where reusable operator UX belongs.
+Apps should not copy command/timeline/proof mechanics. Helm is the
+trust-transfer surface where reusable operator UX belongs, while concrete
+`ConsoleAdapter` values stay in app, showcase, or test configuration.
 
 ## Review Rules
 
@@ -69,6 +69,6 @@ Helm is the trust-transfer surface where reusable operator UX belongs.
 
 ## Extraction Rule
 
-Do not overfit to Quorum. Keep app-specific panels in apps until at least two
-apps use the same component shape. Promote only stable mechanics into
-`helm-console`.
+Do not overfit to any one app. Keep app-specific panels and route profiles in
+apps until at least two apps use the same component shape. Promote only stable
+mechanics into `helm-console`.
