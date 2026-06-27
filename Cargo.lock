@@ -2617,6 +2617,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "director-contracts"
+version = "0.2.1"
+dependencies = [
+ "helm-session-contracts",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "directories-next"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4219,6 +4229,16 @@ dependencies = [
  "tokio-test",
  "tracing",
  "wasmtime",
+]
+
+[[package]]
+name = "helm-session-contracts"
+version = "0.2.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "uuid",
 ]
 
 [[package]]
@@ -8844,6 +8864,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "runway-ambient"
+version = "3.4.2"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum 0.8.8",
+ "chrono",
+ "reqwest 0.12.28",
+ "runway-auth",
+ "runway-storage",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "runway-app-host"
 version = "3.4.2"
 dependencies = [
@@ -8852,6 +8891,7 @@ dependencies = [
  "axum 0.8.8",
  "chrono",
  "futures",
+ "runway-ambient",
  "runway-auth",
  "runway-middleware",
  "runway-storage",
