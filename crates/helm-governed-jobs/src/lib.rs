@@ -66,6 +66,11 @@ impl GovernedJobsModule {
         }
     }
 
+    /// Like [`Self::with_state`] but shares an existing `Arc` (for coordination wiring).
+    pub fn with_shared_state(state: Arc<JobStreamState>) -> Self {
+        Self { state }
+    }
+
     /// Expose the inner state for callers that need gate-waiter access
     /// (e.g. operator-control approval handler).
     pub fn state(&self) -> Arc<JobStreamState> {

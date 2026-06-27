@@ -4,7 +4,6 @@
 //! agnostic (the HTTP layer is a thin adapter over these methods) so it can be
 //! unit-tested directly and driven from a CLI or automation later.
 
-use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -45,8 +44,7 @@ impl CoordinationService {
     /// (permissive) and the default session lease.
     pub fn new(hub: EventHubHandle, app_id: impl Into<String>) -> Self {
         let app_id = app_id.into();
-        let seq = Arc::new(AtomicU64::new(1));
-        let publisher = CoordinationPublisher::new(hub.clone(), seq, app_id.clone());
+        let publisher = CoordinationPublisher::new(hub.clone(), app_id.clone());
         Self {
             resolver: Arc::new(RequestActorResolver),
             authority: Arc::new(PermissiveAuthority),
@@ -80,16 +78,12 @@ impl CoordinationService {
 
     /// Wire the governed-jobs state so accepted gate decisions drive real runs.
     ///
-    /// Adopts the job state's hub and sequence counter so coordination and job
-    /// events share one globally-monotonic stream.
+    /// Adopts the job state's hub so coordination and job events share one
+    /// globally-monotonic stream (sequence stamped by the hub).
     #[must_use]
     pub fn with_job_state(mut self, job_state: Arc<JobStreamState>) -> Self {
         self.hub = job_state.hub.clone();
-        self.publisher = CoordinationPublisher::new(
-            job_state.hub.clone(),
-            job_state.next_sequence.clone(),
-            self.app_id.clone(),
-        );
+        self.publisher = CoordinationPublisher::new(job_state.hub.clone(), self.app_id.clone());
         self.job_state = Some(job_state);
         self
     }

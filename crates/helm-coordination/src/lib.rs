@@ -21,6 +21,7 @@
 
 mod error;
 mod events;
+mod host;
 mod http;
 mod ledger;
 mod module;
@@ -40,6 +41,7 @@ pub use ledger::{
     AuthorityResolver, DecisionLedger, DecisionOutcome, DecisionRecord, GateDecisionKind,
     PermissiveAuthority,
 };
+pub use host::mount_live_modules;
 pub use module::CoordinationModule;
 pub use presence::{PresenceChange, PresenceEntry, PresenceRegistry};
 pub use principal::{OperatorPrincipal, PrincipalClaim, PrincipalResolver, RequestActorResolver};

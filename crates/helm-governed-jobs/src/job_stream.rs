@@ -13,9 +13,8 @@
 //! - `crate::realtime::RealtimeHub` → `runway_app_host::EventHubHandle` (Phase 1.6
 //!   landed replay buffer + cursor subscribe + `EventEnvelope.job_id`, so no local
 //!   hub copy is needed).
-//! - `RealtimeHub::publish(input).await` → `EventHubHandle::publish(env)` (sync).
-//!   `EventHubHandle` has no internal sequence counter, so `JobStreamState` owns
-//!   an `Arc<AtomicU64>` that stamps monotonically increasing sequence numbers.
+//! - `EventHubHandle::publish` stamps monotonic sequence numbers when the hub
+//!   owns a counter (in-memory and durable hubs both auto-stamp).
 //! - SSE catch-up: `hub.subscribe(cursor)` →
 //!   `hub.subscribe_with_cursor(EventCursor { run_id, .. })` which returns
 //!   `EventSubscription { replay, receiver }`. Replay is already filtered by
@@ -38,7 +37,6 @@
 
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -53,7 +51,7 @@ use chrono::Utc;
 use converge_core::ContextState;
 use serde::Deserialize;
 use serde_json::json;
-use tokio::sync::{broadcast, oneshot};
+use tokio::sync::oneshot;
 use truth_catalog::{
     admission::{
         TruthFormationSelection, admit_truth_intent, default_helms_capabilities,
@@ -117,11 +115,6 @@ pub struct JobStreamState {
     pub gate_timeout: Duration,
     #[doc(hidden)]
     pub gate_waiters: Arc<Mutex<HashMap<String, JobGateWaiter>>>,
-    /// Sequence counter for events published through this state.
-    /// `EventHubHandle::publish` takes envelopes as-is (no auto-sequence),
-    /// so we stamp them here.
-    #[doc(hidden)]
-    pub next_sequence: Arc<AtomicU64>,
 }
 
 const DEFAULT_GATE_TIMEOUT: Duration = Duration::from_secs(600);
@@ -142,7 +135,6 @@ impl JobStreamState {
             app_id: app_id.into(),
             gate_timeout: DEFAULT_GATE_TIMEOUT,
             gate_waiters: Arc::new(Mutex::new(HashMap::new())),
-            next_sequence: Arc::new(AtomicU64::new(1)),
         }
     }
 
@@ -196,7 +188,6 @@ impl JobStreamState {
     ) -> Publisher {
         Publisher {
             hub: self.hub.clone(),
-            seq: Arc::clone(&self.next_sequence),
             run_id: run_id.to_string(),
             job_id: job_id.to_string(),
             app_id: app_id.to_string(),
@@ -218,23 +209,17 @@ impl Default for JobStreamState {
             app_id: "helm.governed-jobs".into(),
             gate_timeout: DEFAULT_GATE_TIMEOUT,
             gate_waiters: Arc::new(Mutex::new(HashMap::new())),
-            next_sequence: Arc::new(AtomicU64::new(1)),
         }
     }
 }
 
 // ── Publisher ─────────────────────────────────────────────────────────
 
-/// Thin wrapper that stamps monotonically-increasing sequence numbers onto
-/// `EventEnvelope`s before handing them to `EventHubHandle::publish`.
+/// Thin wrapper that publishes job-scoped `EventEnvelope`s on the shared hub.
 ///
-/// `EventHubHandle` has no internal sequence counter — it accepts envelopes
-/// exactly as provided. The `Publisher` owns the counter so every event emitted
-/// by a single job run gets a unique, ordered sequence number that SSE clients
-/// can use for dedup and catch-up.
+/// The hub assigns monotonic sequence numbers; callers supply `sequence: 0`.
 struct Publisher {
     hub: EventHubHandle,
-    seq: Arc<AtomicU64>,
     run_id: String,
     job_id: String,
     app_id: String,
@@ -245,10 +230,9 @@ struct Publisher {
 
 impl Publisher {
     fn emit(&self, event_type: &str, payload: serde_json::Value) {
-        let sequence = self.seq.fetch_add(1, Ordering::SeqCst);
         self.hub.publish(EventEnvelope {
             event_id: Uuid::new_v4(),
-            sequence,
+            sequence: 0,
             r#type: event_type.to_string(),
             schema_version: 1,
             occurred_at: Utc::now(),
@@ -797,46 +781,13 @@ fn build_run_sse_stream(
     subscription: EventSubscription,
     run_id: String,
 ) -> impl tokio_stream::Stream<Item = Result<Event, Infallible>> {
-    async_stream::stream! {
-        let mut last_sequence = 0u64;
-
-        // Replay events are already filtered by run_id via subscribe_with_cursor.
-        for env in subscription.replay {
-            last_sequence = env.sequence;
-            let terminal = is_terminal(&env);
-            if let Some(frame) = encode_frame(&env) {
-                yield Ok(frame);
-            }
-            if terminal { return; }
-        }
-
-        let mut live = subscription.receiver;
-        loop {
-            match live.recv().await {
-                Ok(env) => {
-                    if env.sequence <= last_sequence { continue; }
-                    last_sequence = env.sequence;
-                    // Live channel is unfiltered; filter by run_id here.
-                    if env.run_id.as_deref() != Some(run_id.as_str()) { continue; }
-                    let terminal = is_terminal(&env);
-                    if let Some(frame) = encode_frame(&env) {
-                        yield Ok(frame);
-                    }
-                    if terminal { break; }
-                }
-                Err(broadcast::error::RecvError::Lagged(_)) => continue,
-                Err(broadcast::error::RecvError::Closed) => break,
-            }
-        }
-    }
+    runway_app_host::sse::event_stream(
+        subscription,
+        move |env: &EventEnvelope| env.run_id.as_deref() == Some(run_id.as_str()),
+        is_terminal,
+    )
 }
 
 fn is_terminal(env: &EventEnvelope) -> bool {
     matches!(env.r#type.as_str(), "job.completed" | "job.failed")
-}
-
-fn encode_frame(env: &EventEnvelope) -> Option<Event> {
-    serde_json::to_string(env)
-        .ok()
-        .map(|data| Event::default().id(env.sequence.to_string()).data(data))
 }

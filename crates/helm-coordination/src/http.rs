@@ -16,7 +16,6 @@ use axum::{Json, Router};
 use runway_app_host::{EventCursor, EventEnvelope, EventSubscription};
 use serde::Deserialize;
 use serde_json::json;
-use tokio::sync::broadcast;
 use uuid::Uuid;
 
 use crate::error::CoordinationError;
@@ -200,43 +199,14 @@ fn build_stream(
     subscription: EventSubscription,
     workspace_id: String,
 ) -> impl tokio_stream::Stream<Item = Result<Event, Infallible>> {
-    async_stream::stream! {
-        let mut last_sequence = 0u64;
-        for env in subscription.replay {
-            last_sequence = env.sequence;
-            if include(&env, &workspace_id)
-                && let Some(frame) = encode_frame(&env) {
-                yield Ok(frame);
-            }
-        }
-
-        let mut live = subscription.receiver;
-        loop {
-            match live.recv().await {
-                Ok(env) => {
-                    if env.sequence <= last_sequence {
-                        continue;
-                    }
-                    last_sequence = env.sequence;
-                    if include(&env, &workspace_id)
-                        && let Some(frame) = encode_frame(&env) {
-                        yield Ok(frame);
-                    }
-                }
-                Err(broadcast::error::RecvError::Lagged(_)) => continue,
-                Err(broadcast::error::RecvError::Closed) => break,
-            }
-        }
-    }
+    runway_app_host::sse::event_stream(
+        subscription,
+        move |env| include(env, &workspace_id),
+        |_| false,
+    )
 }
 
 fn include(env: &EventEnvelope, workspace_id: &str) -> bool {
     let event_workspace = env.payload.get("workspace_id").and_then(|v| v.as_str());
     CoordinationService::stream_includes(&env.r#type, event_workspace, workspace_id)
-}
-
-fn encode_frame(env: &EventEnvelope) -> Option<Event> {
-    serde_json::to_string(env)
-        .ok()
-        .map(|data| Event::default().id(env.sequence.to_string()).data(data))
 }

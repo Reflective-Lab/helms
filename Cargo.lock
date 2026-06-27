@@ -4158,8 +4158,10 @@ dependencies = [
  "helm-truth-execution",
  "http-body-util",
  "runway-app-host",
+ "runway-storage",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
@@ -8899,6 +8901,7 @@ name = "runway-app-host"
 version = "3.4.2"
 dependencies = [
  "anyhow",
+ "async-stream",
  "async-trait",
  "axum 0.8.8",
  "chrono",

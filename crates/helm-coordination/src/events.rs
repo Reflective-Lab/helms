@@ -6,12 +6,9 @@
 //! principal (stamped into `EventEnvelope.actor`) and a `workspace_id` in the
 //! payload so the stream can scope by workspace.
 
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-
 use chrono::Utc;
 use runway_app_host::{EventEnvelope, EventHubHandle};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::principal::OperatorPrincipal;
@@ -54,23 +51,17 @@ pub fn is_job_type(event_type: &str) -> bool {
     event_type.starts_with("job.") || event_type.starts_with("gate.")
 }
 
-/// Stamps and publishes coordination events on the shared hub.
-///
-/// Owns an `Arc<AtomicU64>` sequence counter. When wired to a `JobStreamState`
-/// the service reuses that state's counter so sequences stay globally monotonic
-/// across coordination and job events on the same hub.
+/// Publishes coordination events on the shared hub (sequence stamped upstream).
 #[derive(Clone)]
 pub struct CoordinationPublisher {
     hub: EventHubHandle,
-    seq: Arc<AtomicU64>,
     app_id: String,
 }
 
 impl CoordinationPublisher {
-    pub fn new(hub: EventHubHandle, seq: Arc<AtomicU64>, app_id: impl Into<String>) -> Self {
+    pub fn new(hub: EventHubHandle, app_id: impl Into<String>) -> Self {
         Self {
             hub,
-            seq,
             app_id: app_id.into(),
         }
     }
@@ -89,10 +80,9 @@ impl CoordinationPublisher {
                 })
             });
         }
-        let sequence = self.seq.fetch_add(1, Ordering::SeqCst);
         self.hub.publish(EventEnvelope {
             event_id: Uuid::new_v4(),
-            sequence,
+            sequence: 0,
             r#type: event_type.to_string(),
             schema_version: 1,
             occurred_at: Utc::now(),

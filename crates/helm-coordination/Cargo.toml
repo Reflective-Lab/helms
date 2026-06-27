@@ -28,5 +28,7 @@ application-storage = { path = "../application-storage" }
 converge-core.workspace = true
 helm-truth-execution = { path = "../helm-truth-execution" }
 http-body-util = "0.1"
+runway-storage = { path = "../../../../runtime-runway/crates/runway-storage" }
+tempfile = "3"
 tonic.workspace = true
 tower = "0.5"
