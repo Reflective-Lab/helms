@@ -4256,6 +4256,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "helm-session-host"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum 0.8.8",
+ "chrono",
+ "director-contracts",
+ "helm-client",
+ "helm-module-contracts",
+ "helm-session-contracts",
+ "runway-app-host",
+ "runway-storage",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-stream",
+ "tower 0.5.3",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "helm-truth-execution"
 version = "0.2.1"
 dependencies = [

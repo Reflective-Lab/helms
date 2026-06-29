@@ -21,6 +21,9 @@ members = [
     "crates/director-contracts",
     "crates/helm-client",
 
+    # Session Intelligence Spine (Plan 2).
+    "crates/helm-session-host",
+
     # Capability and truth crates.
     "crates/capability-core",
     "crates/capability-registry",
