@@ -104,7 +104,7 @@ impl ClientHelm {
         let started_at_ms = push.session_context.timestamp_ms;
         let seed = SeedContext {
             facts: vec![push.payload.clone()],
-            description: format!("server push: {:?}", push.urgency_intent),
+            description: push_objective_description(&push),
         };
         let decision = self
             .router
@@ -168,9 +168,7 @@ impl ClientHelm {
     pub fn tick(&mut self, now_ms: u64) -> Vec<LoopId> {
         let expired = self.budget.expired(now_ms);
         for id in &expired {
-            let _ = self
-                .registry
-                .fail(id, "wall-clock budget exhausted".into());
+            let _ = self.registry.fail(id, "wall-clock budget exhausted".into());
         }
         expired
     }
@@ -224,10 +222,9 @@ impl ClientHelm {
     fn apply_routing_decision(&mut self, decision: RoutingDecision) -> ClientHelmAction {
         match decision {
             RoutingDecision::SpawnNew { seed_context } => {
-                let loop_id = self.registry.spawn(
-                    seed_context.description.clone(),
-                    seed_context.clone(),
-                );
+                let loop_id = self
+                    .registry
+                    .spawn(seed_context.description.clone(), seed_context.clone());
                 ClientHelmAction::SpawnFormation {
                     loop_id,
                     seed_context,
@@ -259,8 +256,63 @@ impl ClientHelm {
     }
 }
 
+/// Prefer domain copy from push payload; fall back to urgency label.
+#[must_use]
+pub fn push_objective_description(push: &SessionPush) -> String {
+    push.payload
+        .get("objective")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| format!("server push: {:?}", push.urgency_intent))
+}
+
 impl Default for ClientHelm {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod push_description_tests {
+    use super::push_objective_description;
+    use helm_session_contracts::finding::FindingId;
+    use helm_session_contracts::push::{SessionContext, SessionPush};
+    use helm_session_contracts::urgency::UrgencyIntent;
+
+    #[test]
+    fn objective_from_payload_wins_over_urgency_fallback() {
+        let push = SessionPush {
+            finding_id: FindingId::from_string("find-1"),
+            urgency_intent: UrgencyIntent::Advisory,
+            payload: serde_json::json!({"objective": "LIVE: Track A push received"}),
+            session_context: SessionContext {
+                session_id: "sess".into(),
+                phase: "decision".into(),
+                cycle: 1,
+                timestamp_ms: 1,
+            },
+        };
+        assert_eq!(
+            push_objective_description(&push),
+            "LIVE: Track A push received"
+        );
+    }
+
+    #[test]
+    fn empty_objective_falls_back_to_urgency_label() {
+        let push = SessionPush {
+            finding_id: FindingId::from_string("find-1"),
+            urgency_intent: UrgencyIntent::Advisory,
+            payload: serde_json::json!({}),
+            session_context: SessionContext {
+                session_id: "sess".into(),
+                phase: "decision".into(),
+                cycle: 1,
+                timestamp_ms: 1,
+            },
+        };
+        assert_eq!(push_objective_description(&push), "server push: Advisory");
     }
 }

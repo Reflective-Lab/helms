@@ -117,7 +117,9 @@ impl DecisionLedger {
     }
 
     fn guard(&self) -> std::sync::MutexGuard<'_, HashMap<String, DecisionRecord>> {
-        self.inner.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        self.inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 
@@ -188,7 +190,10 @@ mod tests {
             other => panic!("expected conflict, got {other:?}"),
         }
         // The original decision is untouched.
-        assert_eq!(ledger.get("g1").unwrap().decision, GateDecisionKind::Approve);
+        assert_eq!(
+            ledger.get("g1").unwrap().decision,
+            GateDecisionKind::Approve
+        );
     }
 
     #[test]

@@ -3,9 +3,9 @@
 
 //! Quorum-specific [`DomainPresenter`] — maps opaque payloads to director copy.
 
-use helm_client::{DomainPresenter, GateCopy};
 use director_contracts::NowTask;
 use helm_client::formation::LocalFormationIntent;
+use helm_client::{DomainPresenter, GateCopy};
 use helm_session_contracts::GatedDecision;
 
 /// Default presenter for Quorum server-side director projection.
@@ -40,7 +40,10 @@ impl DomainPresenter for QuorumDomainPresenter {
             .and_then(|value| value.as_str())
             .unwrap_or("Formation paused until resolved")
             .to_string();
-        GateCopy { reason, consequence }
+        GateCopy {
+            reason,
+            consequence,
+        }
     }
 
     fn idle_title(&self) -> String {

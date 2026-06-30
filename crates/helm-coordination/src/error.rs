@@ -1,8 +1,8 @@
 //! Coordination error type and its HTTP mapping.
 
+use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::Serialize;
 
 use crate::ledger::GateDecisionKind;

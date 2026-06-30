@@ -123,7 +123,9 @@ impl SessionRegistry {
     }
 
     fn guard(&self) -> std::sync::MutexGuard<'_, HashMap<Uuid, Session>> {
-        self.inner.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        self.inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 

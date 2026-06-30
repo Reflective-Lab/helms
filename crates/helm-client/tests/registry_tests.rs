@@ -18,7 +18,10 @@ fn new_registry_is_empty() {
 #[test]
 fn spawn_creates_running_entry() {
     let mut r = LoopRegistry::new();
-    let id = r.spawn("personal-synthesis".into(), seed("think about hypothesis X"));
+    let id = r.spawn(
+        "personal-synthesis".into(),
+        seed("think about hypothesis X"),
+    );
     assert!(r.running_entry().is_some());
     let entry = r.get(&id).unwrap();
     assert!(matches!(entry.state, LoopState::Running));
@@ -45,23 +48,21 @@ fn server_handle_does_not_block_local_slot() {
     assert_eq!(r.entries().len(), 2);
     let running = r.running_entry().expect("a local formation is running");
     assert!(matches!(running.kind, LoopKind::Local));
-    assert!(r
-        .try_spawn_sequential("synthesis".into(), seed("context b"))
-        .is_err());
+    assert!(
+        r.try_spawn_sequential("synthesis".into(), seed("context b"))
+            .is_err()
+    );
 }
 
 #[test]
 fn server_handle_alone_has_no_local_running() {
     let mut r = LoopRegistry::new();
-    let _ = r.spawn_server_handle(
-        "srv-1".into(),
-        "dd-analysis".into(),
-        seed("dd context"),
-    );
+    let _ = r.spawn_server_handle("srv-1".into(), "dd-analysis".into(), seed("dd context"));
     assert!(r.running_entry().is_none());
-    assert!(r
-        .try_spawn_sequential("synthesis".into(), seed("local work"))
-        .is_ok());
+    assert!(
+        r.try_spawn_sequential("synthesis".into(), seed("local work"))
+            .is_ok()
+    );
 }
 
 #[test]

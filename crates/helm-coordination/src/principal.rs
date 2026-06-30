@@ -53,7 +53,11 @@ impl OperatorPrincipal {
     /// Stable string used to stamp `EventEnvelope.actor`.
     #[must_use]
     pub fn actor_tag(&self) -> String {
-        format!("{}:{}", workspace_or_global(&self.workspace_id), self.actor_id)
+        format!(
+            "{}:{}",
+            workspace_or_global(&self.workspace_id),
+            self.actor_id
+        )
     }
 }
 
@@ -190,8 +194,7 @@ mod tests {
 
     #[test]
     fn principal_projects_to_kernel_actor() {
-        let principal =
-            OperatorPrincipal::new("alice", "Alice", ActorKind::Human, "ws-1");
+        let principal = OperatorPrincipal::new("alice", "Alice", ActorKind::Human, "ws-1");
         let actor = principal.to_actor();
         assert_eq!(actor.actor_id, "alice");
         assert_eq!(actor.kind, ActorKind::Human);

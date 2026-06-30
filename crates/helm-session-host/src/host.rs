@@ -15,7 +15,7 @@ pub fn mount_session_host(
     hub: EventHubHandle,
     app_id: impl Into<String>,
 ) -> Arc<SessionHostModule> {
-    Arc::new(SessionHostModule::new(Arc::new(SessionHostService::from_hub(
-        hub, app_id,
-    ))))
+    Arc::new(SessionHostModule::new(Arc::new(
+        SessionHostService::from_hub(hub, app_id),
+    )))
 }

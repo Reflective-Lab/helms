@@ -46,10 +46,12 @@ impl GatedDecisionSurface {
         gate_id: &GateId,
         response: serde_json::Value,
     ) -> Option<PendingGateResponse> {
-        self.pending.remove(gate_id.as_str()).map(|_| PendingGateResponse {
-            gate_id: gate_id.as_str().to_string(),
-            response,
-        })
+        self.pending
+            .remove(gate_id.as_str())
+            .map(|_| PendingGateResponse {
+                gate_id: gate_id.as_str().to_string(),
+                response,
+            })
     }
 
     /// All gates awaiting user response.

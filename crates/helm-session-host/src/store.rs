@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use director_contracts::{DirectorIntent, GateVerdict};
 use helm_client::ClientHelm;
 use helm_session_contracts::{GatedDecision, SessionPush};
 
@@ -54,6 +55,32 @@ impl SessionStore {
             .or_default()
             .apply_gate(gate, version);
         self.last_active_session = Some(session_id.to_string());
+    }
+
+    /// Apply a typed director intent to the session mirror (dev / mobile submit path).
+    pub fn apply_director_intent(
+        &mut self,
+        session_id: &str,
+        intent: &DirectorIntent,
+    ) -> Option<u64> {
+        let record = self.sessions.get_mut(session_id)?;
+        if !record.live {
+            return None;
+        }
+        match intent {
+            DirectorIntent::RespondGate { gate_id, verdict } => {
+                let response = serde_json::json!({
+                    "verdict": match verdict {
+                        GateVerdict::Approve => "approve",
+                        GateVerdict::Reject => "reject",
+                    }
+                });
+                record.helm.respond_to_gate(gate_id, response);
+                record.version = record.version.saturating_add(1);
+                Some(record.version)
+            }
+            _ => None,
+        }
     }
 
     pub fn helm_and_version(&self, session_id: &str) -> Option<(&ClientHelm, u64)> {

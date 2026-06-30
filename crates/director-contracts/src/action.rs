@@ -31,11 +31,24 @@ pub enum ReviewStance {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum DirectorIntent {
-    OpenTask { frame_id: String },
-    SubmitJudgment { frame_id: String, choice_id: String },
-    RespondGate { gate_id: GateId, verdict: GateVerdict },
-    SubmitReview { frame_id: String, stance: ReviewStance },
-    RequestContext { level: ContextLevel },
+    OpenTask {
+        frame_id: String,
+    },
+    SubmitJudgment {
+        frame_id: String,
+        choice_id: String,
+    },
+    RespondGate {
+        gate_id: GateId,
+        verdict: GateVerdict,
+    },
+    SubmitReview {
+        frame_id: String,
+        stance: ReviewStance,
+    },
+    RequestContext {
+        level: ContextLevel,
+    },
 }
 
 /// The single privileged action the UI should offer.

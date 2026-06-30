@@ -27,14 +27,23 @@ use crate::subject::SubjectRef;
 /// Build the coordination router over a shared service.
 pub fn router(service: Arc<CoordinationService>) -> Router {
     Router::new()
-        .route("/v1/coordination/sessions", post(open_session).get(list_sessions))
+        .route(
+            "/v1/coordination/sessions",
+            post(open_session).get(list_sessions),
+        )
         .route("/v1/coordination/sessions/{id}/heartbeat", post(heartbeat))
-        .route("/v1/coordination/sessions/{id}", axum::routing::delete(close_session))
+        .route(
+            "/v1/coordination/sessions/{id}",
+            axum::routing::delete(close_session),
+        )
         .route("/v1/coordination/presence", get(list_presence))
         .route("/v1/coordination/presence/focus", post(focus))
         .route("/v1/coordination/presence/claim", post(claim))
         .route("/v1/coordination/presence/release", post(release))
-        .route("/v1/coordination/gates/{ref_id}/decision", post(decide_gate))
+        .route(
+            "/v1/coordination/gates/{ref_id}/decision",
+            post(decide_gate),
+        )
         .route("/v1/coordination/stream", get(stream))
         .with_state(service)
 }
@@ -96,7 +105,9 @@ async fn focus(
     Json(body): Json<PresenceBody>,
 ) -> Result<Json<crate::presence::PresenceEntry>, CoordinationError> {
     let subject = SubjectRef::new(body.subject_kind, body.subject_id);
-    service.focus(body.session_id, &body.claim, subject).map(Json)
+    service
+        .focus(body.session_id, &body.claim, subject)
+        .map(Json)
 }
 
 async fn claim(
@@ -104,7 +115,9 @@ async fn claim(
     Json(body): Json<PresenceBody>,
 ) -> Result<Json<crate::presence::PresenceEntry>, CoordinationError> {
     let subject = SubjectRef::new(body.subject_kind, body.subject_id);
-    service.claim(body.session_id, &body.claim, subject).map(Json)
+    service
+        .claim(body.session_id, &body.claim, subject)
+        .map(Json)
 }
 
 async fn release(

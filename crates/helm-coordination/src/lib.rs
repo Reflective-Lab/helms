@@ -33,20 +33,20 @@ mod subject;
 
 pub use error::CoordinationError;
 pub use events::{
-    is_coordination_type, is_job_type, CLAIM_ACQUIRED, CLAIM_RELEASED, DECISION_CONFLICT,
-    DECISION_DENIED, DECISION_RECORDED, PRESENCE_FOCUS_CHANGED, PRESENCE_JOINED, PRESENCE_LEFT,
-    SESSION_CLOSED, SESSION_OPENED,
+    CLAIM_ACQUIRED, CLAIM_RELEASED, DECISION_CONFLICT, DECISION_DENIED, DECISION_RECORDED,
+    PRESENCE_FOCUS_CHANGED, PRESENCE_JOINED, PRESENCE_LEFT, SESSION_CLOSED, SESSION_OPENED,
+    is_coordination_type, is_job_type,
 };
+pub use host::mount_live_modules;
 pub use ledger::{
     AuthorityResolver, DecisionLedger, DecisionOutcome, DecisionRecord, GateDecisionKind,
     PermissiveAuthority,
 };
-pub use host::mount_live_modules;
 pub use module::CoordinationModule;
 pub use presence::{PresenceChange, PresenceEntry, PresenceRegistry};
 pub use principal::{OperatorPrincipal, PrincipalClaim, PrincipalResolver, RequestActorResolver};
 pub use service::CoordinationService;
-pub use session::{Session, SessionRegistry, DEFAULT_SESSION_LEASE};
+pub use session::{DEFAULT_SESSION_LEASE, Session, SessionRegistry};
 pub use subject::SubjectRef;
 
 // Re-export the readiness contract types so consumers can name the module's

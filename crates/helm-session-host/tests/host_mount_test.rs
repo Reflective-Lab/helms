@@ -5,9 +5,9 @@
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use helm_session_host::{mount_session_host, SessionHostModuleState};
+use helm_session_host::{SessionHostModuleState, mount_session_host};
 use runway_app_host::{
-    AppExecutionPacket, MountKind, MountedModule, RunwayAppHost, RouteRegistration, RouteOwner,
+    AppExecutionPacket, MountKind, MountedModule, RouteOwner, RouteRegistration, RunwayAppHost,
 };
 use runway_storage::StorageKit;
 use tower::ServiceExt;
@@ -33,9 +33,7 @@ fn host_packet() -> AppExecutionPacket {
 #[tokio::test]
 async fn runway_host_mounts_live_session_host_stream() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let storage = StorageKit::local(dir.path())
-        .await
-        .expect("local storage");
+    let storage = StorageKit::local(dir.path()).await.expect("local storage");
 
     let hub = runway_app_host::EventHub::with_capacity(256);
     let module = mount_session_host(hub.handle(), "test.session-host");

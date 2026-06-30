@@ -4,6 +4,7 @@
 //! Session-host service — publishes wire types on the shared hub.
 
 use director_contracts::DirectorSnapshot;
+use director_contracts::DirectorIntent;
 use helm_client::DomainPresenter;
 use helm_session_contracts::{GatedDecision, SessionPush};
 use runway_app_host::{EventEnvelope, EventHubHandle};
@@ -80,7 +81,10 @@ impl SessionHostService {
 
     /// Project the most recently updated session, if any.
     #[must_use]
-    pub fn director_snapshot_active(&self, presenter: &dyn DomainPresenter) -> Option<DirectorSnapshot> {
+    pub fn director_snapshot_active(
+        &self,
+        presenter: &dyn DomainPresenter,
+    ) -> Option<DirectorSnapshot> {
         self.store.with_store(|store| {
             let session_id = store.last_active_session()?;
             let (helm, version) = store.helm_and_version(session_id)?;
@@ -98,6 +102,18 @@ impl SessionHostService {
     #[must_use]
     pub fn quorum_director_snapshot_active(&self) -> Option<DirectorSnapshot> {
         self.director_snapshot_active(&QuorumDomainPresenter)
+    }
+
+    /// Apply a typed director intent against live session mirror state.
+    #[must_use]
+    pub fn apply_director_intent(
+        &self,
+        session_id: &str,
+        intent: &DirectorIntent,
+    ) -> Option<u64> {
+        self.store
+            .mutate(|store| store.apply_director_intent(session_id, intent))
+            .flatten()
     }
 
     /// Whether an envelope belongs on a session-scoped SSE stream.

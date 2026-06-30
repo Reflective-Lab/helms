@@ -9,10 +9,13 @@ use std::time::Duration;
 use application_storage::{AppKernelStore, AppRuntimeStores, InMemoryKernelStore};
 use async_trait::async_trait;
 use converge_core::integrity::{ContentHash, IntegrityProof, MerkleRoot};
-use converge_core::{ContextState, ConvergeResult, Criterion, CriterionId, CriterionOutcome, CriterionResult, StopReason};
+use converge_core::{
+    ContextState, ConvergeResult, Criterion, CriterionId, CriterionOutcome, CriterionResult,
+    StopReason,
+};
 use helm_governed_jobs::{JobRunTask, JobStreamState, run_job_task};
 use helm_truth_execution::{
-    dispatcher::TruthExecutionContext, TruthBody, TruthExecutionArtifacts, TruthExecutionModule,
+    TruthBody, TruthExecutionArtifacts, TruthExecutionModule, dispatcher::TruthExecutionContext,
 };
 use runway_app_host::EventEnvelope;
 

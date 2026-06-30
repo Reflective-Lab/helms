@@ -11,15 +11,11 @@ pub mod registry;
 pub mod router;
 pub mod temperature;
 
-pub use client::{ClientHelm, ClientHelmAction, ClientSubmission};
+pub use client::{push_objective_description, ClientHelm, ClientHelmAction, ClientSubmission};
 pub use director::{DomainPresenter, GateCopy, ProjectionInputs};
-pub use formation::{
-    FormationOutput, LocalFormationIntent, SeedContext, TemperatureReading,
-};
+pub use formation::{FormationOutput, LocalFormationIntent, SeedContext, TemperatureReading};
 pub use gate_surface::{GatedDecisionSurface, GatedDecisionView, PendingGateResponse};
 pub use ids::LoopId;
-pub use registry::{
-    LoopEntry, LoopEntryView, LoopKind, LoopRegistry, LoopState, RegistryError,
-};
+pub use registry::{LoopEntry, LoopEntryView, LoopKind, LoopRegistry, LoopState, RegistryError};
 pub use router::{RoutingDecision, SeverityRouter};
 pub use temperature::{PendingSubmission, TemperatureQueue, TemperatureSignal};

@@ -52,12 +52,18 @@ mod tests {
 
     #[test]
     fn director_snapshot_round_trips_and_keeps_version() {
-        let snap = DirectorSnapshot { version: 42, frame: gate_frame() };
+        let snap = DirectorSnapshot {
+            version: 42,
+            frame: gate_frame(),
+        };
         let json = serde_json::to_string(&snap).unwrap();
         let back: DirectorSnapshot = serde_json::from_str(&json).unwrap();
         assert_eq!(back.version, 42);
         assert!(matches!(back.frame.prompt, Some(DirectorPrompt::Gate(_))));
-        assert!(matches!(back.frame.blocking, BlockingState::BlocksFormation));
+        assert!(matches!(
+            back.frame.blocking,
+            BlockingState::BlocksFormation
+        ));
     }
 
     #[test]
@@ -75,12 +81,16 @@ mod tests {
 
     #[test]
     fn director_intent_round_trips() {
-        let intent = DirectorIntent::RequestContext { level: ContextLevel::Formation };
+        let intent = DirectorIntent::RequestContext {
+            level: ContextLevel::Formation,
+        };
         let json = serde_json::to_string(&intent).unwrap();
         let back: DirectorIntent = serde_json::from_str(&json).unwrap();
         assert!(matches!(
             back,
-            DirectorIntent::RequestContext { level: ContextLevel::Formation }
+            DirectorIntent::RequestContext {
+                level: ContextLevel::Formation
+            }
         ));
     }
 }

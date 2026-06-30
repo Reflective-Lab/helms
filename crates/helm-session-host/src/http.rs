@@ -7,10 +7,10 @@ use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
 
+use axum::Router;
 use axum::extract::{Path, State};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::get;
-use axum::Router;
 use runway_app_host::{EventCursor, EventSubscription};
 
 use crate::service::SessionHostService;

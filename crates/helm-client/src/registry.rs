@@ -116,7 +116,9 @@ impl LoopRegistry {
         self.insert(
             formation_type,
             seed_context,
-            LoopKind::ServerHandle { server_formation_id },
+            LoopKind::ServerHandle {
+                server_formation_id,
+            },
         )
     }
 
@@ -200,9 +202,9 @@ impl LoopRegistry {
     /// never counted — they run on the server, not the local-running slot.
     #[must_use]
     pub fn running_entry(&self) -> Option<&LoopEntry> {
-        self.entries.values().find(|e| {
-            matches!(e.kind, LoopKind::Local) && matches!(e.state, LoopState::Running)
-        })
+        self.entries
+            .values()
+            .find(|e| matches!(e.kind, LoopKind::Local) && matches!(e.state, LoopState::Running))
     }
 
     #[must_use]
@@ -237,9 +239,9 @@ impl LoopRegistry {
                 },
                 server_formation_id: match &e.kind {
                     LoopKind::Local => None,
-                    LoopKind::ServerHandle { server_formation_id } => {
-                        Some(server_formation_id.clone())
-                    }
+                    LoopKind::ServerHandle {
+                        server_formation_id,
+                    } => Some(server_formation_id.clone()),
                 },
             })
             .collect()

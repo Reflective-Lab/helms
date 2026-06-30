@@ -64,7 +64,10 @@ impl SeverityRouter {
 
         match urgency {
             UrgencyIntent::Informational | UrgencyIntent::Advisory => {
-                RoutingDecision::QueueAndNotify { urgency, seed_context }
+                RoutingDecision::QueueAndNotify {
+                    urgency,
+                    seed_context,
+                }
             }
             UrgencyIntent::Disruptive => RoutingDecision::OffloadToServer { seed_context },
             UrgencyIntent::Preemptive => RoutingDecision::PauseAndInject {

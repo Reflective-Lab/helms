@@ -128,7 +128,9 @@ impl PresenceRegistry {
     }
 
     fn guard(&self) -> std::sync::MutexGuard<'_, Vec<PresenceEntry>> {
-        self.inner.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        self.inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 

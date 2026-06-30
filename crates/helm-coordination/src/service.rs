@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::error::CoordinationError;
 use crate::events::{
-    self, CoordinationPublisher, CLAIM_ACQUIRED, CLAIM_RELEASED, DECISION_CONFLICT,
+    self, CLAIM_ACQUIRED, CLAIM_RELEASED, CoordinationPublisher, DECISION_CONFLICT,
     DECISION_DENIED, DECISION_RECORDED, PRESENCE_FOCUS_CHANGED, PRESENCE_JOINED, PRESENCE_LEFT,
     SESSION_CLOSED, SESSION_OPENED,
 };
@@ -23,7 +23,7 @@ use crate::ledger::{
 };
 use crate::presence::{PresenceChange, PresenceEntry, PresenceRegistry};
 use crate::principal::{PrincipalClaim, PrincipalResolver, RequestActorResolver};
-use crate::session::{Session, SessionRegistry, DEFAULT_SESSION_LEASE};
+use crate::session::{DEFAULT_SESSION_LEASE, Session, SessionRegistry};
 use crate::subject::SubjectRef;
 
 /// Shared multi-operator coordination state and behavior.
@@ -104,8 +104,11 @@ impl CoordinationService {
     pub fn open_session(&self, claim: &PrincipalClaim) -> Result<Session, CoordinationError> {
         let principal = self.resolver.resolve(claim)?;
         let session = self.sessions.open(principal.clone());
-        self.publisher
-            .emit(SESSION_OPENED, &principal, json!({ "session_id": session.id }));
+        self.publisher.emit(
+            SESSION_OPENED,
+            &principal,
+            json!({ "session_id": session.id }),
+        );
         Ok(session)
     }
 

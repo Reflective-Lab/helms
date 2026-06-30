@@ -20,7 +20,9 @@ mod service;
 mod store;
 mod types;
 
-pub use events::{is_session_host_type, publish_push, SESSION_GATE_OPENED, SESSION_GATE_RESOLVED, SESSION_PUSH};
+pub use events::{
+    SESSION_GATE_OPENED, SESSION_GATE_RESOLVED, SESSION_PUSH, is_session_host_type, publish_push,
+};
 pub use host::mount_session_host;
 pub use module::SessionHostModule;
 pub use presenter::QuorumDomainPresenter;

@@ -17,7 +17,7 @@ use converge_core::{
 use helm_coordination::{CoordinationService, PrincipalClaim};
 use helm_governed_jobs::JobStreamState;
 use helm_truth_execution::{
-    dispatcher::TruthExecutionContext, TruthBody, TruthExecutionArtifacts, TruthExecutionModule,
+    TruthBody, TruthExecutionArtifacts, TruthExecutionModule, dispatcher::TruthExecutionContext,
 };
 use runway_app_host::{EventEnvelope, EventHub};
 
@@ -96,16 +96,14 @@ async fn wait_for_event(
             }
         }
     };
-    tokio::time::timeout(deadline, fut)
-        .await
-        .expect("deadline")
+    tokio::time::timeout(deadline, fut).await.expect("deadline")
 }
 
 #[tokio::test]
 async fn shared_hub_interleaves_job_and_coordination_sequences() {
     let state = live_state();
-    let service =
-        CoordinationService::new(state.hub.clone(), "test.coordination").with_job_state(state.clone());
+    let service = CoordinationService::new(state.hub.clone(), "test.coordination")
+        .with_job_state(state.clone());
 
     let mut rx = state.hub.subscribe();
 
@@ -113,7 +111,9 @@ async fn shared_hub_interleaves_job_and_coordination_sequences() {
     let started = wait_for_event(&mut rx, "job.started", Duration::from_secs(5)).await;
     assert_eq!(started.sequence, 1);
 
-    service.open_session(&claim("alice")).expect("session opens");
+    service
+        .open_session(&claim("alice"))
+        .expect("session opens");
     let session = wait_for_event(&mut rx, "session.opened", Duration::from_secs(5)).await;
     assert_eq!(session.sequence, 2);
     assert!(session.sequence > started.sequence);

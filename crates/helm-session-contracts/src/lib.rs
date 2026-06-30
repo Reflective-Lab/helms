@@ -41,8 +41,7 @@ mod tests {
             target_participants: vec!["alice".into(), "bob".into()],
         };
         let json = serde_json::to_string(&finding).unwrap();
-        let back: CoordinatorFinding<serde_json::Value> =
-            serde_json::from_str(&json).unwrap();
+        let back: CoordinatorFinding<serde_json::Value> = serde_json::from_str(&json).unwrap();
         assert_eq!(back.urgency_intent, finding.urgency_intent);
         assert_eq!(back.target_participants.len(), 2);
     }

@@ -9,26 +9,26 @@
 //! *run initiator*. The authoritative *approver* attribution lives in the
 //! coordination `decision.recorded` event, which these tests assert.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use application_kernel::ActorKind;
 use application_storage::{AppKernelStore, AppRuntimeStores, InMemoryKernelStore};
 use async_trait::async_trait;
+use converge_core::ApprovalPointId;
 use converge_core::integrity::{ContentHash, IntegrityProof, MerkleRoot};
 use converge_core::{
     ContextState, ConvergeResult, Criterion, CriterionId, CriterionOutcome, CriterionResult,
     StopReason,
 };
-use converge_core::ApprovalPointId;
 use helm_coordination::{
     AuthorityResolver, CoordinationError, CoordinationService, DecisionOutcome, GateDecisionKind,
     OperatorPrincipal, PrincipalClaim, SubjectRef,
 };
 use helm_governed_jobs::{JobRunTask, JobStreamState, run_job_task};
 use helm_truth_execution::{
-    dispatcher::TruthExecutionContext, TruthBody, TruthExecutionArtifacts, TruthExecutionModule,
+    TruthBody, TruthExecutionArtifacts, TruthExecutionModule, dispatcher::TruthExecutionContext,
 };
 use runway_app_host::{EventEnvelope, EventHub};
 
@@ -117,7 +117,8 @@ fn met_result() -> ConvergeResult {
 
 fn live_state() -> Arc<JobStreamState> {
     let hub = EventHub::with_capacity(256);
-    let truths = Arc::new(TruthExecutionModule::new().register(Arc::new(CompletingGateTruth::new())));
+    let truths =
+        Arc::new(TruthExecutionModule::new().register(Arc::new(CompletingGateTruth::new())));
     Arc::new(JobStreamState {
         store: AppKernelStore::Memory(InMemoryKernelStore::default_local()),
         runtime_stores: AppRuntimeStores::default(),
@@ -252,8 +253,8 @@ impl AuthorityResolver for DenyAll {
 #[tokio::test]
 async fn authority_denied_blocks_decision() {
     let hub = EventHub::with_capacity(64);
-    let service =
-        CoordinationService::new(hub.handle(), "test.coordination").with_authority(Arc::new(DenyAll));
+    let service = CoordinationService::new(hub.handle(), "test.coordination")
+        .with_authority(Arc::new(DenyAll));
 
     let result = service.decide_gate("g1", &claim("alice"), GateDecisionKind::Approve, None);
     assert!(matches!(
@@ -261,9 +262,11 @@ async fn authority_denied_blocks_decision() {
         Err(CoordinationError::AuthorityDenied { .. })
     ));
     // Nothing recorded; a later authorized resolver would still see a clean gate.
-    assert!(service
-        .decide_gate("g1", &claim("alice"), GateDecisionKind::Approve, None)
-        .is_err());
+    assert!(
+        service
+            .decide_gate("g1", &claim("alice"), GateDecisionKind::Approve, None)
+            .is_err()
+    );
 }
 
 #[tokio::test]
@@ -305,9 +308,7 @@ mod http {
             .method("POST")
             .uri("/v1/coordination/sessions")
             .header("content-type", "application/json")
-            .body(Body::from(
-                serde_json::to_vec(&claim("alice")).unwrap(),
-            ))
+            .body(Body::from(serde_json::to_vec(&claim("alice")).unwrap()))
             .unwrap();
 
         let response = app.oneshot(request).await.unwrap();

@@ -12,17 +12,15 @@ use converge_core::{
     ContextState, ConvergeResult, Criterion, CriterionId, CriterionOutcome, CriterionResult,
     StopReason,
 };
-use helm_coordination::{
-    CoordinationModuleReadiness, CoordinationModuleState, mount_live_modules,
-};
+use helm_coordination::{CoordinationModuleReadiness, CoordinationModuleState, mount_live_modules};
 use helm_governed_jobs::{GovernedJobsModuleReadiness, GovernedJobsModuleState, JobStreamState};
 use helm_truth_execution::{
-    dispatcher::TruthExecutionContext, TruthBody, TruthExecutionArtifacts, TruthExecutionModule,
+    TruthBody, TruthExecutionArtifacts, TruthExecutionModule, dispatcher::TruthExecutionContext,
 };
 use http_body_util::BodyExt;
 use runway_app_host::{
-    AppExecutionPacket, HelmModule, MountKind, MountedModule, RunwayAppHost, RouteRegistration,
-    RouteOwner,
+    AppExecutionPacket, HelmModule, MountKind, MountedModule, RouteOwner, RouteRegistration,
+    RunwayAppHost,
 };
 use runway_storage::StorageKit;
 use tower::ServiceExt;
@@ -115,9 +113,7 @@ fn host_packet() -> AppExecutionPacket {
 #[tokio::test]
 async fn runway_host_mounts_live_coordination_and_governed_jobs() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let storage = StorageKit::local(dir.path())
-        .await
-        .expect("local storage");
+    let storage = StorageKit::local(dir.path()).await.expect("local storage");
 
     let state = live_job_state();
     let (jobs, coordination) = mount_live_modules(state, "test.coordination");
