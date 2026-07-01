@@ -25,4 +25,4 @@ uuid.workspace = true
 [dev-dependencies]
 runway-storage = { path = "../../../../runtime-runway/crates/runway-storage" }
 tempfile = "3"
-tower = "0.5"
+tower = { version = "0.5", features = ["util"] }
