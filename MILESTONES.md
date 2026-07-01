@@ -8,10 +8,22 @@
 
 ---
 
-## Current: Boundary refactor closeout
+## Current: Boundary refactor closeout + Scale unlock
 **Deadline:** TBD | **Epic:** E5
 Tie off the trailing work from the just-shipped Runtime Runway boundary refactor: get Quorum/Atlas running in production, restore CI on the post-rename workspace, and close the recovery audit on what the application-server deletion may have collaterally removed.
 
+**RR D5 is shipped (2026-07-01).** `StorageKit.leases` is available. Helms can apply
+`SessionOwnershipLayer` to its mutating routes now — this unblocks multi-instance
+deployment and makes gaps 2–5 below the critical path.
+
+**Remaining scale gaps (all Helms work):**
+- [ ] Apply `SessionOwnershipLayer` to Quorum/Atlas mutating routes (RR D5 now available)
+- [ ] Durable coordination state — migrate `SessionRegistry`, `PresenceRegistry` to `DocumentStore`
+- [ ] Persistent `DecisionLedger` — gate decisions must survive process restart
+- [ ] Topology consistency model — formalize read-consistency semantics under concurrent admission writes
+- [ ] Mobile SSE resilience — server-side delivery tracking + client ack (delivery + completion) — **in progress**
+
+**Boundary refactor closeout:**
 - [ ] Phase 10 — Cloud Run deploy for Quorum and Atlas (not Catalyst)
 - [ ] CI repair — replace `actions/checkout` `path: ../X` with direct git clone for sibling-repo path-deps
 - [ ] Recovery audit A — `http_api.rs` route-by-route consumer survey (~2,200 deleted lines)
