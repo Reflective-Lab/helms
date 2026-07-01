@@ -1,13 +1,17 @@
 // Copyright 2024-2026 Reflective Labs
 // SPDX-License-Identifier: MIT
 
+pub mod ack;
 pub mod finding;
 pub mod gate;
+pub mod participant;
 pub mod push;
 pub mod urgency;
 
+pub use ack::{CompletionAck, DeliveryAck};
 pub use finding::{CoordinatorFinding, FindingId, FindingType};
 pub use gate::{GateCondition, GateId, GatedDecision};
+pub use participant::ParticipantId;
 pub use push::{SessionContext, SessionPush};
 pub use urgency::UrgencyIntent;
 

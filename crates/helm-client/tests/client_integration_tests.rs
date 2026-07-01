@@ -123,6 +123,7 @@ fn formation_completed_queues_temperature_for_submission() {
                 subject_ref: "quorum://hypothesis/h-1".into(),
             }),
         },
+        None,
     );
     let submissions = helm.drain_submissions();
     assert!(!submissions.is_empty());
@@ -186,6 +187,7 @@ fn completed_formation_is_not_budget_failed() {
             proposals: vec![],
             temperature: None,
         },
+        None,
     );
     assert!(helm.tick(u64::MAX).is_empty());
 }

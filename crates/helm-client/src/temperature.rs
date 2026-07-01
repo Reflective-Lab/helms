@@ -3,6 +3,8 @@
 
 use std::collections::HashMap;
 
+use helm_session_contracts::FindingId;
+
 /// A participant's position and conviction on a specific subject.
 /// Sent to the server admission boundary as a ProposedFact.
 #[derive(Debug, Clone)]
@@ -20,12 +22,17 @@ pub struct TemperatureSignal {
 pub struct PendingSubmission {
     pub signal: TemperatureSignal,
     pub idempotency_key: String,
+    /// The FindingId of the SessionPush that triggered the formation which
+    /// produced this temperature signal. `None` when the formation was not
+    /// triggered by an inbound push (e.g. user-initiated). The server reads
+    /// this to close the completion delivery record without a separate ack call.
+    pub triggered_by: Option<FindingId>,
 }
 
 /// Queue for outbound temperature signals.
 /// Deduplicated by idempotency key; drain → submit → if fails, re-enqueue.
 pub struct TemperatureQueue {
-    pending: HashMap<String, TemperatureSignal>,
+    pending: HashMap<String, (TemperatureSignal, Option<FindingId>)>,
     order: Vec<String>,
 }
 
@@ -39,12 +46,17 @@ impl TemperatureQueue {
     }
 
     /// Enqueue a signal. If the key already exists, the existing entry is kept (idempotent).
-    pub fn enqueue(&mut self, signal: TemperatureSignal, idempotency_key: String) {
+    pub fn enqueue(
+        &mut self,
+        signal: TemperatureSignal,
+        idempotency_key: String,
+        triggered_by: Option<FindingId>,
+    ) {
         if self.pending.contains_key(&idempotency_key) {
             return;
         }
         self.order.push(idempotency_key.clone());
-        self.pending.insert(idempotency_key, signal);
+        self.pending.insert(idempotency_key, (signal, triggered_by));
     }
 
     /// Consume all pending signals. Queue is empty after this call.
@@ -52,10 +64,11 @@ impl TemperatureQueue {
     pub fn drain(&mut self) -> Vec<PendingSubmission> {
         let mut out = Vec::with_capacity(self.order.len());
         for key in self.order.drain(..) {
-            if let Some(signal) = self.pending.remove(&key) {
+            if let Some((signal, triggered_by)) = self.pending.remove(&key) {
                 out.push(PendingSubmission {
                     signal,
                     idempotency_key: key,
+                    triggered_by,
                 });
             }
         }
@@ -73,33 +86,37 @@ impl Default for TemperatureQueue {
 mod tests {
     use super::*;
 
+    fn signal(position: &str) -> TemperatureSignal {
+        TemperatureSignal {
+            position: position.into(),
+            conviction: "high".into(),
+            subject_ref: "quorum://hypothesis/h-1".into(),
+        }
+    }
+
     #[test]
     fn enqueue_and_drain() {
         let mut q = TemperatureQueue::new();
-        q.enqueue(
-            TemperatureSignal {
-                position: "agree".into(),
-                conviction: "high".into(),
-                subject_ref: "quorum://hypothesis/h-1".into(),
-            },
-            "key-1".into(),
-        );
+        q.enqueue(signal("agree"), "key-1".into(), None);
         let drained = q.drain();
         assert_eq!(drained.len(), 1);
         assert_eq!(drained[0].idempotency_key, "key-1");
+        assert!(drained[0].triggered_by.is_none());
+    }
+
+    #[test]
+    fn triggered_by_is_preserved_through_drain() {
+        let mut q = TemperatureQueue::new();
+        let fid = FindingId::from_string("find-42");
+        q.enqueue(signal("agree"), "key-2".into(), Some(fid.clone()));
+        let drained = q.drain();
+        assert_eq!(drained[0].triggered_by.as_ref().unwrap().as_str(), "find-42");
     }
 
     #[test]
     fn drain_is_empty_after_call() {
         let mut q = TemperatureQueue::new();
-        q.enqueue(
-            TemperatureSignal {
-                position: "disagree".into(),
-                conviction: "critical".into(),
-                subject_ref: "quorum://hypothesis/h-2".into(),
-            },
-            "key-2".into(),
-        );
+        q.enqueue(signal("disagree"), "key-3".into(), None);
         let _ = q.drain();
         assert!(q.drain().is_empty());
     }
@@ -107,13 +124,8 @@ mod tests {
     #[test]
     fn duplicate_key_is_deduplicated() {
         let mut q = TemperatureQueue::new();
-        let sig = TemperatureSignal {
-            position: "agree".into(),
-            conviction: "low".into(),
-            subject_ref: "quorum://hypothesis/h-3".into(),
-        };
-        q.enqueue(sig.clone(), "key-dup".into());
-        q.enqueue(sig, "key-dup".into());
+        q.enqueue(signal("agree"), "key-dup".into(), None);
+        q.enqueue(signal("agree"), "key-dup".into(), None);
         assert_eq!(q.drain().len(), 1);
     }
 }

@@ -140,7 +140,12 @@ impl ClientHelm {
     }
 
     /// Call when a local formation completes. Queues temperature + proposals.
-    pub fn formation_completed(&mut self, loop_id: &LoopId, output: FormationOutput) {
+    pub fn formation_completed(
+        &mut self,
+        loop_id: &LoopId,
+        output: FormationOutput,
+        triggered_by: Option<helm_session_contracts::FindingId>,
+    ) {
         let _ = self.registry.complete(loop_id, output.proposals.clone());
         self.budget.disarm(loop_id);
         if let Some(temp) = output.temperature {
@@ -151,6 +156,7 @@ impl ClientHelm {
                     subject_ref: temp.subject_ref,
                 },
                 Uuid::new_v4().to_string(),
+                triggered_by,
             );
         }
     }
