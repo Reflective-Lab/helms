@@ -4268,6 +4268,7 @@ dependencies = [
  "helm-module-contracts",
  "helm-session-contracts",
  "runway-app-host",
+ "runway-auth",
  "runway-storage",
  "serde",
  "serde_json",
