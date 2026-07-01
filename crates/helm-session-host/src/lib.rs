@@ -11,6 +11,7 @@
 //! Plan 2 slice 1: wire types + SSE mount test. See
 //! `KB/08-roadmap/2026-06-26-spine-plan-2-helm-session-host.md`.
 
+mod delivery;
 mod events;
 mod host;
 mod http;
