@@ -36,7 +36,7 @@ async fn runway_host_mounts_live_session_host_stream() {
     let storage = StorageKit::local(dir.path()).await.expect("local storage");
 
     let hub = runway_app_host::EventHub::with_capacity(256);
-    let module = mount_session_host(hub.handle(), "test.session-host");
+    let module = mount_session_host(hub.handle(), "test.session-host", storage.leases.clone());
 
     assert_eq!(module.module_state(), SessionHostModuleState::Live);
 

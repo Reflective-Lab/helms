@@ -8,7 +8,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use axum::Router;
 use helm_module_contracts::{HelmModuleReadiness, HelmModuleState, HelmModuleStatus};
-use runway_app_host::{HelmModule, HostContext, ModuleState};
+use runway_app_host::{HelmModule, HostContext, ModuleState, SessionOwnershipLayer};
+use runway_storage::LeaseStore;
 
 use crate::http;
 use crate::service::SessionHostService;
@@ -18,12 +19,13 @@ const MODULE_ID: &str = "helm.session-host";
 /// Server-side Session Helm — routes findings to participants via SSE.
 pub struct SessionHostModule {
     service: Arc<SessionHostService>,
+    leases: Arc<dyn LeaseStore>,
 }
 
 impl SessionHostModule {
     #[must_use]
-    pub fn new(service: Arc<SessionHostService>) -> Self {
-        Self { service }
+    pub fn new(service: Arc<SessionHostService>, leases: Arc<dyn LeaseStore>) -> Self {
+        Self { service, leases }
     }
 
     #[must_use]
@@ -69,7 +71,10 @@ impl HelmModule for SessionHostModule {
     }
 
     fn router(self: Arc<Self>) -> Router {
-        http::router(self.service.clone())
+        http::router(self.service.clone()).layer(
+            SessionOwnershipLayer::for_app(self.service.app_id(), self.leases.clone())
+                .path_param("session_id"),
+        )
     }
 
     fn module_state(&self) -> ModuleState {
