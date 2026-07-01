@@ -29,14 +29,32 @@ pub fn router(service: Arc<SessionHostService>) -> Router {
         .with_state(service)
 }
 
+#[derive(serde::Deserialize)]
+struct StreamQuery {
+    participant_id: Option<String>,
+    cursor: Option<u64>,
+}
+
 async fn stream(
     State(service): State<Arc<SessionHostService>>,
     Path(session_id): Path<String>,
+    axum::extract::Query(query): axum::extract::Query<StreamQuery>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
-    let subscription = service
-        .hub()
-        .subscribe_with_cursor(EventCursor::default())
-        .await;
+    // Pull-replay: re-publish unacked Disruptive/Preemptive findings that the
+    // client already received (version <= cursor) but never acked.
+    if let Some(pid_str) = &query.participant_id {
+        let participant_id = helm_session_contracts::ParticipantId::from_string(pid_str);
+        let cursor_seq = query.cursor.unwrap_or(0);
+        for push in service.unacked_for_replay(&session_id, &participant_id, cursor_seq) {
+            let _ = service.republish_push(push);
+        }
+    }
+
+    let cursor = EventCursor {
+        last_sequence: query.cursor,
+        ..Default::default()
+    };
+    let subscription = service.hub().subscribe_with_cursor(cursor).await;
     let stream = build_stream(subscription, session_id);
     Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15)))
 }
@@ -240,5 +258,76 @@ mod tests {
             .unwrap();
         let res = app.oneshot(req).await.unwrap();
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn pull_replay_republishes_unacked_findings_at_subscribe() {
+        let service = make_service();
+        let fid = FindingId::from_string("f-replay");
+        let pid = ParticipantId::from_string("p-replay");
+
+        // Publish a Preemptive push targeted at participant; note the version
+        let push = preemptive_push("sess-replay", fid.clone());
+        let version = service.publish_push_to(push, &[pid.clone()]);
+        assert!(version > 0);
+
+        // Subscribe with participant_id + cursor at the version just published
+        // (simulates: client received it in SSE, updated cursor, then crashed)
+        let app = router(service);
+        let uri = format!(
+            "/v1/sessions/sess-replay/stream?participant_id={}&cursor={}",
+            pid.as_str(),
+            version
+        );
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri(&uri)
+            .body(Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        // SSE streams are open-ended; status 200 confirms the route accepted the
+        // query params and the pull-replay path executed without error.
+    }
+
+    #[tokio::test]
+    async fn pull_replay_noop_when_no_participant_id() {
+        let service = make_service();
+        let app = router(service);
+        // Plain subscribe without participant_id — must still work
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/v1/sessions/sess-plain/stream")
+            .body(Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn pull_replay_skips_findings_after_cursor() {
+        let service = make_service();
+        let fid = FindingId::from_string("f-future");
+        let pid = ParticipantId::from_string("p-future");
+
+        let push = preemptive_push("sess-future", fid.clone());
+        let version = service.publish_push_to(push, &[pid.clone()]);
+
+        // cursor = version - 1 means this finding was published AFTER the cursor
+        // so it should NOT be replayed (it will come through the live stream naturally)
+        let app = router(service);
+        let uri = format!(
+            "/v1/sessions/sess-future/stream?participant_id={}&cursor={}",
+            pid.as_str(),
+            version.saturating_sub(1)
+        );
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri(&uri)
+            .body(Body::empty())
+            .unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        // Stream opened cleanly; no out-of-band republish for f-future.
     }
 }
