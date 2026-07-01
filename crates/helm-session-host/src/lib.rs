@@ -37,6 +37,6 @@ pub use helm_module_contracts::{
 
 // Re-export wire types consumers need at the host boundary.
 pub use helm_session_contracts::{
-    CompletionAck, CoordinatorFinding, DeliveryAck, FindingId, FindingType, GateCondition,
-    GateId, GatedDecision, ParticipantId, SessionContext, SessionPush, UrgencyIntent,
+    CompletionAck, CoordinatorFinding, DeliveryAck, FindingId, FindingType, GateCondition, GateId,
+    GatedDecision, ParticipantId, SessionContext, SessionPush, UrgencyIntent,
 };

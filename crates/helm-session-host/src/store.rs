@@ -133,8 +133,13 @@ impl SessionStore {
         produced_output: bool,
         now_ms: u64,
     ) -> bool {
-        self.delivery
-            .ack_completion(session_id, participant_id, finding_id, produced_output, now_ms)
+        self.delivery.ack_completion(
+            session_id,
+            participant_id,
+            finding_id,
+            produced_output,
+            now_ms,
+        )
     }
 
     pub fn unacked_pushes_for_replay(

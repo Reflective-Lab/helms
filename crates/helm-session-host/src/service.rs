@@ -3,8 +3,8 @@
 
 //! Session-host service — publishes wire types on the shared hub.
 
-use director_contracts::DirectorSnapshot;
 use director_contracts::DirectorIntent;
+use director_contracts::DirectorSnapshot;
 use helm_client::DomainPresenter;
 use helm_session_contracts::{FindingId, GatedDecision, ParticipantId, SessionPush, UrgencyIntent};
 use runway_app_host::{EventEnvelope, EventHubHandle};
@@ -70,11 +70,7 @@ impl SessionHostService {
     /// participant (Disruptive and Preemptive only). Use this instead of `publish_push`
     /// when the coordinator knows which participants should receive and act on the push.
     #[must_use]
-    pub fn publish_push_to(
-        &self,
-        push: SessionPush,
-        participants: &[ParticipantId],
-    ) -> u64 {
+    pub fn publish_push_to(&self, push: SessionPush, participants: &[ParticipantId]) -> u64 {
         let version = publish_push(&self.state.hub, &self.state.app_id, &push);
         if version > 0 {
             if is_tracked_urgency(push.urgency_intent) {
@@ -113,7 +109,9 @@ impl SessionHostService {
         now_ms: u64,
     ) -> bool {
         self.store
-            .mutate(|store| store.apply_delivery_ack(session_id, participant_id, finding_id, now_ms))
+            .mutate(|store| {
+                store.apply_delivery_ack(session_id, participant_id, finding_id, now_ms)
+            })
             .unwrap_or(false)
     }
 
@@ -197,11 +195,7 @@ impl SessionHostService {
 
     /// Apply a typed director intent against live session mirror state.
     #[must_use]
-    pub fn apply_director_intent(
-        &self,
-        session_id: &str,
-        intent: &DirectorIntent,
-    ) -> Option<u64> {
+    pub fn apply_director_intent(&self, session_id: &str, intent: &DirectorIntent) -> Option<u64> {
         self.store
             .mutate(|store| store.apply_director_intent(session_id, intent))
             .flatten()
@@ -222,7 +216,10 @@ impl SessionHostService {
 }
 
 fn is_tracked_urgency(urgency: UrgencyIntent) -> bool {
-    matches!(urgency, UrgencyIntent::Disruptive | UrgencyIntent::Preemptive)
+    matches!(
+        urgency,
+        UrgencyIntent::Disruptive | UrgencyIntent::Preemptive
+    )
 }
 
 #[cfg(test)]

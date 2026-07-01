@@ -53,7 +53,11 @@ impl DeliveryTable {
         finding_id: &FindingId,
         now_ms: u64,
     ) -> bool {
-        let key = (session_id.to_string(), participant_id.clone(), finding_id.clone());
+        let key = (
+            session_id.to_string(),
+            participant_id.clone(),
+            finding_id.clone(),
+        );
         let Some(record) = self.records.get_mut(&key) else {
             return false;
         };
@@ -72,7 +76,11 @@ impl DeliveryTable {
         produced_output: bool,
         now_ms: u64,
     ) -> bool {
-        let key = (session_id.to_string(), participant_id.clone(), finding_id.clone());
+        let key = (
+            session_id.to_string(),
+            participant_id.clone(),
+            finding_id.clone(),
+        );
         let Some(record) = self.records.get_mut(&key) else {
             return false;
         };
@@ -101,7 +109,11 @@ impl DeliveryTable {
                     && record.delivered_at_version <= max_version
             })
             .map(|((_, _, fid), record)| {
-                (fid.clone(), record.delivered_at_version, record.push.clone())
+                (
+                    fid.clone(),
+                    record.delivered_at_version,
+                    record.push.clone(),
+                )
             })
             .collect()
     }
@@ -229,7 +241,16 @@ mod tests {
         // Ack for p-1 only
         table.ack_delivery("sess", &participant("p-1"), &fid, 1000);
 
-        assert!(table.unacked_for_replay("sess", &participant("p-1"), 100).is_empty());
-        assert_eq!(table.unacked_for_replay("sess", &participant("p-2"), 100).len(), 1);
+        assert!(
+            table
+                .unacked_for_replay("sess", &participant("p-1"), 100)
+                .is_empty()
+        );
+        assert_eq!(
+            table
+                .unacked_for_replay("sess", &participant("p-2"), 100)
+                .len(),
+            1
+        );
     }
 }

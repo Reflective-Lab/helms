@@ -110,7 +110,10 @@ mod tests {
         let fid = FindingId::from_string("find-42");
         q.enqueue(signal("agree"), "key-2".into(), Some(fid.clone()));
         let drained = q.drain();
-        assert_eq!(drained[0].triggered_by.as_ref().unwrap().as_str(), "find-42");
+        assert_eq!(
+            drained[0].triggered_by.as_ref().unwrap().as_str(),
+            "find-42"
+        );
     }
 
     #[test]

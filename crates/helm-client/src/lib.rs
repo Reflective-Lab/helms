@@ -11,7 +11,7 @@ pub mod registry;
 pub mod router;
 pub mod temperature;
 
-pub use client::{push_objective_description, ClientHelm, ClientHelmAction, ClientSubmission};
+pub use client::{ClientHelm, ClientHelmAction, ClientSubmission, push_objective_description};
 pub use director::{DomainPresenter, GateCopy, ProjectionInputs};
 pub use formation::{FormationOutput, LocalFormationIntent, SeedContext, TemperatureReading};
 pub use gate_surface::{GatedDecisionSurface, GatedDecisionView, PendingGateResponse};
