@@ -70,8 +70,7 @@ just desktop-build-web
 - Use `just` commands when they exist.
 - Read `kb/Planning/Milestones.md` at session start before doing feature work.
 - Update `kb/` when architecture, process, or product framing changes.
-- Git uses two durable branches only: `main` and `next`.
-- Do normal implementation work on `next`; advance `main` only from validated `next`.
+- Work directly on `main`. No `next` branch.
 - Do not create topic branches or worktrees unless the human explicitly asks.
 - Keep new naming aligned to `Helm` and the staged map in `kb/Architecture/Naming Migration Map.md`.
 - Treat legacy `crm-*` and `prio-*` names as temporary implementation names, not architectural guidance.
