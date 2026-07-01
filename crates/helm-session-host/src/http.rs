@@ -361,6 +361,9 @@ mod tests {
 
         // Informational pushes are not tracked → ack returns false (no record)
         let recorded = service.apply_delivery_ack("sess-info", &pid, &fid, 0);
-        assert!(!recorded, "Informational push should produce no delivery record");
+        assert!(
+            !recorded,
+            "Informational push should produce no delivery record"
+        );
     }
 }
