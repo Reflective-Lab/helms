@@ -281,6 +281,71 @@ impl Default for ClientHelm {
 }
 
 #[cfg(test)]
+mod triggered_by_tests {
+    use super::*;
+    use crate::formation::{FormationOutput, TemperatureReading};
+    use helm_session_contracts::finding::FindingId;
+    use helm_session_contracts::push::{SessionContext, SessionPush};
+    use helm_session_contracts::urgency::UrgencyIntent;
+
+    fn preemptive_push(finding_id: FindingId) -> SessionPush {
+        SessionPush {
+            finding_id,
+            urgency_intent: UrgencyIntent::Preemptive,
+            payload: serde_json::json!({}),
+            session_context: SessionContext {
+                session_id: "sess-tb".into(),
+                phase: "test".into(),
+                cycle: 1,
+                timestamp_ms: 1,
+            },
+        }
+    }
+
+    fn output_with_temperature() -> FormationOutput {
+        FormationOutput {
+            proposals: vec![],
+            temperature: Some(TemperatureReading {
+                position: "agree".into(),
+                conviction: "high".into(),
+                subject_ref: "quorum://hypothesis/h-tb".into(),
+            }),
+        }
+    }
+
+    #[test]
+    fn triggered_by_round_trip_through_drain_submissions() {
+        let mut helm = ClientHelm::new();
+        let fid = FindingId::from_string("f-trigger");
+        let push = preemptive_push(fid.clone());
+
+        // With no running formation, Preemptive → SpawnFormation
+        let action = helm.handle_push(push);
+        let loop_id = match action {
+            ClientHelmAction::SpawnFormation { loop_id, .. } => loop_id,
+            other => panic!("expected SpawnFormation, got {other:?}"),
+        };
+
+        // Complete the formation with a temperature reading and triggered_by
+        helm.formation_completed(&loop_id, output_with_temperature(), Some(fid.clone()));
+
+        // drain_submissions must surface a Temperature submission with triggered_by set
+        let submissions = helm.drain_submissions();
+        assert_eq!(submissions.len(), 1);
+        match &submissions[0] {
+            ClientSubmission::Temperature(pending) => {
+                assert_eq!(
+                    pending.triggered_by.as_ref().map(|f| f.as_str()),
+                    Some("f-trigger"),
+                    "triggered_by should match the finding that triggered the formation"
+                );
+            }
+            other => panic!("expected Temperature submission, got {other:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
 mod push_description_tests {
     use super::push_objective_description;
     use helm_session_contracts::finding::FindingId;

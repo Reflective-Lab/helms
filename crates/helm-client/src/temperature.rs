@@ -23,9 +23,13 @@ pub struct PendingSubmission {
     pub signal: TemperatureSignal,
     pub idempotency_key: String,
     /// The FindingId of the SessionPush that triggered the formation which
-    /// produced this temperature signal. `None` when the formation was not
-    /// triggered by an inbound push (e.g. user-initiated). The server reads
-    /// this to close the completion delivery record without a separate ack call.
+    /// produced this temperature signal. Set by [`ClientHelm::formation_completed`].
+    ///
+    /// The native layer includes this field when POSTing a temperature signal.
+    /// The server admission endpoint that processes temperature signals is
+    /// responsible for reading this field and calling `apply_completion_ack(produced_output: true)`.
+    /// That endpoint is not yet implemented in this slice — `triggered_by` is
+    /// structurally complete and ready for wiring when the endpoint lands.
     pub triggered_by: Option<FindingId>,
 }
 

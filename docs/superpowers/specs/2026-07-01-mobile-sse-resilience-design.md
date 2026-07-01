@@ -39,6 +39,12 @@ formation or paused the active loop. Without that signal:
   field later without breaking the contract.
 - Changes to `ClientHelm` logic — `handle_push()`, `SeverityRouter`, and
   `LoopRegistry` are unchanged.
+- Temperature submission endpoint consuming `triggered_by` (server side). The
+  `triggered_by` field is structurally complete on the client and wire. The server
+  admission endpoint that processes temperature signals (not yet implemented in
+  `helm-session-host`) will call `apply_completion_ack(produced_output: true)` when
+  `triggered_by` is present. Until that endpoint exists, completion acks for
+  formations that produce temperature output must use `POST /ack/completion` directly.
 
 ---
 

@@ -230,6 +230,13 @@ mod tests {
     }
 
     #[test]
+    fn empty_table_returns_no_unacked_findings() {
+        let table = DeliveryTable::new();
+        let unacked = table.unacked_for_replay("sess", &participant("p-1"), u64::MAX);
+        assert!(unacked.is_empty());
+    }
+
+    #[test]
     fn different_participants_are_tracked_independently() {
         let mut table = DeliveryTable::new();
         let fid = FindingId::from_string("f-5");

@@ -265,14 +265,10 @@ mod tests {
         let service = make_service();
         let fid = FindingId::from_string("f-replay");
         let pid = ParticipantId::from_string("p-replay");
-
-        // Publish a Preemptive push targeted at participant; note the version
         let push = preemptive_push("sess-replay", fid.clone());
         let version = service.publish_push_to(push, &[pid.clone()]);
         assert!(version > 0);
 
-        // Subscribe with participant_id + cursor at the version just published
-        // (simulates: client received it in SSE, updated cursor, then crashed)
         let app = router(service);
         let uri = format!(
             "/v1/sessions/sess-replay/stream?participant_id={}&cursor={}",
@@ -286,8 +282,22 @@ mod tests {
             .unwrap();
         let res = app.oneshot(req).await.unwrap();
         assert_eq!(res.status(), StatusCode::OK);
-        // SSE streams are open-ended; status 200 confirms the route accepted the
-        // query params and the pull-replay path executed without error.
+
+        // Read a capped chunk of the SSE body with a timeout to avoid hanging on the
+        // open-ended stream. The replayed finding is republished before subscribe, so
+        // it lands in the hub's replay buffer and appears in the initial batch.
+        let body_bytes = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            axum::body::to_bytes(res.into_body(), 16_384),
+        )
+        .await
+        .unwrap_or_else(|_| Ok(axum::body::Bytes::new()))
+        .unwrap_or_default();
+        let body_str = String::from_utf8_lossy(&body_bytes);
+        assert!(
+            body_str.contains("f-replay"),
+            "replayed finding_id not found in SSE body; got: {body_str:?}"
+        );
     }
 
     #[tokio::test]
@@ -329,5 +339,28 @@ mod tests {
         let res = app.oneshot(req).await.unwrap();
         assert_eq!(res.status(), StatusCode::OK);
         // Stream opened cleanly; no out-of-band republish for f-future.
+    }
+
+    #[tokio::test]
+    async fn informational_push_to_creates_no_delivery_record() {
+        let service = make_service();
+        let fid = FindingId::from_string("f-info");
+        let pid = ParticipantId::from_string("p-info");
+        let push = SessionPush {
+            finding_id: fid.clone(),
+            urgency_intent: UrgencyIntent::Informational,
+            payload: serde_json::json!({}),
+            session_context: SessionContext {
+                session_id: "sess-info".into(),
+                phase: "test".into(),
+                cycle: 1,
+                timestamp_ms: 1,
+            },
+        };
+        let _ = service.publish_push_to(push, &[pid.clone()]);
+
+        // Informational pushes are not tracked → ack returns false (no record)
+        let recorded = service.apply_delivery_ack("sess-info", &pid, &fid, 0);
+        assert!(!recorded, "Informational push should produce no delivery record");
     }
 }
