@@ -8,7 +8,9 @@ use std::sync::Mutex;
 
 use director_contracts::{DirectorIntent, GateVerdict};
 use helm_client::ClientHelm;
-use helm_session_contracts::{GatedDecision, SessionPush};
+use helm_session_contracts::{FindingId, GatedDecision, ParticipantId, SessionPush};
+
+use crate::delivery::DeliveryTable;
 
 /// Per-session mirror of client-side coordination state.
 #[derive(Default)]
@@ -37,6 +39,7 @@ impl SessionRecord {
 pub struct SessionStore {
     sessions: HashMap<String, SessionRecord>,
     last_active_session: Option<String>,
+    delivery: DeliveryTable,
 }
 
 impl SessionStore {
@@ -95,6 +98,56 @@ impl SessionStore {
 
     pub fn last_active_session(&self) -> Option<&str> {
         self.last_active_session.as_deref()
+    }
+
+    // ── Delivery tracking ────────────────────────────────────────────────
+
+    pub fn record_delivery(
+        &mut self,
+        session_id: &str,
+        participant_id: ParticipantId,
+        finding_id: FindingId,
+        push: SessionPush,
+        version: u64,
+    ) {
+        self.delivery
+            .record(session_id, participant_id, finding_id, push, version);
+    }
+
+    pub fn apply_delivery_ack(
+        &mut self,
+        session_id: &str,
+        participant_id: &ParticipantId,
+        finding_id: &FindingId,
+        now_ms: u64,
+    ) -> bool {
+        self.delivery
+            .ack_delivery(session_id, participant_id, finding_id, now_ms)
+    }
+
+    pub fn apply_completion_ack(
+        &mut self,
+        session_id: &str,
+        participant_id: &ParticipantId,
+        finding_id: &FindingId,
+        produced_output: bool,
+        now_ms: u64,
+    ) -> bool {
+        self.delivery
+            .ack_completion(session_id, participant_id, finding_id, produced_output, now_ms)
+    }
+
+    pub fn unacked_pushes_for_replay(
+        &self,
+        session_id: &str,
+        participant_id: &ParticipantId,
+        max_version: u64,
+    ) -> Vec<SessionPush> {
+        self.delivery
+            .unacked_for_replay(session_id, participant_id, max_version)
+            .into_iter()
+            .map(|(_, _, push)| push)
+            .collect()
     }
 }
 

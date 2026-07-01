@@ -6,7 +6,7 @@
 use director_contracts::DirectorSnapshot;
 use director_contracts::DirectorIntent;
 use helm_client::DomainPresenter;
-use helm_session_contracts::{GatedDecision, SessionPush};
+use helm_session_contracts::{FindingId, GatedDecision, ParticipantId, SessionPush, UrgencyIntent};
 use runway_app_host::{EventEnvelope, EventHubHandle};
 
 use crate::events::{is_session_host_type, publish_gate, publish_push};
@@ -64,6 +64,97 @@ impl SessionHostService {
                 .mutate(|store| store.apply_gate(session_id, gate, version));
         }
         version
+    }
+
+    /// Publish a [`SessionPush`] to the shared hub and record delivery for each targeted
+    /// participant (Disruptive and Preemptive only). Use this instead of `publish_push`
+    /// when the coordinator knows which participants should receive and act on the push.
+    #[must_use]
+    pub fn publish_push_to(
+        &self,
+        push: SessionPush,
+        participants: &[ParticipantId],
+    ) -> u64 {
+        let version = publish_push(&self.state.hub, &self.state.app_id, &push);
+        if version > 0 {
+            if is_tracked_urgency(push.urgency_intent) {
+                let _ = self.store.mutate(|store| {
+                    for participant_id in participants {
+                        store.record_delivery(
+                            &push.session_context.session_id,
+                            participant_id.clone(),
+                            push.finding_id.clone(),
+                            push.clone(),
+                            version,
+                        );
+                    }
+                });
+            }
+            let _ = self.store.mutate(|store| store.apply_push(push, version));
+        }
+        version
+    }
+
+    /// Re-publish a [`SessionPush`] for replay WITHOUT writing a new delivery record.
+    /// Used at SSE subscribe time to re-deliver unacked Disruptive/Preemptive pushes.
+    #[must_use]
+    pub fn republish_push(&self, push: SessionPush) -> u64 {
+        publish_push(&self.state.hub, &self.state.app_id, &push)
+    }
+
+    /// Mark delivery acked for a participant/finding pair.
+    /// Returns `true` if the record exists, `false` if not found.
+    #[must_use]
+    pub fn apply_delivery_ack(
+        &self,
+        session_id: &str,
+        participant_id: &ParticipantId,
+        finding_id: &FindingId,
+        now_ms: u64,
+    ) -> bool {
+        self.store
+            .mutate(|store| store.apply_delivery_ack(session_id, participant_id, finding_id, now_ms))
+            .unwrap_or(false)
+    }
+
+    /// Mark completion acked for a participant/finding pair.
+    /// Returns `true` if the record exists, `false` if not found.
+    #[must_use]
+    pub fn apply_completion_ack(
+        &self,
+        session_id: &str,
+        participant_id: &ParticipantId,
+        finding_id: &FindingId,
+        produced_output: bool,
+        now_ms: u64,
+    ) -> bool {
+        self.store
+            .mutate(|store| {
+                store.apply_completion_ack(
+                    session_id,
+                    participant_id,
+                    finding_id,
+                    produced_output,
+                    now_ms,
+                )
+            })
+            .unwrap_or(false)
+    }
+
+    /// Return pushes that were delivered to `participant_id` at or before `max_version`
+    /// but have not yet been delivery-acked. Used for pull-replay at subscribe time.
+    #[must_use]
+    pub fn unacked_for_replay(
+        &self,
+        session_id: &str,
+        participant_id: &ParticipantId,
+        max_version: u64,
+    ) -> Vec<SessionPush> {
+        self.store
+            .with_store(|store| {
+                store.unacked_pushes_for_replay(session_id, participant_id, max_version)
+            })
+            .unwrap_or_default()
     }
 
     /// Project live session state into a versioned [`DirectorSnapshot`].
@@ -128,6 +219,10 @@ impl SessionHostService {
             .and_then(|value| value.as_str())
             == Some(session_id)
     }
+}
+
+fn is_tracked_urgency(urgency: UrgencyIntent) -> bool {
+    matches!(urgency, UrgencyIntent::Disruptive | UrgencyIntent::Preemptive)
 }
 
 #[cfg(test)]
