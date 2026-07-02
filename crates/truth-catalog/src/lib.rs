@@ -90,7 +90,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/qualify_inbound_lead.feature"
+            "/truths/jobs/qualify_inbound_lead.feature"
         )),
     },
     TruthDefinition {
@@ -125,7 +125,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/score_inbound_fit.feature"
+            "/truths/jobs/score_inbound_fit.feature"
         )),
     },
     TruthDefinition {
@@ -164,7 +164,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/plan_outbound_campaign.feature"
+            "/truths/jobs/plan_outbound_campaign.feature"
         )),
     },
     TruthDefinition {
@@ -207,7 +207,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/match_renewal_context.feature"
+            "/truths/jobs/match_renewal_context.feature"
         )),
     },
     TruthDefinition {
@@ -253,7 +253,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/submit_expense_report.feature"
+            "/truths/jobs/submit_expense_report.feature"
         )),
     },
     TruthDefinition {
@@ -300,7 +300,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/create_customer_workspace.feature"
+            "/truths/jobs/create_customer_workspace.feature"
         )),
     },
     TruthDefinition {
@@ -343,7 +343,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/activate_subscription.feature"
+            "/truths/jobs/activate_subscription.feature"
         )),
     },
     TruthDefinition {
@@ -386,7 +386,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/refill_prepaid_ai_credits.feature"
+            "/truths/jobs/refill_prepaid_ai_credits.feature"
         )),
     },
     TruthDefinition {
@@ -429,7 +429,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/upgrade_subscription_plan.feature"
+            "/truths/jobs/upgrade_subscription_plan.feature"
         )),
     },
     TruthDefinition {
@@ -472,7 +472,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/suspend_service_on_payment_failure.feature"
+            "/truths/jobs/suspend_service_on_payment_failure.feature"
         )),
     },
     TruthDefinition {
@@ -515,7 +515,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/resolve_support_incident.feature"
+            "/truths/jobs/resolve_support_incident.feature"
         )),
     },
     TruthDefinition {
@@ -562,7 +562,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/reconcile_model_usage_against_customer_ledger.feature"
+            "/truths/jobs/reconcile_model_usage_against_customer_ledger.feature"
         )),
     },
     TruthDefinition {
@@ -609,7 +609,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/schedule_strategic_meetings.feature"
+            "/truths/jobs/schedule_strategic_meetings.feature"
         )),
     },
     TruthDefinition {
@@ -652,7 +652,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/detect_abnormal_token_burn.feature"
+            "/truths/jobs/detect_abnormal_token_burn.feature"
         )),
     },
     TruthDefinition {
@@ -699,7 +699,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/renew_contract.feature"
+            "/truths/jobs/renew_contract.feature"
         )),
     },
     TruthDefinition {
@@ -756,7 +756,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/monitor_brand_signal.feature"
+            "/truths/jobs/monitor_brand_signal.feature"
         )),
     },
     TruthDefinition {
@@ -817,7 +817,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/match_visual_to_tagline.feature"
+            "/truths/jobs/match_visual_to_tagline.feature"
         )),
     },
     TruthDefinition {
@@ -865,7 +865,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/jobs/evaluate_acquisition_target.feature"
+            "/truths/jobs/evaluate_acquisition_target.feature"
         )),
     },
     TruthDefinition {
@@ -908,7 +908,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/policies/top_up_requires_confirmed_payment.feature"
+            "/truths/policies/top_up_requires_confirmed_payment.feature"
         )),
     },
     TruthDefinition {
@@ -951,7 +951,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/policies/overdue_balance_blocks_entitlement_increase.feature"
+            "/truths/policies/overdue_balance_blocks_entitlement_increase.feature"
         )),
     },
     TruthDefinition {
@@ -990,7 +990,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/policies/promoted_fact_requires_traceable_evidence.feature"
+            "/truths/policies/promoted_fact_requires_traceable_evidence.feature"
         )),
     },
     TruthDefinition {
@@ -1021,7 +1021,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/modules/ledger_entry_is_immutable.feature"
+            "/truths/modules/ledger_entry_is_immutable.feature"
         )),
     },
     TruthDefinition {
@@ -1056,7 +1056,7 @@ pub const TRUTHS: &[TruthDefinition] = &[
         ],
         gherkin: include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../truths/modules/active_subscription_requires_plan.feature"
+            "/truths/modules/active_subscription_requires_plan.feature"
         )),
     },
 ];
