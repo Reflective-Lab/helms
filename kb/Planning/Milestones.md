@@ -45,6 +45,8 @@ data analysis, routing, scheduling, and HITL — all visible in real time.
 
 ### Deliverables
 
+**Epic:** E5
+
 #### Synthetic data generation
 - [x] `just gen-seed-data` recipe writes Parquet to `data/seed/` (2026-04-10)
 - [x] Website behavior events: ~129k rows across 8 prospects, session clustering, working hours bias, duration tracking (2026-04-10)
@@ -107,6 +109,8 @@ The target direction is:
 
 ### Stretch: Mobile Daily Priorities App
 
+**Epic:** E5
+
 A mobile-first JTBD surface for daily operator work. The user opens the app,
 spends 2 minutes swiping left/right on surfaced cards to triage and prioritize
 their day, then agent flows fire with well-defined truths behind each action.
@@ -137,6 +141,8 @@ their day, then agent flows fire with well-defined truths behind each action.
 
 ### Notes application (full implementation)
 
+**Epic:** E5
+
 #### Core vault (already live)
 - [x] Vault CRUD with frontmatter freshness
 - [x] Tree browser with metadata
@@ -166,6 +172,8 @@ their day, then agent flows fire with well-defined truths behind each action.
 
 ### Expenses & Receipts (OCR integration)
 
+**Epic:** E5
+
 - [ ] **Receipt OCR pipeline** — photo → structured data (vendor, amount, date, line items)
 - [ ] Wire `organism-intelligence` OCR backends (Mistral cloud, Tesseract local, Apple Vision)
 - [ ] Receipt photo → auto-create expense item with extracted fields
@@ -187,6 +195,8 @@ their day, then agent flows fire with well-defined truths behind each action.
 Align code, API, and CLI to the Helm Surface Model documented in `kb/Architecture/Helm Surface Model.md`. The framing shift: Business Truth is the core noun, Helm is the operator environment, surfaces (CLI, API, workbench) are peer entry points.
 
 ### Deliverables
+
+**Epic:** E5
 
 #### CLI command taxonomy
 - [ ] Define CLI command tree from the truth catalog (`helm truth execute <key>`, `helm truth inspect <key>`, `helm truth list`)
@@ -226,6 +236,8 @@ Billing integration hardened for real money. First paying customer on the platfo
 
 ### Deliverables
 
+**Epic:** E5
+
 - [ ] Durable idempotency (external_reference on LedgerEntry, survives restart)
 - [ ] Runtime billing adapter (Stripe webhook → normalize → billing ingress)
 - [ ] Status enum migration (Lead, Task, Quote, Job, AgentRun, WorkflowRun)
@@ -243,6 +255,8 @@ Multi-domain proof point. Analytics-backed truths. Second vertical beyond CRM.
 
 ### Deliverables
 
+**Epic:** E5
+
 - [ ] Website usage ingestion (Parquet-landed first-party events)
 - [ ] converge-analytics integration (behavioral cohorts, account scoring)
 - [ ] converge-optimization integration (lead routing, queue balancing)
@@ -258,6 +272,8 @@ Multi-domain proof point. Analytics-backed truths. Second vertical beyond CRM.
 Convergence loops that generate, verify, and deploy executable code when they discover missing capabilities. Proven in EXP-002; this stage wires it to production infrastructure.
 
 ### Deliverables
+
+**Epic:** E5
 
 - [ ] Wire Axiom's `WasmCompiler::compile()` into CodeVerifierSuggestor (replaces structural checks with actual Wasm compilation)
 - [ ] Build `WasmSuggestor` adapter in `helm-plugin-runtime` (lets verified Wasm modules execute as suggestors in subsequent loops)
