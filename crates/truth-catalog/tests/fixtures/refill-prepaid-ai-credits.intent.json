@@ -1,0 +1,161 @@
+{
+  "manifest_version": "intent-codec-applet.v1",
+  "job_name": "Refill prepaid AI credits",
+  "primary_job_key": "refill-prepaid-ai-credits",
+  "status": "code-backed",
+  "source_schema": "../templates/intent-codec-applet.manifest.schema.json",
+  "human_readable": "refill-prepaid-ai-credits.md",
+  "trigger": "prepaid_top_up_settled",
+  "current_workaround": "A billing operator manually confirms payment and updates prepaid usage balance.",
+  "source_evidence": {
+    "truth_catalog": "bedrock-platform/helms/crates/truth-catalog/src/lib.rs registers refill-prepaid-ai-credits.",
+    "feature": "bedrock-platform/helms/truths/jobs/refill_prepaid_ai_credits.feature",
+    "executable": "bedrock-platform/helms/crates/workbench-backend/src/lib.rs execute_refill_prepaid_ai_credits",
+    "tests": "execute_refill_prepaid_ai_credits_updates_entitlement_balance and execute_refill_prepaid_ai_credits_blocks_pending_payment",
+    "event": "crm-contracts maps PrepaidTopUpSettled to refill-prepaid-ai-credits"
+  },
+  "functional_need": {
+    "outcome": "Apply a settled top-up to prepaid AI credit balances with financial traceability.",
+    "inputs": [
+      "organization_id",
+      "subscription_id",
+      "amount_minor",
+      "currency_code",
+      "payment_reference",
+      "payment_status"
+    ],
+    "output": "Ledger-backed credit grant and updated entitlement balance, or blocked review with approval/workflow references.",
+    "constraints": [
+      "Top-up payment must be settled before credit grant.",
+      "Subscription must be active and belong to the organization.",
+      "Currency and amount must match the commercial event.",
+      "Ledger receipt must be durable before the operator projection declares success.",
+      "Risky top-ups move through Helm review instead of app-local mutation."
+    ],
+    "success_signal": "Confirmed top-up appears as a ledger-backed credit grant and entitlement balance increases for the correct account."
+  },
+  "emotional_need": {
+    "operator_anxiety": "The customer may run out of AI credits after paying, or the system may grant spendable balance for a risky or unsettled payment.",
+    "desired_confidence": "Payment settlement, subscription, amount, currency, ledger entry, and entitlement balance agree before usage resumes.",
+    "tolerance": "Prefer a blocked review over balance mutation when payment state, amount, currency, or risk signals are unclear."
+  },
+  "relational_need": {
+    "dependent_parties": [
+      "customer admin",
+      "finance",
+      "support",
+      "runtime metering",
+      "billing operator",
+      "partner owner when marketplace settlement applies"
+    ],
+    "trust_obligation": "Explain why credits were granted or paused without turning provider reconciliation into applet-owned truth.",
+    "handoff_created": "If refill is blocked, Helm owns the operator-visible risk or payment review handoff."
+  },
+  "failure_modes": [
+    "Granting credits before payment is settled.",
+    "Increasing the wrong subscription balance.",
+    "Losing payment-to-ledger traceability.",
+    "Treating provider payment IDs as canonical credit state.",
+    "Hiding risk review inside app-local state."
+  ],
+  "authority": {
+    "requester": "prepaid_top_up_settled commerce/runtime envelope",
+    "approvers": [
+      "Commerce Rails policy",
+      "billing operator for risky top-up"
+    ],
+    "allowed_actions": [
+      "grant prepaid credit",
+      "append ledger entry",
+      "open approval workflow",
+      "project credit receipt"
+    ],
+    "forbidden_actions": [
+      "grant credit for pending payment",
+      "let the applet own provider reconciliation",
+      "bypass risk review",
+      "mutate balance without ledger traceability"
+    ],
+    "approval_points": [
+      "pending payment",
+      "unusual top-up size or risk signal"
+    ],
+    "reversibility": "partially_reversible",
+    "expiry": "payment event replay window",
+    "audit_visibility": [
+      "operator",
+      "finance",
+      "support",
+      "partner owner"
+    ]
+  },
+  "evidence_contract": {
+    "required_sources": [
+      {
+        "source": "Commerce Rails verified top-up event",
+        "freshness": "within replay window",
+        "authority": "primary"
+      },
+      {
+        "source": "active subscription commercial commitment",
+        "freshness": "current at top-up time",
+        "authority": "primary"
+      },
+      {
+        "source": "ledger credit grant receipt",
+        "freshness": "created during truth execution",
+        "authority": "primary"
+      },
+      {
+        "source": "Helm approval record when risk review blocks",
+        "freshness": "current workflow case",
+        "authority": "primary"
+      }
+    ],
+    "disallowed_sources": [
+      "raw provider ID as balance truth",
+      "app-local credit counter without ledger receipt"
+    ],
+    "confidence_floor": "payment_status must be settled for automatic refill",
+    "conflict_policy": "stop",
+    "sensitive_fields": [
+      "organization_id",
+      "subscription_id",
+      "amount_minor",
+      "currency_code",
+      "payment_reference"
+    ]
+  },
+  "runtime_needs": [
+    "normalized top-up event ingress",
+    "provider secret handling outside the applet",
+    "balance-change telemetry",
+    "durable ledger reference"
+  ],
+  "commercial_needs": [
+    "payment settlement state",
+    "subscription commitment",
+    "credit entitlement balance",
+    "ledger credit grant",
+    "provider reconciliation outside the applet"
+  ],
+  "projection": {
+    "operator_view": "payment status, grant amount, subscription, credit entitlement, ledger entry, approval IDs, workflow case IDs, and stop reason",
+    "customer_or_partner_view": "credit balance updated or refill paused with support-safe reason"
+  },
+  "non_goals": [
+    "Build the usage metering engine.",
+    "Let the applet own provider verification.",
+    "Let the applet own canonical credit storage.",
+    "Mix subscription activation into this applet."
+  ],
+  "layer_mapping": {
+    "applet": "Minimal prepaid refill request/projection surface.",
+    "helm": "Payment/risk review, workflow case, blocked-session receipt, and trust-transfer view.",
+    "axiom": "refill-prepaid-ai-credits Truth shape and candidate IntentPacket.",
+    "organism": "Future formation selection for unusual top-up or fraud review.",
+    "converge": "Admission, criteria outcomes, completed or blocked truth session, and stop reason.",
+    "runtime_runway": "Event ingress, auth, secrets, telemetry, and durable runtime envelope.",
+    "commerce_rails": "Payment settlement, subscription commitment, credit entitlement, ledger grant, and provider reconciliation authority."
+  }
+}
