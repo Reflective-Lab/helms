@@ -63,42 +63,46 @@ version = "0.2.1"
 edition = "2024"
 rust-version = "1.96.0"
 license = "MIT"
-publish = false
+repository = "https://github.com/Reflective-Lab/helms"
+publish = true
 
 [workspace.dependencies]
 anyhow = "1"
 async-stream = "0.3"
-axiom-truth = { path = "../axiom" }
+axiom-truth = { version = "0.15.2", path = "../axiom" }
 axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 # Extracted Converge extension packages. Keep the dependency keys stable so
 # existing Helm code can keep using `converge_analytics`, `converge_domain`,
 # `converge_knowledge`, and `converge_policy` while the implementation
 # packages live in their canonical `converge-<brand>-<topic>` form.
-converge-analytics = { package = "converge-prism-analytics", path = "../../mosaic-extensions/prism-analytics/crates/prism" }
-converge-core = { path = "../converge/crates/core" }
-converge-domain = { package = "converge-atelier-domain", path = "../../atelier-showcase/crates/atelier-domain" }
-converge-experience = { path = "../converge/crates/experience" }
-converge-kernel = { path = "../converge/crates/kernel" }
-converge-knowledge = { package = "converge-mnemos-knowledge", path = "../../mosaic-extensions/mnemos-knowledge/crates/mnemos" }
+converge-analytics = { version = "2.0.2", package = "converge-prism-analytics", path = "../../mosaic-extensions/prism-analytics/crates/prism" }
+converge-core = { version = "3.9.2", path = "../converge/crates/core" }
+converge-domain = { version = "1.0.2", package = "converge-atelier-domain", path = "../../atelier-showcase/crates/atelier-domain" }
+converge-experience = { version = "3.9.2", path = "../converge/crates/experience" }
+converge-kernel = { version = "3.9.2", path = "../converge/crates/kernel" }
+converge-knowledge = { version = "1.2.3", package = "converge-mnemos-knowledge", path = "../../mosaic-extensions/mnemos-knowledge/crates/mnemos" }
 # `_chat` feature pulled in here so axiom-truth's `guidance` module (which
 # imports `manifold::select_healthy_chat_backend`, gated behind `_chat` in the
 # local manifold) compiles via the [patch.crates-io] redirect. Drop once
 # manifold publishes a version that ungates the selection helpers or axiom
 # bumps to one that does.
-converge-manifold-adapters = { path = "../../mosaic-extensions/manifold-adapters/crates/manifold", features = ["_chat"] }
-converge-model = { path = "../converge/crates/model" }
-converge-optimization = { path = "../converge/crates/optimization" }
-converge-pack = { path = "../converge/crates/pack" }
-converge-policy = { package = "converge-arbiter-policy", path = "../../mosaic-extensions/arbiter-policy/crates/arbiter" }
-converge-provider = { path = "../converge/crates/provider" }
+converge-manifold-adapters = { version = "1.1.2", path = "../../mosaic-extensions/manifold-adapters/crates/manifold", features = ["_chat"] }
+converge-model = { version = "3.9.2", path = "../converge/crates/model" }
+converge-optimization = { version = "3.9.2", path = "../converge/crates/optimization" }
+converge-pack = { version = "3.9.2", path = "../converge/crates/pack" }
+converge-policy = { version = "2.0.2", package = "converge-arbiter-policy", path = "../../mosaic-extensions/arbiter-policy/crates/arbiter" }
+converge-provider = { version = "3.9.2", path = "../converge/crates/provider" }
 ed25519-dalek = "2"
 hex = "0.4"
-organism-domain = { path = "../../atelier-showcase/crates/organism-domain" }
-organism-intelligence = { path = "../organism/crates/intelligence" }
-organism-notes = { path = "../organism/crates/notes" }
-organism-pack = { path = "../organism/crates/pack" }
-organism-runtime = { path = "../organism/crates/runtime" }
+# NOTE(RFL-125): crates.io already has organism-domain 1.4.0 from a pre-atelier
+# layout while the atelier workspace head is 1.0.2 — atelier must republish
+# past 1.4.0 before the clean-room gate can pass for helms.
+organism-domain = { version = "1.0.2", path = "../../atelier-showcase/crates/organism-domain" }
+organism-intelligence = { version = "1.9.3", path = "../organism/crates/intelligence" }
+organism-notes = { version = "1.9.3", path = "../organism/crates/notes" }
+organism-pack = { version = "1.9.3", path = "../organism/crates/pack" }
+organism-runtime = { version = "1.9.3", path = "../organism/crates/runtime" }
 prost = "0.13"
 prost-types = "0.13"
 serde = { version = "1", features = ["derive"] }
@@ -139,16 +143,16 @@ disallowed_methods = "deny"
 # Redirect transitive crates.io converge/organism/extension deps to local head
 # until the next tag ships. Local-only — remove before publishing.
 [patch.crates-io]
-axiom-truth                = { path = "../axiom" }
+axiom-truth = { path = "../axiom" }
 converge-client            = { path = "../converge/crates/client" }
-converge-core              = { path = "../converge/crates/core" }
-converge-experience        = { path = "../converge/crates/experience" }
-converge-kernel            = { path = "../converge/crates/kernel" }
-converge-model             = { path = "../converge/crates/model" }
-converge-optimization      = { path = "../converge/crates/optimization" }
-converge-pack              = { path = "../converge/crates/pack" }
+converge-core = { path = "../converge/crates/core" }
+converge-experience = { path = "../converge/crates/experience" }
+converge-kernel = { path = "../converge/crates/kernel" }
+converge-model = { path = "../converge/crates/model" }
+converge-optimization = { path = "../converge/crates/optimization" }
+converge-pack = { path = "../converge/crates/pack" }
 converge-protocol          = { path = "../converge/crates/protocol" }
-converge-provider          = { path = "../converge/crates/provider" }
+converge-provider = { path = "../converge/crates/provider" }
 converge-runtime           = { path = "../converge/crates/runtime" }
 converge-storage           = { path = "../converge/crates/storage" }
 converge-arbiter-policy    = { path = "../../mosaic-extensions/arbiter-policy/crates/arbiter" }
@@ -157,8 +161,8 @@ converge-ferrox-solver     = { path = "../../mosaic-extensions/ferrox-solvers/cr
 converge-manifold-adapters = { path = "../../mosaic-extensions/manifold-adapters/crates/manifold" }
 converge-mnemos-knowledge  = { path = "../../mosaic-extensions/mnemos-knowledge/crates/mnemos" }
 converge-prism-analytics   = { path = "../../mosaic-extensions/prism-analytics/crates/prism" }
-organism-domain            = { path = "../../atelier-showcase/crates/organism-domain" }
-organism-intelligence      = { path = "../organism/crates/intelligence" }
-organism-notes             = { path = "../organism/crates/notes" }
-organism-pack              = { path = "../organism/crates/pack" }
-organism-runtime           = { path = "../organism/crates/runtime" }
+organism-domain = { path = "../../atelier-showcase/crates/organism-domain" }
+organism-intelligence = { path = "../organism/crates/intelligence" }
+organism-notes = { path = "../organism/crates/notes" }
+organism-pack = { path = "../organism/crates/pack" }
+organism-runtime = { path = "../organism/crates/runtime" }

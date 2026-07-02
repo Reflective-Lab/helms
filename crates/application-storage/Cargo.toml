@@ -1,8 +1,10 @@
 [package]
 name = "application-storage"
+description = "Helms application storage — SurrealDB-backed persistence for Helm application state."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [features]
@@ -13,7 +15,7 @@ surrealdb = ["dep:surrealdb"]
 converge-core.workspace = true
 converge-experience.workspace = true
 converge-pack.workspace = true
-application-kernel = { path = "../application-kernel" }
+application-kernel = { version = "0.2.1", path = "../application-kernel" }
 serde.workspace = true
 serde_json.workspace = true
 surrealdb = { workspace = true, optional = true }

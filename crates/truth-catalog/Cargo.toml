@@ -1,8 +1,10 @@
 [package]
 name = "truth-catalog"
+description = "Truth catalog — executable truth definitions for the Helms platform."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [dependencies]
@@ -20,8 +22,8 @@ converge-model.workspace = true
 organism-pack.workspace = true
 organism-runtime.workspace = true
 thiserror.workspace = true
-capability-core = { path = "../capability-core" }
-capability-registry = { path = "../capability-registry" }
+capability-core = { version = "0.2.1", path = "../capability-core" }
+capability-registry = { version = "0.2.1", path = "../capability-registry" }
 serde.workspace = true
 serde_json.workspace = true
 

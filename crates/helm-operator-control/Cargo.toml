@@ -1,24 +1,26 @@
 [package]
 name = "helm-operator-control"
+description = "helm-operator-control — Helm's operator-control surface as a mountable HelmModule."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [dependencies]
 anyhow.workspace = true
 async-trait = "0.1"
 axum.workspace = true
-runway-app-host = { path = "../../../../runtime-runway/crates/runway-app-host" }
+runway-app-host = { version = "3.4.2", path = "../../../../runtime-runway/crates/runway-app-host" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 
-application-kernel = { path = "../application-kernel" }
-application-storage = { path = "../application-storage" }
-helm-module-contracts = { path = "../helm-module-contracts" }
-helm-truth-execution = { path = "../helm-truth-execution" }
-workbench-backend = { path = "../workbench-backend" }
-prio-agent-ops = { path = "../prio-agent-ops" }
+application-kernel = { version = "0.2.1", path = "../application-kernel" }
+application-storage = { version = "0.2.1", path = "../application-storage" }
+helm-module-contracts = { version = "0.2.1", path = "../helm-module-contracts" }
+helm-truth-execution = { version = "0.2.1", path = "../helm-truth-execution" }
+workbench-backend = { version = "0.2.1", path = "../workbench-backend" }
+prio-agent-ops = { version = "0.2.1", path = "../prio-agent-ops" }
 polars = { version = "0.51", features = ["lazy", "parquet"] }

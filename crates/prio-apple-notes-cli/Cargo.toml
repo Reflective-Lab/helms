@@ -1,8 +1,10 @@
 [package]
 name = "prio-apple-notes-cli"
+description = "CLI bridging Apple Notes into the Helms Prio capability modules."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [dependencies]

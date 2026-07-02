@@ -1,8 +1,10 @@
 [package]
-name = "notes"
+name = "helm-notes"
+description = "Helm Notes — application-level capture and intelligence over Organism notes."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [features]
