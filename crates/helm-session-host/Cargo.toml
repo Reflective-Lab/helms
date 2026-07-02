@@ -5,12 +5,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-# RP-LAYERING(RFL-125): held from crates.io — this crate needs runway-app-host
-# HEAD APIs (ModuleState, HelmModule::module_state, sse::event_stream,
-# awaitable EventSubscription), and runway-app-host is publish = false by
-# documented design (internal runway-ambient substrate). Publish this crate
-# only after the runway layering fork is resolved.
-publish = false
+publish.workspace = true
 
 [dependencies]
 anyhow.workspace = true
@@ -21,7 +16,7 @@ director-contracts = { version = "0.2.1", path = "../director-contracts" }
 helm-client = { version = "0.2.1", path = "../helm-client" }
 helm-module-contracts = { version = "0.2.1", path = "../helm-module-contracts" }
 helm-session-contracts = { version = "0.2.1", path = "../helm-session-contracts" }
-runway-app-host = { version = "3.4.2", path = "../../../../runtime-runway/crates/runway-app-host" }
+runway-app-host = { version = "3.5.0", path = "../../../../runtime-runway/crates/runway-app-host" }
 runway-storage = { version = "3.4.2", path = "../../../../runtime-runway/crates/runway-storage" }
 serde.workspace = true
 serde_json.workspace = true

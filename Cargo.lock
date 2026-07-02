@@ -9148,27 +9148,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "runway-ambient"
-version = "3.4.2"
-dependencies = [
- "anyhow",
- "async-trait",
- "axum 0.8.8",
- "chrono",
- "reqwest 0.12.28",
- "runway-auth",
- "runway-storage",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "runway-app-host"
-version = "3.4.2"
+version = "3.5.0"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -9176,7 +9157,6 @@ dependencies = [
  "axum 0.8.8",
  "chrono",
  "futures",
- "runway-ambient",
  "runway-auth",
  "runway-middleware",
  "runway-storage",
@@ -9194,7 +9174,7 @@ dependencies = [
 
 [[package]]
 name = "runway-auth"
-version = "3.4.2"
+version = "3.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9211,7 +9191,7 @@ dependencies = [
 
 [[package]]
 name = "runway-middleware"
-version = "3.4.2"
+version = "3.5.0"
 dependencies = [
  "anyhow",
  "axum 0.8.8",
@@ -9227,7 +9207,7 @@ dependencies = [
 
 [[package]]
 name = "runway-secrets"
-version = "3.4.2"
+version = "3.5.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -9243,7 +9223,7 @@ dependencies = [
 
 [[package]]
 name = "runway-storage"
-version = "3.4.2"
+version = "3.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9265,7 +9245,7 @@ dependencies = [
 
 [[package]]
 name = "runway-telemetry"
-version = "3.4.2"
+version = "3.5.0"
 dependencies = [
  "anyhow",
  "opentelemetry",
