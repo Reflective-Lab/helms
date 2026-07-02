@@ -8,13 +8,15 @@
 #   ../../mosaic-extensions/<repo>   -> extension repos
 #   ../../<repo>                     -> reflective-root siblings
 #
-# In CI, GITHUB_WORKSPACE (/home/runner/work/helms/helms) plays the role
-# of bedrock-platform/helms, so its parent acts as bedrock-platform and
-# its grandparent acts as the reflective root. Adapted from
-# mosaic-extensions/arbiter-policy/scripts/ci/checkout-reflective-siblings.sh.
+# In CI, ci.yml checks the repo out at bedrock-platform/helms under
+# $GITHUB_WORKSPACE so every relative path dep resolves to the same
+# lexical location as it does locally (cargo identifies path packages
+# lexically — a symlinked alias produces package collisions). The repo
+# root is derived from this script's own location so the topology works
+# identically in CI and local runs.
 set -euo pipefail
 
-workspace="${GITHUB_WORKSPACE:-$(git rev-parse --show-toplevel)}"
+workspace="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 checkout_reflective_repo() {
   local repo="$1"
@@ -60,12 +62,3 @@ checkout_reflective_repo arena-tests ../../arena-tests
 checkout_reflective_repo runtime-runway ../../runtime-runway
 # commerce-rails backs runtime-runway's workspace.dependencies entry.
 checkout_reflective_repo commerce-rails ../../commerce-rails
-
-# atelier-showcase crates address the platform as ../bedrock-platform/<repo>.
-# In CI the workspace parent already plays that role, so expose it under the
-# canonical name too. Locally the real bedrock-platform dir exists -> no-op.
-bedrock_alias="${workspace}/../../bedrock-platform"
-if [[ ! -e "$bedrock_alias" ]]; then
-  echo "==> symlink bedrock-platform -> $(cd "${workspace}/.." && pwd)"
-  ln -s "$(cd "${workspace}/.." && pwd)" "$bedrock_alias"
-fi

@@ -4,15 +4,14 @@ use axiom_truth::{
 };
 use truth_catalog::{find_truth, intent_compile::compile_intent_for_truth};
 
-const ACTIVATE_SUBSCRIPTION: &str = include_str!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../../../KB/02-product/applets/activate-subscription.intent.json"
-));
+// Vendored from the root repo's KB/02-product/applets/ (that repo is private,
+// so CI cannot reach it via a relative include). If the canonical manifests
+// change, re-copy them here — the schema/binding checks fail loudly on
+// divergence. Same pattern as arena-tests' cross-extension-smoke fixtures.
+const ACTIVATE_SUBSCRIPTION: &str = include_str!("fixtures/activate-subscription.intent.json");
 
-const REFILL_PREPAID_AI_CREDITS: &str = include_str!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../../../KB/02-product/applets/refill-prepaid-ai-credits.intent.json"
-));
+const REFILL_PREPAID_AI_CREDITS: &str =
+    include_str!("fixtures/refill-prepaid-ai-credits.intent.json");
 
 #[test]
 fn revenue_applet_manifests_validate_and_bind_to_truth_catalog() {

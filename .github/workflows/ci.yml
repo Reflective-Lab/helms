@@ -20,9 +20,17 @@ jobs:
     # warm runs far below this; the cap is for cold-cache runs.
     timeout-minutes: 90
     steps:
+      # helms lives INSIDE bedrock-platform/ locally, so its own path deps
+      # say ../organism while atelier's crates say ../bedrock-platform/
+      # organism. Cargo identifies path packages lexically — the two
+      # spellings collide unless the checkout mirrors the real tree.
+      # Checking out at bedrock-platform/helms makes every relative path
+      # resolve to ONE lexical location under $GITHUB_WORKSPACE.
       - uses: actions/checkout@v6
+        with:
+          path: bedrock-platform/helms
       - name: Checkout Reflective sibling dependencies
-        run: bash scripts/ci/checkout-reflective-siblings.sh
+        run: bash bedrock-platform/helms/scripts/ci/checkout-reflective-siblings.sh
       # Tauri v2 Linux system deps for the desktop app crate; zsh is the
       # Justfile shell (`set shell`).
       - name: Install system dependencies
@@ -34,5 +42,8 @@ jobs:
           toolchain: ${{ env.RUST_VERSION }}
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bedrock-platform/helms
       - uses: extractions/setup-just@v3
       - run: just ci
+        working-directory: bedrock-platform/helms
