@@ -54,6 +54,9 @@ checkout_reflective_repo prism-analytics ../../mosaic-extensions/prism-analytics
 
 # Reflective-root siblings (path deps: ../../<repo>).
 checkout_reflective_repo atelier-showcase ../../atelier-showcase
+# arena-tests: atelier's truth-driven-formation scenario path-depends on
+# arena-intent-cases, and cargo metadata loads atelier's whole workspace.
+checkout_reflective_repo arena-tests ../../arena-tests
 checkout_reflective_repo runtime-runway ../../runtime-runway
 # commerce-rails backs runtime-runway's workspace.dependencies entry.
 checkout_reflective_repo commerce-rails ../../commerce-rails
