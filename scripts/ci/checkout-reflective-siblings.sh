@@ -43,6 +43,10 @@ checkout_reflective_repo organism ../organism
 
 # Extension repos (path deps: ../../mosaic-extensions/<repo>).
 checkout_reflective_repo arbiter-policy ../../mosaic-extensions/arbiter-policy
+# embassy-ports is not a direct helms dep, but atelier-showcase's workspace
+# references converge-embassy-sec-edgar by path and cargo metadata loads the
+# whole atelier workspace when resolving atelier-domain.
+checkout_reflective_repo embassy-ports ../../mosaic-extensions/embassy-ports
 checkout_reflective_repo ferrox-solvers ../../mosaic-extensions/ferrox-solvers
 checkout_reflective_repo manifold-adapters ../../mosaic-extensions/manifold-adapters
 checkout_reflective_repo mnemos-knowledge ../../mosaic-extensions/mnemos-knowledge
