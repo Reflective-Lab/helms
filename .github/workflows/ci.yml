@@ -26,7 +26,7 @@ jobs:
       # spellings collide unless the checkout mirrors the real tree.
       # Checking out at bedrock-platform/helms makes every relative path
       # resolve to ONE lexical location under $GITHUB_WORKSPACE.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           path: bedrock-platform/helms
       - name: Checkout Reflective sibling dependencies
