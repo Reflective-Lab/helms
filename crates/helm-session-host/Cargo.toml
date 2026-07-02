@@ -5,7 +5,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-publish.workspace = true
+# RP-LAYERING(RFL-125): held from crates.io — this crate needs runway-app-host
+# HEAD APIs (ModuleState, HelmModule::module_state, sse::event_stream,
+# awaitable EventSubscription), and runway-app-host is publish = false by
+# documented design (internal runway-ambient substrate). Publish this crate
+# only after the runway layering fork is resolved.
+publish = false
 
 [dependencies]
 anyhow.workspace = true

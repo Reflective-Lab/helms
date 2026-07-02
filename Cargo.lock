@@ -238,9 +238,9 @@ name = "application-storage"
 version = "0.2.1"
 dependencies = [
  "application-kernel",
- "converge-core",
- "converge-experience",
- "converge-pack",
+ "converge-core 3.9.3",
+ "converge-experience 3.9.3",
+ "converge-pack 3.9.3",
  "serde",
  "serde_json",
  "surrealdb",
@@ -536,19 +536,19 @@ dependencies = [
 
 [[package]]
 name = "axiom-truth"
-version = "0.15.2"
+version = "0.15.3"
 dependencies = [
  "async-trait",
  "chrono",
  "clap",
  "colored",
- "converge-manifold-adapters",
- "converge-pack",
- "converge-provider",
+ "converge-manifold-adapters 1.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-provider 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "dotenvy",
  "futures",
  "gherkin",
- "organism-pack",
+ "organism-pack 1.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex",
  "ropey",
  "serde",
@@ -1682,11 +1682,30 @@ checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
 
 [[package]]
 name = "converge-core"
-version = "3.9.2"
+version = "3.9.3"
 dependencies = [
  "async-trait",
- "converge-pack",
- "converge-provider",
+ "converge-pack 3.9.3",
+ "converge-provider 3.9.3",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "strum",
+ "thiserror 2.0.18",
+ "tracing",
+ "typed-builder 0.20.1",
+]
+
+[[package]]
+name = "converge-core"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "692b139b024a5df57ca374eaafadd8259b11dfa95acb11203cdeff090be90a19"
+dependencies = [
+ "async-trait",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-provider 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex",
  "serde",
  "serde_json",
@@ -1699,44 +1718,107 @@ dependencies = [
 
 [[package]]
 name = "converge-experience"
-version = "3.9.2"
+version = "3.9.3"
 dependencies = [
- "converge-core",
+ "converge-core 3.9.3",
+ "serde",
+]
+
+[[package]]
+name = "converge-experience"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe39557d36f4bf2a04f7fba66325bb12dcda2379d79cd91a52b5f47566c46f04"
+dependencies = [
+ "converge-core 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
 [[package]]
 name = "converge-fuzzy-inference"
-version = "2.0.2"
+version = "2.0.3"
 dependencies = [
- "converge-pack",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "converge-fuzzy-inference"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a37a4569a50c85b6b8e568125159e3821bc7cef33ad5e7120939a75bc81471c"
+dependencies = [
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
 ]
 
 [[package]]
 name = "converge-kernel"
-version = "3.9.2"
+version = "3.9.3"
 dependencies = [
  "async-trait",
- "converge-core",
- "converge-model",
- "converge-optimization",
- "converge-pack",
- "converge-provider",
+ "converge-core 3.9.3",
+ "converge-model 3.9.3",
+ "converge-optimization 3.9.3",
+ "converge-pack 3.9.3",
+ "converge-provider 3.9.3",
+ "serde",
+]
+
+[[package]]
+name = "converge-kernel"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65915668746233e0d6aadbbeb068618552225557ec1b0a19351b907a08758b39"
+dependencies = [
+ "async-trait",
+ "converge-core 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-model 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-optimization 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-provider 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
 [[package]]
 name = "converge-manifold-adapters"
-version = "1.1.2"
+version = "1.1.3"
 dependencies = [
  "base64 0.22.1",
- "converge-core",
- "converge-experience",
- "converge-fuzzy-inference",
- "converge-pack",
- "converge-provider",
+ "converge-core 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-experience 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-fuzzy-inference 2.0.3",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-provider 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-storage",
+ "hex",
+ "object_store 0.13.2",
+ "regex-lite",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml 0.8.23",
+ "tracing",
+]
+
+[[package]]
+name = "converge-manifold-adapters"
+version = "1.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "056ba8e62df62cdf46c2a7fd0a4a72aa0567c75f0ae482a4772525b687c60d8d"
+dependencies = [
+ "base64 0.22.1",
+ "converge-core 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-experience 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-fuzzy-inference 2.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-provider 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "converge-storage",
  "hex",
  "object_store 0.13.2",
@@ -1756,23 +1838,58 @@ dependencies = [
 
 [[package]]
 name = "converge-model"
-version = "3.9.2"
+version = "3.9.3"
 dependencies = [
- "converge-core",
- "converge-pack",
- "converge-provider",
+ "converge-core 3.9.3",
+ "converge-pack 3.9.3",
+ "converge-provider 3.9.3",
+ "serde",
+]
+
+[[package]]
+name = "converge-model"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2aa72e7e208874a48ad20e7820c3c21cdad2f1186429e06e3486ea3091805884"
+dependencies = [
+ "converge-core 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-provider 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
 [[package]]
 name = "converge-optimization"
-version = "3.9.2"
+version = "3.9.3"
 dependencies = [
  "async-trait",
  "bitvec",
- "converge-core",
- "converge-model",
- "converge-pack",
+ "converge-core 3.9.3",
+ "converge-model 3.9.3",
+ "converge-pack 3.9.3",
+ "indexmap 2.13.0",
+ "num-traits",
+ "ordered-float",
+ "petgraph 0.7.1",
+ "rayon",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
+name = "converge-optimization"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb81135ea3252f2915f2e87b67d1eaa920e15a7728d5d980bc39c2b5705ee32c"
+dependencies = [
+ "async-trait",
+ "bitvec",
+ "converge-core 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-model 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "indexmap 2.13.0",
  "num-traits",
  "ordered-float",
@@ -1787,7 +1904,22 @@ dependencies = [
 
 [[package]]
 name = "converge-pack"
-version = "3.9.2"
+version = "3.9.3"
+dependencies = [
+ "async-trait",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "strum",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "converge-pack"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f21be6d7223ee6c0e648635f283c06d838a363ff251fd205446989a96f24d657"
 dependencies = [
  "async-trait",
  "hex",
@@ -1800,14 +1932,16 @@ dependencies = [
 
 [[package]]
 name = "converge-prism-analytics"
-version = "2.0.2"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20332bdf3e6e6cbd7d85736e7e0619708e2c0a68ce272c298d8c21cab8407e24"
 dependencies = [
  "anyhow",
  "async-trait",
  "burn",
- "converge-fuzzy-inference",
- "converge-optimization",
- "converge-pack",
+ "converge-fuzzy-inference 2.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-optimization 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "ndarray 0.17.2",
  "polars",
  "rand 0.10.1",
@@ -1819,7 +1953,18 @@ dependencies = [
 
 [[package]]
 name = "converge-provider"
-version = "3.9.2"
+version = "3.9.3"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "converge-provider"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f01a5a730e54554b37fdfa9647bd2221ce03f32872b119f731ba5b4a097b3670"
 dependencies = [
  "serde",
  "serde_json",
@@ -1828,7 +1973,9 @@ dependencies = [
 
 [[package]]
 name = "converge-storage"
-version = "3.9.2"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e5dbf65eb3eb31587506dead0e51248f3ed7d0e1a57147575935b4b92326cb4"
 dependencies = [
  "object_store 0.13.2",
  "serde",
@@ -4152,7 +4299,7 @@ dependencies = [
  "async-trait",
  "axum 0.8.8",
  "chrono",
- "converge-core",
+ "converge-core 3.9.3",
  "helm-governed-jobs",
  "helm-module-contracts",
  "helm-truth-execution",
@@ -4182,11 +4329,11 @@ dependencies = [
  "async-trait",
  "axum 0.8.8",
  "chrono",
- "converge-core",
+ "converge-core 3.9.3",
  "futures",
  "helm-module-contracts",
  "helm-truth-execution",
- "organism-pack",
+ "organism-pack 1.9.4",
  "runway-app-host",
  "serde",
  "serde_json",
@@ -4242,7 +4389,7 @@ dependencies = [
 name = "helm-plugin-runtime"
 version = "0.2.1"
 dependencies = [
- "converge-core",
+ "converge-core 3.9.3",
  "ed25519-dalek",
  "hex",
  "proptest",
@@ -4301,9 +4448,9 @@ dependencies = [
  "async-trait",
  "axum 0.8.8",
  "chrono",
- "converge-core",
- "converge-kernel",
- "converge-pack",
+ "converge-core 3.9.3",
+ "converge-kernel 3.9.3",
+ "converge-pack 3.9.3",
  "runway-app-host",
  "serde",
  "serde_json",
@@ -6386,12 +6533,28 @@ dependencies = [
 
 [[package]]
 name = "organism-adversarial"
-version = "1.9.3"
+version = "1.9.4"
 dependencies = [
  "async-trait",
- "converge-pack",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "converge-prism-analytics",
- "organism-planning",
+ "organism-planning 1.9.4",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "uuid",
+]
+
+[[package]]
+name = "organism-adversarial"
+version = "1.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "019e91d5dd41cd24a47fb52c43a8249ca469b63e8101f062254e2c9e34579a0c"
+dependencies = [
+ "async-trait",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-prism-analytics",
+ "organism-planning 1.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -6400,12 +6563,12 @@ dependencies = [
 
 [[package]]
 name = "organism-catalog"
-version = "1.9.3"
+version = "1.9.4"
 dependencies = [
  "async-trait",
- "converge-kernel",
- "converge-pack",
- "converge-provider",
+ "converge-kernel 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-provider 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -6413,11 +6576,11 @@ dependencies = [
 
 [[package]]
 name = "organism-domain"
-version = "1.0.2"
+version = "1.5.0"
 dependencies = [
  "async-trait",
- "converge-pack",
- "organism-pack",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-pack 1.9.4",
  "organism-runtime",
  "serde",
  "serde_json",
@@ -6426,7 +6589,7 @@ dependencies = [
 
 [[package]]
 name = "organism-intelligence"
-version = "1.9.3"
+version = "1.9.4"
 dependencies = [
  "base64 0.22.1",
  "pdf-extract",
@@ -6440,11 +6603,27 @@ dependencies = [
 
 [[package]]
 name = "organism-intent"
-version = "1.9.3"
+version = "1.9.4"
 dependencies = [
  "async-trait",
  "chrono",
- "converge-pack",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-prism-analytics",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "uuid",
+]
+
+[[package]]
+name = "organism-intent"
+version = "1.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50f7826adc5042f03432c67d07685ec3d86c7b4c2b3a713df72602685eff0461"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "converge-prism-analytics",
  "serde",
  "serde_json",
@@ -6454,12 +6633,28 @@ dependencies = [
 
 [[package]]
 name = "organism-learning"
-version = "1.9.3"
+version = "1.9.4"
 dependencies = [
  "async-trait",
  "chrono",
- "converge-kernel",
- "converge-pack",
+ "converge-kernel 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "uuid",
+]
+
+[[package]]
+name = "organism-learning"
+version = "1.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "54781705b59cf0f884d358fe06be40c3b081324371a05b44d8a52a56a0e63283"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "converge-kernel 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -6468,7 +6663,7 @@ dependencies = [
 
 [[package]]
 name = "organism-notes"
-version = "1.9.3"
+version = "1.9.4"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -6481,29 +6676,64 @@ dependencies = [
 
 [[package]]
 name = "organism-pack"
-version = "1.9.3"
+version = "1.9.4"
 dependencies = [
- "converge-pack",
- "organism-adversarial",
- "organism-intent",
- "organism-learning",
- "organism-planning",
- "organism-simulation",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-adversarial 1.9.4",
+ "organism-intent 1.9.4",
+ "organism-learning 1.9.4",
+ "organism-planning 1.9.4",
+ "organism-simulation 1.9.4",
+ "serde",
+]
+
+[[package]]
+name = "organism-pack"
+version = "1.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af7cbceb20931f80af47f04e74a3a06735db945c6b28a22d930259e8cc9750f2"
+dependencies = [
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-adversarial 1.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-intent 1.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-learning 1.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-planning 1.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-simulation 1.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
 [[package]]
 name = "organism-planning"
-version = "1.9.3"
+version = "1.9.4"
 dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
- "converge-kernel",
- "converge-pack",
+ "converge-kernel 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "converge-prism-analytics",
- "converge-provider",
- "organism-intent",
+ "converge-provider 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-intent 1.9.4",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "uuid",
+]
+
+[[package]]
+name = "organism-planning"
+version = "1.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15743b74455b645c8aa7880e28f710bef91e9a3288d109e010f6f65bafb3f36b"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "converge-kernel 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-prism-analytics",
+ "converge-provider 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-intent 1.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -6512,19 +6742,19 @@ dependencies = [
 
 [[package]]
 name = "organism-runtime"
-version = "1.9.3"
+version = "1.9.4"
 dependencies = [
  "anyhow",
  "async-trait",
- "converge-kernel",
- "converge-pack",
- "converge-provider",
- "organism-adversarial",
+ "converge-kernel 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "converge-provider 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-adversarial 1.9.4",
  "organism-catalog",
- "organism-intent",
- "organism-learning",
- "organism-pack",
- "organism-simulation",
+ "organism-intent 1.9.4",
+ "organism-learning 1.9.4",
+ "organism-pack 1.9.4",
+ "organism-simulation 1.9.4",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -6535,11 +6765,26 @@ dependencies = [
 
 [[package]]
 name = "organism-simulation"
-version = "1.9.3"
+version = "1.9.4"
 dependencies = [
  "async-trait",
- "converge-pack",
- "organism-planning",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-planning 1.9.4",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "uuid",
+]
+
+[[package]]
+name = "organism-simulation"
+version = "1.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7d678eadef50a78e8e27781f941686fd804d6f0b1cc356ae7e525154ada2a64"
+dependencies = [
+ "async-trait",
+ "converge-pack 3.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "organism-planning 1.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -11539,10 +11784,10 @@ dependencies = [
  "capability-core",
  "capability-registry",
  "chrono",
- "converge-kernel",
- "converge-manifold-adapters",
- "converge-model",
- "organism-pack",
+ "converge-kernel 3.9.3",
+ "converge-manifold-adapters 1.1.3",
+ "converge-model 3.9.3",
+ "organism-pack 1.9.4",
  "organism-runtime",
  "serde",
  "serde_json",
@@ -13584,31 +13829,3 @@ checksum = "27bc9d5b815bc103f142aa054f561d9187d191692ec7c2d1e2b4737f8dbd7296"
 dependencies = [
  "zune-core",
 ]
-
-[[patch.unused]]
-name = "converge-arbiter-policy"
-version = "2.0.2"
-
-[[patch.unused]]
-name = "converge-atelier-domain"
-version = "1.0.2"
-
-[[patch.unused]]
-name = "converge-client"
-version = "3.9.2"
-
-[[patch.unused]]
-name = "converge-ferrox-solver"
-version = "0.7.2"
-
-[[patch.unused]]
-name = "converge-mnemos-knowledge"
-version = "1.2.3"
-
-[[patch.unused]]
-name = "converge-protocol"
-version = "3.9.2"
-
-[[patch.unused]]
-name = "converge-runtime"
-version = "3.9.2"
