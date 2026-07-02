@@ -145,7 +145,7 @@ mod tests {
                     name: "Expansion deal".to_string(),
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 120_000_00,
+                        amount_minor: 12_000_000,
                     },
                     confidence_bps: 6_000,
                     next_step: Some("Send architecture note".to_string()),
@@ -367,7 +367,7 @@ mod tests {
                         billing_period: BillingPeriod::Annual,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 12_000_00,
+                            amount_minor: 1_200_000,
                         },
                         meter_name: Some("annual-seat".to_string()),
                     }),
@@ -392,7 +392,7 @@ mod tests {
                     status: SubscriptionStatus::PendingActivation,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 12_000_00,
+                        amount_minor: 1_200_000,
                     },
                     started_at: None,
                 },
@@ -481,7 +481,7 @@ mod tests {
                     status: SubscriptionStatus::PendingActivation,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 25_000_00,
+                        amount_minor: 2_500_000,
                     },
                     started_at: None,
                 },
@@ -536,7 +536,7 @@ mod tests {
                         billing_period: BillingPeriod::Monthly,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 2_000_00,
+                            amount_minor: 200_000,
                         },
                         meter_name: Some("starter-seat".to_string()),
                     }),
@@ -562,7 +562,7 @@ mod tests {
                         billing_period: BillingPeriod::Monthly,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 5_000_00,
+                            amount_minor: 500_000,
                         },
                         meter_name: Some("growth-seat".to_string()),
                     }),
@@ -589,7 +589,7 @@ mod tests {
                     status: SubscriptionStatus::PendingActivation,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 2_000_00,
+                        amount_minor: 200_000,
                     },
                     started_at: None,
                 },
@@ -635,12 +635,12 @@ mod tests {
             .expect("plan change should apply");
 
         assert_eq!(changed.subscription.catalog_item_id, Some(growth.id));
-        assert_eq!(changed.subscription.value.amount_minor, 5_000_00);
+        assert_eq!(changed.subscription.value.amount_minor, 500_000);
         assert_eq!(
             changed.ledger_entry.kind,
             crate::LedgerEntryKind::Adjustment
         );
-        assert_eq!(changed.ledger_entry.amount.amount_minor, 3_000_00);
+        assert_eq!(changed.ledger_entry.amount.amount_minor, 300_000);
         assert_eq!(changed.entitlements.len(), 4);
         assert!(matches!(
             changed
@@ -696,7 +696,7 @@ mod tests {
                         billing_period: BillingPeriod::OneTime,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 5_000_00,
+                            amount_minor: 500_000,
                         },
                         meter_name: Some("credit-pack".to_string()),
                     }),
@@ -720,7 +720,7 @@ mod tests {
                     status: SubscriptionStatus::PendingActivation,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 5_000_00,
+                        amount_minor: 500_000,
                     },
                     started_at: None,
                 },
@@ -802,7 +802,7 @@ mod tests {
                         billing_period: BillingPeriod::Monthly,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 2_000_00,
+                            amount_minor: 200_000,
                         },
                         meter_name: Some("workspace-seat".to_string()),
                     }),
@@ -829,7 +829,7 @@ mod tests {
                     status: SubscriptionStatus::PendingActivation,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 2_000_00,
+                        amount_minor: 200_000,
                     },
                     started_at: None,
                 },
@@ -931,7 +931,7 @@ mod tests {
                     name: "Phantom deal".to_string(),
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 10_000_00,
+                        amount_minor: 1_000_000,
                     },
                     confidence_bps: 5_000,
                     next_step: None,
@@ -978,7 +978,7 @@ mod tests {
                         billing_period: BillingPeriod::OneTime,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 1_000_00,
+                            amount_minor: 100_000,
                         },
                         meter_name: Some("credits".to_string()),
                     }),
@@ -1002,7 +1002,7 @@ mod tests {
                     status: SubscriptionStatus::PendingActivation,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 1_000_00,
+                        amount_minor: 100_000,
                     },
                     started_at: None,
                 },
@@ -1083,7 +1083,7 @@ mod tests {
                     name: "Won deal".to_string(),
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 50_000_00,
+                        amount_minor: 5_000_000,
                     },
                     confidence_bps: 9_000,
                     next_step: None,
@@ -1151,7 +1151,7 @@ mod tests {
                         billing_period: BillingPeriod::Monthly,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 1_000_00,
+                            amount_minor: 100_000,
                         },
                         meter_name: Some("seat".to_string()),
                     }),
@@ -1175,7 +1175,7 @@ mod tests {
                     status: SubscriptionStatus::PendingActivation,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 1_000_00,
+                        amount_minor: 100_000,
                     },
                     started_at: None,
                 },
@@ -1241,7 +1241,7 @@ mod tests {
                         billing_period: BillingPeriod::Monthly,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 1_000_00,
+                            amount_minor: 100_000,
                         },
                         meter_name: Some("seat".to_string()),
                     }),
@@ -1265,7 +1265,7 @@ mod tests {
                     status: SubscriptionStatus::Cancelled,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 1_000_00,
+                        amount_minor: 100_000,
                     },
                     started_at: None,
                 },
@@ -1346,7 +1346,7 @@ mod tests {
                         billing_period: BillingPeriod::Monthly,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 1_000_00,
+                            amount_minor: 100_000,
                         },
                         meter_name: Some("seat".to_string()),
                     }),
@@ -1370,7 +1370,7 @@ mod tests {
                     status: SubscriptionStatus::PendingActivation,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 1_000_00,
+                        amount_minor: 100_000,
                     },
                     started_at: None,
                 },
@@ -1601,7 +1601,7 @@ mod tests {
                         billing_period: BillingPeriod::Monthly,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 2_000_00,
+                            amount_minor: 200_000,
                         },
                         meter_name: Some("seat".to_string()),
                     }),
@@ -1625,7 +1625,7 @@ mod tests {
                     status: SubscriptionStatus::PendingActivation,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 2_000_00,
+                        amount_minor: 200_000,
                     },
                     started_at: None,
                 },

@@ -20,11 +20,6 @@ pub struct DeliveryTable {
 }
 
 impl DeliveryTable {
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// Record that a push was published to a participant at a given hub sequence.
     pub fn record(
         &mut self,
@@ -144,7 +139,7 @@ mod tests {
 
     #[test]
     fn record_and_unacked_for_replay_returns_push() {
-        let mut table = DeliveryTable::new();
+        let mut table = DeliveryTable::default();
         let fid = FindingId::from_string("f-1");
         let p = push("sess", fid.clone(), UrgencyIntent::Disruptive);
         table.record("sess", participant("p-1"), fid.clone(), p, 5);
@@ -157,7 +152,7 @@ mod tests {
 
     #[test]
     fn unacked_for_replay_excludes_versions_after_cursor() {
-        let mut table = DeliveryTable::new();
+        let mut table = DeliveryTable::default();
         let fid = FindingId::from_string("f-2");
         let p = push("sess", fid.clone(), UrgencyIntent::Preemptive);
         table.record("sess", participant("p-1"), fid.clone(), p, 20);
@@ -169,7 +164,7 @@ mod tests {
 
     #[test]
     fn delivery_ack_marks_record_idempotent() {
-        let mut table = DeliveryTable::new();
+        let mut table = DeliveryTable::default();
         let fid = FindingId::from_string("f-3");
         let p = push("sess", fid.clone(), UrgencyIntent::Disruptive);
         table.record("sess", participant("p-1"), fid.clone(), p, 3);
@@ -185,14 +180,14 @@ mod tests {
 
     #[test]
     fn delivery_ack_returns_false_for_unknown_finding() {
-        let mut table = DeliveryTable::new();
+        let mut table = DeliveryTable::default();
         let fid = FindingId::from_string("f-unknown");
         assert!(!table.ack_delivery("sess", &participant("p-1"), &fid, 1000));
     }
 
     #[test]
     fn completion_ack_sets_produced_output_and_timestamp() {
-        let mut table = DeliveryTable::new();
+        let mut table = DeliveryTable::default();
         let fid = FindingId::from_string("f-4");
         let p = push("sess", fid.clone(), UrgencyIntent::Preemptive);
         table.record("sess", participant("p-1"), fid.clone(), p, 7);
@@ -206,14 +201,14 @@ mod tests {
 
     #[test]
     fn completion_ack_returns_false_for_unknown_finding() {
-        let mut table = DeliveryTable::new();
+        let mut table = DeliveryTable::default();
         let fid = FindingId::from_string("f-unknown");
         assert!(!table.ack_completion("sess", &participant("p-1"), &fid, false, 1000));
     }
 
     #[test]
     fn unacked_for_replay_only_returns_undelivery_acked_records() {
-        let mut table = DeliveryTable::new();
+        let mut table = DeliveryTable::default();
         let fid_a = FindingId::from_string("f-a");
         let fid_b = FindingId::from_string("f-b");
         let pa = push("sess", fid_a.clone(), UrgencyIntent::Disruptive);
@@ -231,14 +226,14 @@ mod tests {
 
     #[test]
     fn empty_table_returns_no_unacked_findings() {
-        let table = DeliveryTable::new();
+        let table = DeliveryTable::default();
         let unacked = table.unacked_for_replay("sess", &participant("p-1"), u64::MAX);
         assert!(unacked.is_empty());
     }
 
     #[test]
     fn different_participants_are_tracked_independently() {
-        let mut table = DeliveryTable::new();
+        let mut table = DeliveryTable::default();
         let fid = FindingId::from_string("f-5");
         let p1 = push("sess", fid.clone(), UrgencyIntent::Disruptive);
         let p2 = push("sess", fid.clone(), UrgencyIntent::Disruptive);

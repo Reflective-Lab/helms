@@ -76,7 +76,7 @@ fn seed_revenue_data(store: &SurrealDbKernelStore) {
                         billing_period: BillingPeriod::Annual,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 12_000_00,
+                            amount_minor: 1_200_000,
                         },
                         meter_name: Some("workspace-annual".to_string()),
                     }),
@@ -106,7 +106,7 @@ fn seed_revenue_data(store: &SurrealDbKernelStore) {
                         billing_period: BillingPeriod::OneTime,
                         list_price: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 500_00,
+                            amount_minor: 50_000,
                         },
                         meter_name: None,
                     }),
@@ -131,7 +131,7 @@ fn seed_revenue_data(store: &SurrealDbKernelStore) {
                     status: SubscriptionStatus::PendingActivation,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 12_000_00,
+                        amount_minor: 1_200_000,
                     },
                     started_at: None,
                 },
@@ -149,7 +149,7 @@ fn seed_revenue_data(store: &SurrealDbKernelStore) {
                     status: SubscriptionStatus::PendingActivation,
                     value: Money {
                         currency_code: "USD".to_string(),
-                        amount_minor: 5_000_00,
+                        amount_minor: 500_000,
                     },
                     started_at: None,
                 },
