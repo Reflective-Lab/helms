@@ -44,6 +44,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: bedrock-platform/helms
-      - uses: extractions/setup-just@v3
+      - uses: extractions/setup-just@v4
       - run: just ci
         working-directory: bedrock-platform/helms
