@@ -3,6 +3,11 @@ set shell := ["zsh", "-lc"]
 default:
     @just --list
 
+# ── CI ─────────────────────────────────────────────────────────────────
+
+# Canonical CI aggregate (RP-CI-PARITY): CI runs exactly `just ci`.
+ci: fmt-check check lint test
+
 # ── Build ──────────────────────────────────────────────────────────────
 
 build-desktop-web:
@@ -20,7 +25,7 @@ build-extension:
 # ── Test ───────────────────────────────────────────────────────────────
 
 test:
-    cargo test --workspace
+    cargo test --workspace --all-targets
 
 test-workbench-backend:
     cargo test -p workbench-backend
@@ -33,6 +38,15 @@ test-crm-app:
 
 fmt:
     cargo fmt --all
+
+fmt-check:
+    cargo fmt --all -- --check
+
+check:
+    cargo check --workspace --all-targets
+
+lint:
+    cargo clippy --workspace --all-targets -- -D warnings
 
 desktop-rust-fmt:
     cd apps/desktop/src-tauri && cargo fmt

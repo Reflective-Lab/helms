@@ -146,7 +146,7 @@ mod tests {
         let push = preemptive_push("sess-a", fid.clone());
 
         // Record delivery via publish_push_to
-        let _ = service.publish_push_to(push, &[pid.clone()]);
+        let _ = service.publish_push_to(push, std::slice::from_ref(&pid));
 
         let app = router(service);
         let body = serde_json::json!({
@@ -187,7 +187,7 @@ mod tests {
         let fid = FindingId::from_string("f-idem");
         let pid = ParticipantId::from_string("p-1");
         let push = preemptive_push("sess-b", fid.clone());
-        let _ = service.publish_push_to(push, &[pid.clone()]);
+        let _ = service.publish_push_to(push, std::slice::from_ref(&pid));
 
         let app = router(service);
         let body = serde_json::to_vec(&serde_json::json!({
@@ -223,7 +223,7 @@ mod tests {
         let fid = FindingId::from_string("f-comp");
         let pid = ParticipantId::from_string("p-1");
         let push = preemptive_push("sess-c", fid.clone());
-        let _ = service.publish_push_to(push, &[pid.clone()]);
+        let _ = service.publish_push_to(push, std::slice::from_ref(&pid));
 
         let app = router(service);
         let body = serde_json::json!({
@@ -266,7 +266,7 @@ mod tests {
         let fid = FindingId::from_string("f-replay");
         let pid = ParticipantId::from_string("p-replay");
         let push = preemptive_push("sess-replay", fid.clone());
-        let version = service.publish_push_to(push, &[pid.clone()]);
+        let version = service.publish_push_to(push, std::slice::from_ref(&pid));
         assert!(version > 0);
 
         let app = router(service);
@@ -321,7 +321,7 @@ mod tests {
         let pid = ParticipantId::from_string("p-future");
 
         let push = preemptive_push("sess-future", fid.clone());
-        let version = service.publish_push_to(push, &[pid.clone()]);
+        let version = service.publish_push_to(push, std::slice::from_ref(&pid));
 
         // cursor = version - 1 means this finding was published AFTER the cursor
         // so it should NOT be replayed (it will come through the live stream naturally)
@@ -357,7 +357,7 @@ mod tests {
                 timestamp_ms: 1,
             },
         };
-        let _ = service.publish_push_to(push, &[pid.clone()]);
+        let _ = service.publish_push_to(push, std::slice::from_ref(&pid));
 
         // Informational pushes are not tracked → ack returns false (no record)
         let recorded = service.apply_delivery_ack("sess-info", &pid, &fid, 0);

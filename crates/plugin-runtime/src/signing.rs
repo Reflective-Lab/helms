@@ -42,22 +42,17 @@ pub struct ModuleSignature {
 ///
 /// During development and testing, modules may be loaded without
 /// signatures. In staging and production, signatures are mandatory.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum SignaturePolicy {
     /// All modules must have a valid signature. Unsigned or tampered
     /// modules are rejected.
+    #[default]
     Enforce,
     /// Signatures are checked if present, but unsigned modules are
     /// allowed. Use only in development.
     WarnOnly,
     /// No signature checking. Use only in unit tests.
     Disabled,
-}
-
-impl Default for SignaturePolicy {
-    fn default() -> Self {
-        Self::Enforce
-    }
 }
 
 /// A set of trusted public keys for signature verification.
@@ -199,12 +194,12 @@ pub fn verify_module_with_policy(
     match policy {
         SignaturePolicy::Disabled => Ok(()),
         SignaturePolicy::WarnOnly => {
-            if let Some(sig) = signature {
-                if let Err(e) = verify_module(wasm_bytes, sig, trusted_keys) {
-                    // In warn-only mode, log but don't reject.
-                    // The caller should capture this for audit.
-                    tracing::warn!(error = %e, "module signature verification failed (warn-only mode)");
-                }
+            if let Some(sig) = signature
+                && let Err(e) = verify_module(wasm_bytes, sig, trusted_keys)
+            {
+                // In warn-only mode, log but don't reject.
+                // The caller should capture this for audit.
+                tracing::warn!(error = %e, "module signature verification failed (warn-only mode)");
             }
             Ok(())
         }

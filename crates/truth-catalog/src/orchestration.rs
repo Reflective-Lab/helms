@@ -243,7 +243,7 @@ mod tests {
             .expect("selection succeeds");
         assert!(!slate.primary_template_id.is_empty());
         // primary + alternates ≤ max_candidates
-        assert!(1 + slate.alternate_template_ids.len() <= opts.max_candidates);
+        assert!(slate.alternate_template_ids.len() < opts.max_candidates);
     }
 
     #[test]

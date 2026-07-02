@@ -247,7 +247,7 @@ pub enum AppExperienceStore {
     Memory(InMemoryExperienceStoreAdapter),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AppRuntimeStores {
     pub context: AppContextStore,
     pub experience: AppExperienceStore,
@@ -262,7 +262,10 @@ pub struct InMemoryContextStore {
 #[derive(Clone)]
 pub struct SurrealDbContextStore {
     db: Arc<Surreal<Any>>,
-    write_lock: Arc<Mutex<()>>,
+    // tokio Mutex: the guard is held across the upsert await in
+    // `save_context_async`, which a std MutexGuard must not be
+    // (clippy::await_holding_lock).
+    write_lock: Arc<tokio::sync::Mutex<()>>,
     runtime: Option<Arc<Runtime>>,
 }
 
@@ -275,15 +278,6 @@ impl Default for AppContextStore {
 impl Default for AppExperienceStore {
     fn default() -> Self {
         Self::Memory(InMemoryExperienceStoreAdapter::default())
-    }
-}
-
-impl Default for AppRuntimeStores {
-    fn default() -> Self {
-        Self {
-            context: AppContextStore::default(),
-            experience: AppExperienceStore::default(),
-        }
     }
 }
 
@@ -566,7 +560,7 @@ impl SurrealDbContextStore {
 
         Ok(Self {
             db: Arc::new(db),
-            write_lock: Arc::new(Mutex::new(())),
+            write_lock: Arc::new(tokio::sync::Mutex::new(())),
             runtime: None,
         })
     }
@@ -612,10 +606,7 @@ impl SurrealDbContextStore {
     }
 
     async fn save_context_async(&self, scope_id: &str, context: &Context) -> StorageResult<()> {
-        let _guard = self
-            .write_lock
-            .lock()
-            .map_err(|_| StorageError::LockPoisoned)?;
+        let _guard = self.write_lock.lock().await;
         let document = serde_json::to_value(ContextSnapshotDocument::from_runtime(context)?)
             .map_err(|error| StorageError::SerializationFailed {
                 message: error.to_string(),

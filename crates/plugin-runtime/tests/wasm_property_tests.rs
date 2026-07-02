@@ -157,7 +157,7 @@ fn arb_guest_context() -> impl Strategy<Value = GuestContext> {
 fn arb_guest_invariant_result() -> impl Strategy<Value = GuestInvariantResult> {
     prop_oneof![
         Just(GuestInvariantResult::ok()),
-        "[a-zA-Z ]{5,50}".prop_map(|reason| GuestInvariantResult::violated(reason)),
+        "[a-zA-Z ]{5,50}".prop_map(GuestInvariantResult::violated),
         (
             "[a-zA-Z ]{5,50}",
             prop::collection::vec("[a-z]-[0-9]{1,4}", 1..=5)

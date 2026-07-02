@@ -545,13 +545,11 @@ fn fuel_exhaustion_returns_violation() {
         },
     );
 
-    match adapter {
-        Ok(inv) => {
-            // If adapter creation succeeds, check should fail
-            let result = converge_core::Invariant::check(&inv, &ContextState::new());
-            assert!(result.is_violated());
-        }
-        Err(_) => {} // Expected: not enough fuel even for manifest read
+    // Err is expected: not enough fuel even for manifest read.
+    if let Ok(inv) = adapter {
+        // If adapter creation succeeds, check should fail
+        let result = converge_core::Invariant::check(&inv, &ContextState::new());
+        assert!(result.is_violated());
     }
 }
 

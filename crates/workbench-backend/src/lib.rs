@@ -855,7 +855,7 @@ where
                 if let Some(definition_key) = &filter.definition_key {
                     items.retain(|item| item.definition_key == *definition_key);
                 }
-                items.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+                items.sort_by_key(|item| std::cmp::Reverse(item.created_at));
                 items
             })
             .map_err(Into::into)
@@ -904,7 +904,7 @@ where
                     items.retain(|item| item.truth_key == *truth_key);
                 }
 
-                items.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+                items.sort_by_key(|item| std::cmp::Reverse(item.created_at));
                 items
             })
             .map_err(Into::into)
@@ -2610,7 +2610,7 @@ mod tests {
                             billing_period: BillingPeriod::Annual,
                             list_price: Money {
                                 currency_code: "USD".to_string(),
-                                amount_minor: 12_000_00,
+                                amount_minor: 1_200_000,
                             },
                             meter_name: Some("workspace-annual".to_string()),
                         }),
@@ -2635,7 +2635,7 @@ mod tests {
                             billing_period: BillingPeriod::OneTime,
                             list_price: Money {
                                 currency_code: "USD".to_string(),
-                                amount_minor: 5_000_00,
+                                amount_minor: 500_000,
                             },
                             meter_name: Some("ai-credits".to_string()),
                         }),
@@ -2658,7 +2658,7 @@ mod tests {
                         status: SubscriptionStatus::PendingActivation,
                         value: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 12_000_00,
+                            amount_minor: 1_200_000,
                         },
                         started_at: None,
                     },
@@ -2674,7 +2674,7 @@ mod tests {
                         status: SubscriptionStatus::PendingActivation,
                         value: Money {
                             currency_code: "USD".to_string(),
-                            amount_minor: 5_000_00,
+                            amount_minor: 500_000,
                         },
                         started_at: None,
                     },

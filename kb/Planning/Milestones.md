@@ -1,3 +1,6 @@
+> **Archived 2026-07-02** — active milestone tracking moved to Linear (Reflective team).
+> This file is kept for historical context only. Do not add new items here.
+
 # Helm Milestones
 
 > This file is the single source of truth for what ships and when.
@@ -43,7 +46,7 @@ data analysis, routing, scheduling, and HITL — all visible in real time.
 **Showcase pipeline:**
 `score-inbound-fit` → `qualify-inbound-lead` → `schedule-strategic-meetings`
 
-### Deliverables
+#### Deliverables
 
 **Epic:** E5
 
@@ -81,14 +84,14 @@ data analysis, routing, scheduling, and HITL — all visible in real time.
 - [x] Full pipeline run: score → qualify → schedule, with HITL stops — POST /v1/pipeline/showcase/run (2026-04-19)
 - [x] Repeatable reset (re-gen seed data + clear kernel state) — POST /v1/pipeline/showcase/reset (2026-04-19)
 
-### Not in scope
+#### Not in scope
 
 - Chrome extension (deferred)
 - Production deployment
 - Authentication or multi-tenancy
 - New truth runtimes beyond the three in the showcase pipeline
 
-### Architecture guardrail during Stage 1
+#### Architecture guardrail during Stage 1
 
 Do not deepen the old manual truth-binding pattern unless it is required to finish the showcase milestone.
 
@@ -107,7 +110,7 @@ The target direction is:
 - Organism increasingly owns generic planning-loop and resolution behavior
 - Converge remains the execution and governance foundation
 
-### Stretch: Mobile Daily Priorities App
+#### Stretch: Mobile Daily Priorities App
 
 **Epic:** E5
 
@@ -135,11 +138,11 @@ their day, then agent flows fire with well-defined truths behind each action.
 ## Stage 1.5 — Notes & Intelligence Daily Driver
 
 **Deadline: TBD**
-**Epic: E5 (Helm is a daily tool)**
+**Epic:** E5 (Helm is a daily tool)
 
 **Goal:** The Notes app and Expense tracker work well enough for everyday use. Import from real sources, enrich with intelligence, iterate based on daily friction.
 
-### Notes application (full implementation)
+#### Notes application (full implementation)
 
 **Epic:** E5
 
@@ -170,7 +173,7 @@ their day, then agent flows fire with well-defined truths behind each action.
 - [ ] Social capture from URL bar (paste LinkedIn/X URL → structured note)
 - [ ] Vision panel: drag image → get scene description + extracted text
 
-### Expenses & Receipts (OCR integration)
+#### Expenses & Receipts (OCR integration)
 
 **Epic:** E5
 
@@ -180,7 +183,7 @@ their day, then agent flows fire with well-defined truths behind each action.
 - [ ] Side-by-side OCR comparison UI (already scaffolded, needs real backends)
 - [ ] HITL approval for ambiguous extractions (low-confidence fields flagged for review)
 
-### Not in scope
+#### Not in scope
 
 - Billing / revenue features (Stage 2)
 - Production deployment
@@ -194,7 +197,7 @@ their day, then agent flows fire with well-defined truths behind each action.
 
 Align code, API, and CLI to the Helm Surface Model documented in `kb/Architecture/Helm Surface Model.md`. The framing shift: Business Truth is the core noun, Helm is the operator environment, surfaces (CLI, API, workbench) are peer entry points.
 
-### Deliverables
+#### Deliverables
 
 **Epic:** E5
 
@@ -222,7 +225,7 @@ Align code, API, and CLI to the Helm Surface Model documented in `kb/Architectur
 - [ ] Update proto package names to match new taxonomy
 - [ ] Follow `kb/Architecture/Naming Migration Map.md` for the full rename schedule
 
-### Not in scope
+#### Not in scope
 - New surfaces (browser workbench, mobile) — those come in Stage 2+
 - Actual CLI binary implementation — Stage 1.75 defines the taxonomy, Stage 2 ships it
 
@@ -234,7 +237,7 @@ Align code, API, and CLI to the Helm Surface Model documented in `kb/Architectur
 
 Billing integration hardened for real money. First paying customer on the platform.
 
-### Deliverables
+#### Deliverables
 
 **Epic:** E5
 
@@ -253,7 +256,7 @@ Billing integration hardened for real money. First paying customer on the platfo
 
 Multi-domain proof point. Analytics-backed truths. Second vertical beyond CRM.
 
-### Deliverables
+#### Deliverables
 
 **Epic:** E5
 
@@ -271,7 +274,7 @@ Multi-domain proof point. Analytics-backed truths. Second vertical beyond CRM.
 
 Convergence loops that generate, verify, and deploy executable code when they discover missing capabilities. Proven in EXP-002; this stage wires it to production infrastructure.
 
-### Deliverables
+#### Deliverables
 
 **Epic:** E5
 

@@ -34,7 +34,7 @@ pub fn capture_web(vault: &ObsidianVault, url: &str) -> Result<CaptureReport, St
     let filename = sanitize_filename(
         doc.title
             .as_deref()
-            .unwrap_or_else(|| url.split('/').last().unwrap_or("page")),
+            .unwrap_or_else(|| url.split('/').next_back().unwrap_or("page")),
     );
     let vault_path = format!("Inbox/Web/{filename}.md");
 

@@ -571,11 +571,7 @@ fn generate_calendar_availability(rng: &mut SmallRng) -> Result<DataFrame> {
                 };
 
                 // 70% available, with some blocked clusters (meetings)
-                let available = if rng.random_range(0..100) < 30 {
-                    false
-                } else {
-                    true
-                };
+                let available = rng.random_range(0..100) >= 30;
 
                 actor_ids.push(*actor);
                 dates.push(day_str.clone());

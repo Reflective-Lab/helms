@@ -477,13 +477,11 @@ mod tests {
         };
         let inv = WasmInvariant::new(Arc::clone(&engine), wat.as_bytes(), quota);
 
-        // Creation might fail or check might fail depending on fuel
-        match inv {
-            Ok(inv) => {
-                let result = converge_core::Invariant::check(&inv, &ContextState::new());
-                assert!(result.is_violated());
-            }
-            Err(_) => {} // Expected: not enough fuel even for manifest read
+        // Creation might fail or check might fail depending on fuel.
+        // Err is expected: not enough fuel even for manifest read.
+        if let Ok(inv) = inv {
+            let result = converge_core::Invariant::check(&inv, &ContextState::new());
+            assert!(result.is_violated());
         }
     }
 

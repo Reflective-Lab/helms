@@ -479,7 +479,7 @@ fn ollama_extract(
             direct_text_source_kind(sample).to_string(),
         );
         metadata.insert("ocr_skipped".to_string(), "true".to_string());
-        query_ollama_with_text(&client, &text, config, &prompt)?
+        query_ollama_with_text(&client, &text, config, prompt)?
     } else {
         let request = ocr_request_for_path(&sample.document_path, OcrOutputFormat::Json, vec![])
             .map_err(|error| map_ocr_error(sample, "ollama-glm-ocr", error))?;
@@ -578,8 +578,7 @@ fn normalize_amount_string(value: &str) -> Option<String> {
         .replace("SEK", "")
         .replace("EUR", "")
         .replace("USD", "")
-        .replace('€', "")
-        .replace('$', "")
+        .replace(['€', '$'], "")
         .replace("kr", "");
     raw = raw.trim().to_string();
     if raw.is_empty() {
@@ -923,10 +922,10 @@ fn merge_text_fields(fields: &mut BTreeMap<String, String>, text: &str) {
         return;
     }
 
-    if !fields.contains_key("merchant") {
-        if let Some(merchant) = extract_merchant(&lines) {
-            fields.insert("merchant".to_string(), merchant);
-        }
+    if !fields.contains_key("merchant")
+        && let Some(merchant) = extract_merchant(&lines)
+    {
+        fields.insert("merchant".to_string(), merchant);
     }
 
     for (field, value) in [

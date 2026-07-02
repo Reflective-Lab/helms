@@ -1620,7 +1620,7 @@ impl CrmKernel {
             .entitlements
             .values()
             .filter(|entitlement| {
-                organization_id.map_or(true, |id| entitlement.organization_id == id)
+                organization_id.is_none_or(|id| entitlement.organization_id == id)
             })
             .cloned()
             .collect::<Vec<_>>();
@@ -1637,7 +1637,7 @@ impl CrmKernel {
         let mut entries = self
             .ledger_entries
             .values()
-            .filter(|entry| organization_id.map_or(true, |id| entry.organization_id == id))
+            .filter(|entry| organization_id.is_none_or(|id| entry.organization_id == id))
             .cloned()
             .collect::<Vec<_>>();
         entries.sort_by(|left, right| {
@@ -1655,7 +1655,7 @@ impl CrmKernel {
             .orders
             .values()
             .filter(|subscription| {
-                organization_id.map_or(true, |id| subscription.organization_id == id)
+                organization_id.is_none_or(|id| subscription.organization_id == id)
             })
             .cloned()
             .collect::<Vec<_>>();
@@ -1693,7 +1693,7 @@ impl CrmKernel {
             .filter(|case| state.is_none_or(|expected| case.state == expected))
             .cloned()
             .collect::<Vec<_>>();
-        items.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+        items.sort_by_key(|item| std::cmp::Reverse(item.updated_at));
         items
     }
 
@@ -1980,7 +1980,7 @@ impl CrmKernel {
             })
             .cloned()
             .collect::<Vec<_>>();
-        recent_timeline.sort_by(|left, right| right.occurred_at.cmp(&left.occurred_at));
+        recent_timeline.sort_by_key(|entry| std::cmp::Reverse(entry.occurred_at));
         recent_timeline.truncate(timeline_limit);
 
         Ok(AccountSummary {
@@ -2007,7 +2007,7 @@ impl CrmKernel {
         let mut items = self
             .people
             .values()
-            .filter(|person| organization_id.map_or(true, |id| person.organization_id == Some(id)))
+            .filter(|person| organization_id.is_none_or(|id| person.organization_id == Some(id)))
             .cloned()
             .collect::<Vec<_>>();
         items.sort_by(|left, right| left.full_name.cmp(&right.full_name));
@@ -2020,11 +2020,11 @@ impl CrmKernel {
             .opportunities
             .values()
             .filter(|opportunity| {
-                organization_id.map_or(true, |id| opportunity.organization_id == id)
+                organization_id.is_none_or(|id| opportunity.organization_id == id)
             })
             .cloned()
             .collect::<Vec<_>>();
-        items.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
+        items.sort_by_key(|item| std::cmp::Reverse(item.updated_at));
         items
     }
 
@@ -2046,7 +2046,7 @@ impl CrmKernel {
             })
             .cloned()
             .collect::<Vec<_>>();
-        items.sort_by(|left, right| right.occurred_at.cmp(&left.occurred_at));
+        items.sort_by_key(|item| std::cmp::Reverse(item.occurred_at));
         items.truncate(limit);
         items
     }
@@ -2067,7 +2067,7 @@ impl CrmKernel {
         let mut items = self
             .view_definitions
             .values()
-            .filter(|view| object_key.map_or(true, |key| view.object_key == key))
+            .filter(|view| object_key.is_none_or(|key| view.object_key == key))
             .cloned()
             .collect::<Vec<_>>();
         items.sort_by(|left, right| left.name.cmp(&right.name));
