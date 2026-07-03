@@ -1,8 +1,10 @@
 [package]
 name = "application-kernel"
+description = "Helms application kernel — shared service runtime for Helm application modules."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [dependencies]

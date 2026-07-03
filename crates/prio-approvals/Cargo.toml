@@ -1,10 +1,12 @@
 [package]
 name = "prio-approvals"
+description = "Prio approvals capability module for the Helms platform."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [dependencies]
-capability-core = { path = "../capability-core" }
+capability-core = { version = "0.2.1", path = "../capability-core" }
 

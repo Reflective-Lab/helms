@@ -1,30 +1,32 @@
 [package]
 name = "capability-registry"
+description = "Capability registry wiring the prio-* capability modules into the Helms platform."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [dependencies]
-prio-agent-ops = { path = "../prio-agent-ops" }
-prio-approvals = { path = "../prio-approvals" }
-prio-audit = { path = "../prio-audit" }
-prio-catalog = { path = "../prio-catalog" }
-prio-conversations = { path = "../prio-conversations" }
-prio-documents = { path = "../prio-documents" }
-prio-expenses = { path = "../prio-expenses" }
-prio-entitlements = { path = "../prio-entitlements" }
-prio-facts = { path = "../prio-facts" }
-prio-identity = { path = "../prio-identity" }
-prio-intents = { path = "../prio-intents" }
-prio-ledger = { path = "../prio-ledger" }
-prio-memory = { path = "../prio-memory" }
-prio-metering = { path = "../prio-metering" }
-capability-core = { path = "../capability-core" }
-prio-opportunities = { path = "../prio-opportunities" }
-prio-parties = { path = "../prio-parties" }
-prio-payments = { path = "../prio-payments" }
-prio-policies = { path = "../prio-policies" }
-prio-subscriptions = { path = "../prio-subscriptions" }
-prio-tasks = { path = "../prio-tasks" }
-prio-workflow = { path = "../prio-workflow" }
+prio-agent-ops = { version = "0.2.1", path = "../prio-agent-ops" }
+prio-approvals = { version = "0.2.1", path = "../prio-approvals" }
+prio-audit = { version = "0.2.1", path = "../prio-audit" }
+prio-catalog = { version = "0.2.1", path = "../prio-catalog" }
+prio-conversations = { version = "0.2.1", path = "../prio-conversations" }
+prio-documents = { version = "0.2.1", path = "../prio-documents" }
+prio-expenses = { version = "0.2.1", path = "../prio-expenses" }
+prio-entitlements = { version = "0.2.1", path = "../prio-entitlements" }
+prio-facts = { version = "0.2.1", path = "../prio-facts" }
+prio-identity = { version = "0.2.1", path = "../prio-identity" }
+prio-intents = { version = "0.2.1", path = "../prio-intents" }
+prio-ledger = { version = "0.2.1", path = "../prio-ledger" }
+prio-memory = { version = "0.2.1", path = "../prio-memory" }
+prio-metering = { version = "0.2.1", path = "../prio-metering" }
+capability-core = { version = "0.2.1", path = "../capability-core" }
+prio-opportunities = { version = "0.2.1", path = "../prio-opportunities" }
+prio-parties = { version = "0.2.1", path = "../prio-parties" }
+prio-payments = { version = "0.2.1", path = "../prio-payments" }
+prio-policies = { version = "0.2.1", path = "../prio-policies" }
+prio-subscriptions = { version = "0.2.1", path = "../prio-subscriptions" }
+prio-tasks = { version = "0.2.1", path = "../prio-tasks" }
+prio-workflow = { version = "0.2.1", path = "../prio-workflow" }

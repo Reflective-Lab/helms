@@ -1,8 +1,10 @@
 [package]
 name = "helm-coordination"
+description = "helm-coordination — multi-operator coordination for Helm's headless surface."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [dependencies]
@@ -11,10 +13,10 @@ async-stream.workspace = true
 async-trait = "0.1"
 axum.workspace = true
 chrono.workspace = true
-application-kernel = { path = "../application-kernel" }
-helm-governed-jobs = { path = "../helm-governed-jobs" }
-helm-module-contracts = { path = "../helm-module-contracts" }
-runway-app-host = { path = "../../../../runtime-runway/crates/runway-app-host" }
+application-kernel = { version = "0.2.1", path = "../application-kernel" }
+helm-governed-jobs = { version = "0.2.1", path = "../helm-governed-jobs" }
+helm-module-contracts = { version = "0.2.1", path = "../helm-module-contracts" }
+runway-app-host = { version = "3.5.0", path = "../../../../runtime-runway/crates/runway-app-host" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
