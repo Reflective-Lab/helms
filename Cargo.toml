@@ -134,3 +134,28 @@ proptest = "1"
 # query_ollama_with_text / ollama_extract) was migrated to the
 # threaded-client pattern.
 disallowed_methods = "deny"
+
+# RFL-136: axiom-truth (and other published siblings consumed by path) declare
+# converge-*/organism-* as plain registry dependencies. Without these patches
+# cargo builds TWO copies of each shared crate — one from crates.io, one from
+# the sibling path — and their types are distinct (E0308 "expected
+# `converge_core::...`, found `ContextState`" in truth-catalog). Patching
+# forces the whole graph onto the sibling checkouts, matching the CI
+# sibling-checkout topology (scripts/ci/checkout-reflective-siblings.sh).
+# Same pattern as ../organism/Cargo.toml.
+[patch.crates-io]
+converge-core              = { path = "../converge/crates/core" }
+converge-experience        = { path = "../converge/crates/experience" }
+converge-kernel            = { path = "../converge/crates/kernel" }
+converge-model             = { path = "../converge/crates/model" }
+converge-optimization      = { path = "../converge/crates/optimization" }
+converge-pack              = { path = "../converge/crates/pack" }
+converge-provider          = { path = "../converge/crates/provider" }
+converge-manifold-adapters = { path = "../../mosaic-extensions/manifold-adapters/crates/manifold" }
+converge-fuzzy-inference   = { path = "../../mosaic-extensions/prism-analytics/crates/fuzzy" }
+organism-adversarial       = { path = "../organism/crates/adversarial" }
+organism-intent            = { path = "../organism/crates/intent" }
+organism-learning          = { path = "../organism/crates/learning" }
+organism-pack              = { path = "../organism/crates/pack" }
+organism-planning          = { path = "../organism/crates/planning" }
+organism-simulation        = { path = "../organism/crates/simulation" }
