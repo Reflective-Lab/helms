@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- `HelmModule` trait and `ModuleState` enum extracted from `runtime-runway/runway-app-host` into `helm-module-contracts` (RFL-128). `init()` no longer takes `&HostContext` — parameter was unused by all five modules. `helm-operator-control` and `helm-truth-execution` now import directly from `helm-module-contracts` with no `runway-app-host` dep; `helm-coordination`, `helm-governed-jobs`, and `helm-session-host` retain the dep for EventHub/SSE/SessionOwnershipLayer under approved `# RP-HELMS-SUBSTRATE-SEAM` seams.
+
 ### Added
 - `helm-coordination` crate — multi-operator coordination for Helm's headless surface under an optimistic model: `OperatorPrincipal` + `PrincipalResolver` identity seam (`RequestActorResolver`), workspace-scoped `SessionRegistry` (heartbeat-leased), advisory `PresenceRegistry` (soft-claims, no locks), optimistic `DecisionLedger` (idempotent-agree / divergent-conflict), `AuthorityResolver` (`PermissiveAuthority` default), a `/v1/coordination/` router, a workspace-scoped SSE `/stream`, and a `CoordinationModule` (`helm.coordination`) mountable alongside `GovernedJobsModule`. See `kb/Architecture/Operator Coordination.md`.
 - `helm-coordination` gate front door `POST /v1/coordination/gates/{ref_id}/decision` — authority-checked, deduped gate approvals that record in the ledger and only signal `JobStreamState::signal_gate` on a fresh accepted decision; emits attributed `decision.recorded` / `decision.conflict` / `decision.denied` events.
