@@ -8,8 +8,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::Router;
-use helm_module_contracts::{HelmModuleReadiness, HelmModuleState, HelmModuleStatus};
-use runway_app_host::{HelmModule, HostContext, ModuleState};
+use helm_module_contracts::{
+    HelmModule, HelmModuleReadiness, HelmModuleState, HelmModuleStatus, ModuleState,
+};
 
 use crate::http;
 use crate::service::CoordinationService;
@@ -77,7 +78,7 @@ impl HelmModule for CoordinationModule {
         MODULE_ID
     }
 
-    async fn init(&self, _ctx: &HostContext) -> anyhow::Result<()> {
+    async fn init(&self) -> anyhow::Result<()> {
         tracing::info!(
             module = MODULE_ID,
             live = self.service.is_live(),

@@ -42,9 +42,10 @@ use std::sync::Arc;
 use application_storage::{AppConfig, InMemoryKernelStore, KernelStore};
 use async_trait::async_trait;
 use axum::Router;
-use helm_module_contracts::{HelmModuleReadiness, HelmModuleState, HelmModuleStatus};
+use helm_module_contracts::{
+    HelmModule, HelmModuleReadiness, HelmModuleState, HelmModuleStatus, ModuleState,
+};
 use helm_truth_execution::TruthExecutionModule;
-use runway_app_host::{HelmModule, HostContext, ModuleState};
 
 pub use helm_module_contracts::{
     HelmModuleReadiness as OperatorControlModuleReadiness,
@@ -337,7 +338,7 @@ where
         "helm.operator-control"
     }
 
-    async fn init(&self, _ctx: &HostContext) -> anyhow::Result<()> {
+    async fn init(&self) -> anyhow::Result<()> {
         let registered = self.pipeline.truths.registered_count();
         tracing::info!(
             module = self.module_id(),

@@ -31,8 +31,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::Router;
-use helm_module_contracts::{HelmModuleReadiness, HelmModuleState, HelmModuleStatus};
-use runway_app_host::{HelmModule, HostContext, ModuleState};
+use helm_module_contracts::{
+    HelmModule, HelmModuleReadiness, HelmModuleState, HelmModuleStatus, ModuleState,
+};
 
 pub use helm_module_contracts::{
     HelmModuleReadiness as GovernedJobsModuleReadiness, HelmModuleState as GovernedJobsModuleState,
@@ -129,7 +130,7 @@ impl HelmModule for GovernedJobsModule {
         "helm.governed-jobs"
     }
 
-    async fn init(&self, _ctx: &HostContext) -> anyhow::Result<()> {
+    async fn init(&self) -> anyhow::Result<()> {
         let registered = self.state.truths.registered_count();
         tracing::info!(
             module = self.module_id(),

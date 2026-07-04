@@ -4206,8 +4206,12 @@ dependencies = [
 name = "helm-module-contracts"
 version = "0.2.1"
 dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum 0.8.8",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -4234,7 +4238,6 @@ dependencies = [
  "helm-truth-execution",
  "polars",
  "prio-agent-ops",
- "runway-app-host",
  "serde",
  "serde_json",
  "tokio",
@@ -4308,7 +4311,7 @@ dependencies = [
  "converge-core",
  "converge-kernel",
  "converge-pack",
- "runway-app-host",
+ "helm-module-contracts",
  "serde",
  "serde_json",
  "tokio",
@@ -8916,6 +8919,7 @@ dependencies = [
  "axum 0.8.8",
  "chrono",
  "futures",
+ "helm-module-contracts",
  "runway-auth",
  "runway-middleware",
  "runway-storage",

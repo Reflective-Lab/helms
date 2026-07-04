@@ -1,9 +1,14 @@
 //! Shared contracts for Helm modules mounted into Runtime Runway.
 //!
-//! These types are intentionally small. Runtime Runway owns the generic host
-//! verifier, but Helm modules need a stable vocabulary for reporting whether a
-//! mounted module is only a default shell or has live app evidence wired.
+//! Defines both the readiness-reporting vocabulary (`HelmModuleReadiness`,
+//! `HelmModuleState`, `HelmModuleStatus`) and the mounting contract
+//! (`HelmModule`, `ModuleState`) so the interface lives in a neutral crate
+//! that both helms crates and Runtime Runway can consume without creating a
+//! foundation→substrate dependency (RP-LAYERING, RFL-128).
 
+use std::sync::Arc;
+
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,9 +85,64 @@ impl HelmModuleStatus {
     }
 }
 
+// ── Mounting contract ─────────────────────────────────────────────────────────
+//
+// `HelmModule` and `ModuleState` live here so the contract is neutral — neither
+// helms crates nor Runtime Runway need to depend on the other to share it.
+// Extracted from `runway-app-host::module` (RFL-128; RP-LAYERING).
+
+/// Whether a mounted module is wired to live state or is still a default shell.
+///
+/// The D1 manifest verifier reconciles this against the manifest's
+/// `mounted_modules[].mount_kind`: a module the manifest marks `Mounted` must
+/// report `Live`, otherwise `serve()` fails. The default is `Shell` so silence
+/// fails closed — a module that forgets to report its state is treated as
+/// not-yet-wired, never as a live claim that passes the gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModuleState {
+    /// Mounted but not wired to live state (default-shell).
+    Shell,
+    /// Wired to live state.
+    Live,
+}
+
+/// Contract for a Helm module that can be mounted into Runtime Runway
+/// (`RunwayAppHostBuilder::mount`).
+///
+/// All methods have default no-op implementations so implementors only need to
+/// override what they provide. `module_id` is the one required method.
+///
+/// RP-LAYERING (RFL-128): this trait is defined here (a neutral foundation
+/// crate) so that both helms crates and `runway-app-host` consume it without
+/// either side depending on the other.
+#[async_trait]
+pub trait HelmModule: Send + Sync + 'static {
+    fn module_id(&self) -> &'static str;
+
+    /// Called once during host `build()`. Override to register services,
+    /// validate config, or log readiness evidence. The host aborts startup on
+    /// `Err`. Default implementation is a no-op.
+    async fn init(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    /// Axum router to merge into the host. Default returns an empty router.
+    fn router(self: Arc<Self>) -> axum::Router {
+        axum::Router::new()
+    }
+
+    /// Whether this module is wired to live state. The D1 verifier treats a
+    /// manifest-declared `Mounted` module that reports `Shell` as the
+    /// planned-vs-mounted lie; `serve()` will be rejected. Defaults to `Shell`
+    /// (fails closed).
+    fn module_state(&self) -> ModuleState {
+        ModuleState::Shell
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{HelmModuleReadiness, HelmModuleState, HelmModuleStatus};
+    use super::{HelmModule, HelmModuleReadiness, HelmModuleState, HelmModuleStatus, ModuleState};
     use serde_json::json;
 
     #[test]
@@ -170,5 +230,42 @@ mod tests {
         let module = TestModule;
         assert_eq!(module.module_state(), HelmModuleState::ShellDefault);
         assert_eq!(module.readiness_status().module_id, "helm.test");
+    }
+
+    #[test]
+    fn module_state_shell_is_default() {
+        use std::sync::Arc;
+
+        struct MinimalModule;
+
+        impl HelmModule for MinimalModule {
+            fn module_id(&self) -> &'static str {
+                "helm.test-minimal"
+            }
+        }
+
+        assert_eq!(
+            Arc::new(MinimalModule).module_state(),
+            ModuleState::Shell,
+            "default module_state must be Shell (fails closed)"
+        );
+    }
+
+    #[tokio::test]
+    async fn module_init_default_is_noop() {
+        use std::sync::Arc;
+
+        struct MinimalModule;
+
+        impl HelmModule for MinimalModule {
+            fn module_id(&self) -> &'static str {
+                "helm.test-minimal"
+            }
+        }
+
+        Arc::new(MinimalModule)
+            .init()
+            .await
+            .expect("init should succeed");
     }
 }

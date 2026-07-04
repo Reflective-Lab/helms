@@ -16,6 +16,9 @@ chrono.workspace = true
 application-kernel = { version = "0.2.1", path = "../application-kernel" }
 helm-governed-jobs = { version = "0.2.1", path = "../helm-governed-jobs" }
 helm-module-contracts = { version = "0.2.1", path = "../helm-module-contracts" }
+# RP-HELMS-SUBSTRATE-SEAM: approved foundation→substrate edge; needed for
+# EventHub / EventHubHandle / EventEnvelope / SSE types. HelmModule / ModuleState
+# are now imported from helm-module-contracts (RFL-128).
 runway-app-host = { version = "3.5.0", path = "../../../../runtime-runway/crates/runway-app-host" }
 serde.workspace = true
 serde_json.workspace = true
