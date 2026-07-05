@@ -1,0 +1,12 @@
+# Mini-workspace that contains only contract crates shared between the helms
+# workspace and other repos (e.g. runtime-runway).
+#
+# Why a separate workspace?
+# When runtime-runway path-deps `helm-module-contracts`, Cargo walks up to find
+# the crate's workspace root. Stopping here (contracts/Cargo.toml) rather than
+# at helms/Cargo.toml means Cargo only loads this mini-workspace — it does NOT
+# cascade into the 30+ member helms workspace, which would require every helms
+# sibling repo to be checked out on CI.  (RFL-128 / RP-HELMS-SUBSTRATE-SEAM)
+[workspace]
+members = ["crates/helm-module-contracts"]
+resolver = "2"

@@ -15,7 +15,7 @@ axum.workspace = true
 chrono.workspace = true
 converge-core.workspace = true
 futures = "0.3"
-helm-module-contracts = { version = "0.2.1", path = "../helm-module-contracts" }
+helm-module-contracts = { version = "0.2.1", path = "../../contracts/crates/helm-module-contracts" }
 helm-truth-execution = { version = "0.2.1", path = "../helm-truth-execution" }
 application-kernel = { version = "0.2.1", path = "../application-kernel" }
 application-storage = { version = "0.2.1", path = "../application-storage" }
