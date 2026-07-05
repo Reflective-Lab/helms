@@ -26,6 +26,9 @@ build-extension:
 
 test:
     cargo test --workspace --all-targets
+    # helm-module-contracts is not a workspace member (standalone so runtime-runway can
+    # path-dep it without loading the full helms workspace). Run its tests explicitly.
+    cargo test --manifest-path crates/helm-module-contracts/Cargo.toml --all-targets
 
 test-workbench-backend:
     cargo test -p workbench-backend
