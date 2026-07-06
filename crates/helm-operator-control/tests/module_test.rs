@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use application_storage::{AppConfig, InMemoryKernelStore};
+use helm_module_contracts::{HelmModule, ModuleState};
 use helm_operator_control::{
     AdapterReceiptStatus, AuthorityEffect, EvidenceReadinessStatus, JobEvidenceStatus,
     JobReadinessPacket, JobReadinessPacketInput, JobVerdict, LiveOperatorControlSnapshot,
@@ -9,7 +10,6 @@ use helm_operator_control::{
     OperatorControlState, OperatorLedgerRecordKind, ReceiptFamily,
     job_readiness_packet_ledger_entry, job_readiness_packet_payload_hash,
 };
-use runway_app_host::{HelmModule, ModuleState};
 use serde_json::json;
 
 fn test_config() -> AppConfig {

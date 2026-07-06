@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use helm_module_contracts::HelmModule;
 use helm_truth_execution::{TruthBody, TruthExecutionArtifacts, TruthExecutionModule};
-use runway_app_host::HelmModule;
 
 // ── Stub truth body ────────────────────────────────────────────────────────────
 

@@ -7,8 +7,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use axum::Router;
-use helm_module_contracts::{HelmModuleReadiness, HelmModuleState, HelmModuleStatus};
-use runway_app_host::{HelmModule, HostContext, ModuleState, SessionOwnershipLayer};
+use helm_module_contracts::{
+    HelmModule, HelmModuleReadiness, HelmModuleState, HelmModuleStatus, ModuleState,
+};
+use runway_app_host::SessionOwnershipLayer;
 use runway_storage::LeaseStore;
 
 use crate::http;
@@ -65,7 +67,7 @@ impl HelmModule for SessionHostModule {
         MODULE_ID
     }
 
-    async fn init(&self, _ctx: &HostContext) -> anyhow::Result<()> {
+    async fn init(&self) -> anyhow::Result<()> {
         tracing::info!(module = MODULE_ID, "initialized");
         Ok(())
     }

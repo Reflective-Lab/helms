@@ -39,7 +39,7 @@ use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
 use axum::Router;
-use runway_app_host::{HelmModule, HostContext};
+use helm_module_contracts::HelmModule;
 
 pub use dispatcher::{
     RecordingObserver, RuntimeContext, TruthExecutionArtifacts, TruthProjection,
@@ -141,7 +141,7 @@ impl HelmModule for TruthExecutionModule {
         "helm.truth-execution"
     }
 
-    async fn init(&self, _ctx: &HostContext) -> anyhow::Result<()> {
+    async fn init(&self) -> anyhow::Result<()> {
         let count = self.registered_count();
         tracing::info!(
             module = self.module_id(),

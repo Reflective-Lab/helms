@@ -26,6 +26,9 @@ build-extension:
 
 test:
     cargo test --workspace --all-targets
+    # helm-module-contracts lives in a separate mini-workspace (contracts/) so that
+    # runtime-runway can path-dep it without Cargo cascading into the full helms workspace.
+    cargo test --manifest-path contracts/Cargo.toml
 
 test-workbench-backend:
     cargo test -p workbench-backend
@@ -41,12 +44,15 @@ fmt:
 
 fmt-check:
     cargo fmt --all -- --check
+    cargo fmt --manifest-path contracts/Cargo.toml -- --check
 
 check:
     cargo check --workspace --all-targets
+    cargo check --manifest-path contracts/Cargo.toml --all-targets
 
 lint:
     cargo clippy --workspace --all-targets -- -D warnings
+    cargo clippy --manifest-path contracts/Cargo.toml --all-targets -- -D warnings
 
 desktop-rust-fmt:
     cd apps/desktop/src-tauri && cargo fmt

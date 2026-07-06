@@ -14,8 +14,11 @@ axum.workspace = true
 chrono.workspace = true
 director-contracts = { version = "0.2.1", path = "../director-contracts" }
 helm-client = { version = "0.2.1", path = "../helm-client" }
-helm-module-contracts = { version = "0.2.1", path = "../helm-module-contracts" }
+helm-module-contracts = { version = "0.2.1", path = "../../contracts/crates/helm-module-contracts" }
 helm-session-contracts = { version = "0.2.1", path = "../helm-session-contracts" }
+# RP-HELMS-SUBSTRATE-SEAM: approved foundation→substrate edge; needed for
+# SessionOwnershipLayer, EventHub / EventHubHandle / EventCursor / SSE. HelmModule
+# / ModuleState now imported from helm-module-contracts (RFL-128).
 runway-app-host = { version = "3.5.0", path = "../../../../runtime-runway/crates/runway-app-host" }
 runway-storage = { version = "3.4.2", path = "../../../../runtime-runway/crates/runway-storage" }
 serde.workspace = true

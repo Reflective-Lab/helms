@@ -7,7 +7,6 @@ members = [
     "crates/workbench-backend",
     "crates/application-kernel",
     "crates/application-storage",
-    "crates/helm-module-contracts",
     "crates/helm-truth-execution",
     "crates/plugin-runtime",
 
@@ -151,6 +150,7 @@ converge-model             = { path = "../converge/crates/model" }
 converge-optimization      = { path = "../converge/crates/optimization" }
 converge-pack              = { path = "../converge/crates/pack" }
 converge-provider          = { path = "../converge/crates/provider" }
+converge-storage           = { path = "../converge/crates/storage" }
 converge-manifold-adapters = { path = "../../mosaic-extensions/manifold-adapters/crates/manifold" }
 converge-fuzzy-inference   = { path = "../../mosaic-extensions/prism-analytics/crates/fuzzy" }
 organism-adversarial       = { path = "../organism/crates/adversarial" }
