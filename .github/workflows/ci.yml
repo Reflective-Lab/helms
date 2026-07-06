@@ -10,6 +10,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_VERSION: "1.96.0"
+  # Clone sibling repos at the same branch as this PR so cross-repo changes
+  # (e.g. RFL-128 contracts/ move) resolve consistently. Falls back to main
+  # on direct pushes (github.head_ref is empty) and for repos without the branch.
+  REFLECTIVE_SIBLING_REF: ${{ github.head_ref || 'main' }}
 
 jobs:
   ci:
