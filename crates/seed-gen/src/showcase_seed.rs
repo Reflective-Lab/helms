@@ -6,12 +6,11 @@
 //! the Parquet files (via `main.rs`) and now *reads* them back for pipeline
 //! seeding.
 //!
-//! # Mounting-app usage
+//! # Reference implementation
 //!
-//! The mounting app (not present in this workspace — see DONE_WITH_CONCERNS
-//! note in the T5b report) should depend on `helm-module-contracts` and wrap
-//! these functions (or equivalent logic) in a struct that implements
+//! [`ParquetSeedSource`] is the reference implementation of
 //! [`helm_module_contracts::showcase_pipeline::ShowcaseSeedSource`].
+//! Mounting apps can use it directly or write their own implementation.
 //!
 //! # Known schema mismatch
 //!
@@ -22,56 +21,78 @@
 //! implementing `ShowcaseSeedSource` should reconcile this against the actual
 //! parquet schema before shipping.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use helm_module_contracts::showcase_pipeline::ShowcasePipelineInput;
+use async_trait::async_trait;
+use helm_module_contracts::showcase_pipeline::{
+    SeedSourceError, ShowcasePipelineInput, ShowcaseSeedSource,
+};
 use polars::prelude::*;
+
+// ── Internal helpers ───────────────────────────────────────────────────────────
 
 /// Load behavioral events from seed Parquet for a specific prospect.
 /// Returns the events as a JSON string suitable for score-inbound-fit input.
-pub fn load_prospect_events_from_seed(
+///
+/// Errors are mapped to [`SeedSourceError`] variants:
+/// - File not found or unreadable → `StorageError`
+/// - Column missing or parse failure → `ParseError`
+fn load_prospect_events(
     seed_dir: &Path,
     prospect_id: &str,
-) -> Result<String, String> {
+) -> Result<String, SeedSourceError> {
     let path = seed_dir.join("behavior_events.parquet");
-    let parquet_path = path
-        .to_str()
-        .ok_or_else(|| format!("invalid parquet path: {}", path.display()))?;
+
+    // Pre-check existence so callers receive StorageError for missing files
+    // rather than a ParseError from polars' lazy collect pipeline.
+    if !path.exists() {
+        return Err(SeedSourceError::StorageError {
+            detail: format!("seed file not found: {}", path.display()),
+        });
+    }
+
+    let parquet_path = path.to_str().ok_or_else(|| SeedSourceError::StorageError {
+        detail: format!("invalid parquet path: {}", path.display()),
+    })?;
     let df = LazyFrame::scan_parquet(PlPath::new(parquet_path), Default::default())
-        .map_err(|e| format!("failed to read parquet: {e}"))?
+        .map_err(|e| SeedSourceError::StorageError {
+            detail: format!("failed to open parquet: {e}"),
+        })?
         .filter(col("prospect_id").eq(lit(prospect_id)))
         .collect()
-        .map_err(|e| format!("failed to filter prospect: {e}"))?;
+        .map_err(|e| SeedSourceError::ParseError {
+            detail: format!("failed to read events: {e}"),
+        })?;
 
     let mut events = Vec::new();
     let rows = df.height();
     for i in 0..rows {
         let visitor_id = df
             .column("prospect_id")
-            .map_err(|e| e.to_string())?
+            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
             .str()
-            .map_err(|e| e.to_string())?
+            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
             .get(i)
             .unwrap_or("");
         let timestamp = df
             .column("timestamp")
-            .map_err(|e| e.to_string())?
+            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
             .i64()
-            .map_err(|e| e.to_string())?
+            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
             .get(i)
             .unwrap_or(0);
         let event_type = df
             .column("event_types")
-            .map_err(|e| e.to_string())?
+            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
             .str()
-            .map_err(|e| e.to_string())?
+            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
             .get(i)
             .unwrap_or("");
         let page = df
             .column("page_sections")
-            .map_err(|e| e.to_string())?
+            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
             .str()
-            .map_err(|e| e.to_string())?
+            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
             .get(i)
             .unwrap_or("");
 
@@ -83,28 +104,47 @@ pub fn load_prospect_events_from_seed(
         }));
     }
 
-    serde_json::to_string(&events).map_err(|e| format!("json serialization failed: {e}"))
+    serde_json::to_string(&events).map_err(|e| SeedSourceError::ParseError {
+        detail: format!("json serialization failed: {e}"),
+    })
 }
 
 /// Load account context from seed Parquet for a specific prospect.
-pub fn load_prospect_context_from_seed(
+///
+/// Errors are mapped to [`SeedSourceError`] variants:
+/// - File not found or unreadable → `StorageError`
+/// - Column missing or parse failure → `ParseError`
+/// - Prospect absent in the dataset → `ProspectNotFound`
+fn load_prospect_context(
     seed_dir: &Path,
     prospect_id: &str,
-) -> Result<ShowcasePipelineInput, String> {
+) -> Result<ShowcasePipelineInput, SeedSourceError> {
     let path = seed_dir.join("account_context.parquet");
-    let parquet_path = path
-        .to_str()
-        .ok_or_else(|| format!("invalid parquet path: {}", path.display()))?;
+
+    // Pre-check existence so callers receive StorageError for missing files.
+    if !path.exists() {
+        return Err(SeedSourceError::StorageError {
+            detail: format!("seed file not found: {}", path.display()),
+        });
+    }
+
+    let parquet_path = path.to_str().ok_or_else(|| SeedSourceError::StorageError {
+        detail: format!("invalid parquet path: {}", path.display()),
+    })?;
     let df = LazyFrame::scan_parquet(PlPath::new(parquet_path), Default::default())
-        .map_err(|e| format!("failed to read account_context parquet: {e}"))?
+        .map_err(|e| SeedSourceError::StorageError {
+            detail: format!("failed to open account_context parquet: {e}"),
+        })?
         .filter(col("prospect_id").eq(lit(prospect_id)))
         .collect()
-        .map_err(|e| format!("failed to filter prospect: {e}"))?;
+        .map_err(|e| SeedSourceError::ParseError {
+            detail: format!("failed to read account_context: {e}"),
+        })?;
 
     if df.height() == 0 {
-        return Err(format!(
-            "prospect '{prospect_id}' not found in account_context"
-        ));
+        return Err(SeedSourceError::ProspectNotFound {
+            prospect_id: prospect_id.to_string(),
+        });
     }
 
     let name = df
@@ -122,7 +162,7 @@ pub fn load_prospect_context_from_seed(
         .and_then(|s| s.get(0))
         .map(ToString::to_string);
 
-    let events_json = load_prospect_events_from_seed(seed_dir, prospect_id)?;
+    let events_json = load_prospect_events(seed_dir, prospect_id)?;
 
     Ok(ShowcasePipelineInput {
         prospect_name: name,
@@ -139,4 +179,126 @@ pub fn load_prospect_context_from_seed(
         contact_title: None,
         contact_email: None,
     })
+}
+
+// ── Public struct ──────────────────────────────────────────────────────────────
+
+/// Parquet-based reference implementation of [`ShowcaseSeedSource`].
+///
+/// Reads `behavior_events.parquet` and `account_context.parquet` from
+/// `data_dir`. This is the canonical seed-IO path: seed-gen writes the files
+/// and this struct reads them back.
+///
+/// # Error mapping
+///
+/// | Failure mode              | Variant                           |
+/// |---------------------------|-----------------------------------|
+/// | File not found / I/O      | [`SeedSourceError::StorageError`] |
+/// | Bad column / parse        | [`SeedSourceError::ParseError`]   |
+/// | Prospect absent in data   | [`SeedSourceError::ProspectNotFound`] |
+///
+/// # Async contract
+///
+/// The polars IO is blocking and internally may spin its own thread pool.
+/// `load` dispatches to [`tokio::task::spawn_blocking`] so it is safe to
+/// call from within an async Tokio context.
+pub struct ParquetSeedSource {
+    pub data_dir: PathBuf,
+}
+
+impl ParquetSeedSource {
+    pub fn new(data_dir: impl Into<PathBuf>) -> Self {
+        Self {
+            data_dir: data_dir.into(),
+        }
+    }
+}
+
+#[async_trait]
+impl ShowcaseSeedSource for ParquetSeedSource {
+    async fn load(&self, prospect_id: &str) -> Result<ShowcasePipelineInput, SeedSourceError> {
+        let data_dir = self.data_dir.clone();
+        let prospect_id = prospect_id.to_string();
+        tokio::task::spawn_blocking(move || load_prospect_context(&data_dir, &prospect_id))
+            .await
+            .map_err(|e| SeedSourceError::StorageError {
+                detail: format!("blocking task panicked: {e}"),
+            })?
+    }
+}
+
+// ── Tests ──────────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A missing parquet file must surface as `StorageError`, not a panic or
+    /// a stringly-typed error.
+    #[tokio::test]
+    async fn missing_file_yields_storage_error() {
+        let src = ParquetSeedSource::new("/nonexistent/path/that/cannot/exist");
+        let err = src.load("prospect-001").await.unwrap_err();
+        assert!(
+            matches!(err, SeedSourceError::StorageError { .. }),
+            "expected StorageError, got: {err}"
+        );
+    }
+
+    /// A prospect id not present in a real (but empty-filtered) dataset must
+    /// surface as `ProspectNotFound`.
+    ///
+    /// We build minimal in-memory Parquet fixtures on a background thread
+    /// (to avoid nesting a Tokio runtime inside the test runtime) then query
+    /// for a prospect that isn't in the data.
+    #[tokio::test]
+    async fn unknown_prospect_yields_prospect_not_found() {
+        // Build fixtures on a blocking thread so polars doesn't try to start
+        // its own runtime inside the test's Tokio executor.
+        let tmp_path = tokio::task::spawn_blocking(|| {
+            let tmp = tempfile::tempdir().expect("tmp dir");
+
+            // account_context — one row for "p-known"
+            let mut df = df!(
+                "prospect_id" => ["p-known"],
+                "company_name" => ["ACME Corp"],
+                "industry"     => ["SaaS"],
+            )
+            .expect("df");
+            let file =
+                std::fs::File::create(tmp.path().join("account_context.parquet")).expect("create");
+            ParquetWriter::new(file).finish(&mut df).expect("write");
+
+            // behavior_events — empty schema so the events loader doesn't
+            // fail with StorageError before we reach the prospect check
+            let mut events_df = df!(
+                "prospect_id"   => Vec::<&str>::new(),
+                "timestamp"     => Vec::<i64>::new(),
+                "event_types"   => Vec::<&str>::new(),
+                "page_sections" => Vec::<&str>::new(),
+            )
+            .expect("events df");
+            let ef =
+                std::fs::File::create(tmp.path().join("behavior_events.parquet")).expect("create");
+            ParquetWriter::new(ef).finish(&mut events_df).expect("write");
+
+            // Keep `tmp` alive by moving it out; caller holds the PathBuf.
+            tmp.keep()
+        })
+        .await
+        .expect("fixture thread");
+
+        let src = ParquetSeedSource::new(&tmp_path);
+        let err = src.load("p-unknown").await.unwrap_err();
+        assert!(
+            matches!(
+                err,
+                SeedSourceError::ProspectNotFound { ref prospect_id } if prospect_id == "p-unknown"
+            ),
+            "expected ProspectNotFound for p-unknown, got: {err}"
+        );
+
+        // Clean up the temp dir (was kept alive via into_path()).
+        let _ = std::fs::remove_dir_all(&tmp_path);
+    }
 }
