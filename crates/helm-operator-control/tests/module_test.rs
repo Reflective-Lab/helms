@@ -302,3 +302,147 @@ fn helm_crate_exports_operator_control_contracts() {
     assert_eq!(entry.authority_effect, AuthorityEffect::None);
     assert_eq!(entry.source_ref, packet.packet_id);
 }
+
+// ── Soak ──────────────────────────────────────────────────────────────────────
+
+/// Soak: packet build → ledger entry → preview loop via StaticReadinessFeed.
+///
+/// Runs `SOAK_ITERS` iterations (default 100 000). On every iteration:
+/// - Builds a `JobReadinessPacket` and ledger entry from a fixed input.
+/// - Wraps them in a `StaticReadinessFeed` and asserts the live preview
+///   resolves correctly.
+/// - Asserts that packet_id and entry_id are stable across all iterations
+///   (determinism / no drift).
+/// - Every 10 000 iterations, builds a packet from a *mutated* input and
+///   asserts the ids differ (inequality check).
+///
+/// Run:
+/// ```text
+/// SOAK_ITERS=10000 cargo test -p helm-operator-control -- --ignored soak --nocapture
+/// ```
+#[test]
+#[ignore = "soak — run with: SOAK_ITERS=10000 cargo test -p helm-operator-control -- --ignored soak --nocapture"]
+fn soak_packet_ledger_preview_no_drift() {
+    use std::sync::Arc;
+    use std::time::Instant;
+
+    let iters: u64 = std::env::var("SOAK_ITERS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(100_000);
+
+    // Canonical baseline input.
+    let base_input = || JobReadinessPacketInput {
+        package_id: "soak.pkg.001".to_string(),
+        truth_version: "truth.soak.v1".to_string(),
+        domain_hint: "soak.operator-control".to_string(),
+        job_key: "soak-readiness-check".to_string(),
+        subject_ref: "soak.subject.abcdef".to_string(),
+        adapter_receipt_id: "soak.adapter.receipt.abcdef".to_string(),
+        adapter_status: AdapterReceiptStatus::Succeeded,
+        verdict: Some(JobVerdict::Blocked),
+        authorizes_domain_action: false,
+        evidence_status: vec![JobEvidenceStatus {
+            clause_id: "soak.clause.1".to_string(),
+            clause_key: "soak-evidence-key".to_string(),
+            label: "Soak evidence present".to_string(),
+            status: EvidenceReadinessStatus::Present,
+            fact_ids: vec!["soak.fact.1".to_string()],
+            evidence_refs: vec!["soak.evidence.1".to_string()],
+            trace_links: Vec::new(),
+            concern_record_ids: Vec::new(),
+        }],
+        fuzzy_trace: None,
+        verifier_forbidden_actions: vec!["soak.forbidden".to_string()],
+        operator_actions: vec!["soak.action".to_string()],
+    };
+
+    // Build baseline once to capture reference ids and hash.
+    let ref_packet =
+        JobReadinessPacket::new(base_input()).expect("baseline packet builds");
+    let ref_entry = job_readiness_packet_ledger_entry(
+        1,
+        &ref_packet,
+        vec!["soak.backlink.1".to_string()],
+        "soak baseline ledger entry",
+    )
+    .expect("baseline ledger entry builds");
+
+    let ref_packet_id = ref_packet.packet_id.clone();
+    let ref_entry_id = ref_entry.entry_id.clone();
+    let ref_hash = job_readiness_packet_payload_hash(&ref_packet);
+
+    // Build the mutated input once (append "-mutated" to package_id).
+    let mutated_packet = {
+        let mut m = base_input();
+        m.package_id.push_str("-mutated");
+        JobReadinessPacket::new(m).expect("mutated packet builds")
+    };
+    assert_ne!(
+        mutated_packet.packet_id, ref_packet_id,
+        "mutated input must produce a different packet_id"
+    );
+
+    let start = Instant::now();
+    eprintln!("soak: starting {iters} iterations…");
+
+    for i in 0..iters {
+        // Build packet + ledger entry from identical input.
+        let packet = JobReadinessPacket::new(base_input()).expect("packet builds");
+        assert_eq!(
+            packet.packet_id, ref_packet_id,
+            "iteration {i}: packet_id drifted"
+        );
+
+        let hash = job_readiness_packet_payload_hash(&packet);
+        assert_eq!(hash, ref_hash, "iteration {i}: payload hash drifted");
+
+        let entry = job_readiness_packet_ledger_entry(
+            1,
+            &packet,
+            vec!["soak.backlink.1".to_string()],
+            "soak baseline ledger entry",
+        )
+        .expect("ledger entry builds");
+        assert_eq!(
+            entry.entry_id, ref_entry_id,
+            "iteration {i}: entry_id drifted"
+        );
+        assert_eq!(
+            entry.authority_effect,
+            AuthorityEffect::None,
+            "iteration {i}: authority_effect is not None"
+        );
+
+        // Thread through the live feed → preview path every iteration.
+        let snapshot = LiveOperatorControlSnapshot::new(packet, vec![entry]);
+        let feed = Arc::new(StaticReadinessFeed {
+            evidence: LiveReadinessEvidence::complete(),
+            snapshots: vec![snapshot],
+        });
+        let m = OperatorControlModule::new().with_live_readiness_feed(feed);
+        assert_eq!(
+            m.module_state(),
+            HelmModuleState::Live,
+            "iteration {i}: module should report Live"
+        );
+
+        // Inequality check every 10 000 iterations.
+        if i % 10_000 == 9_999 {
+            let mut mi = base_input();
+            mi.package_id = format!("soak.pkg.001-iter{i}");
+            let mp = JobReadinessPacket::new(mi).expect("mutated packet builds");
+            assert_ne!(
+                mp.packet_id, ref_packet_id,
+                "iteration {i}: mutated packet_id must differ from baseline"
+            );
+        }
+    }
+
+    let elapsed = start.elapsed();
+    eprintln!(
+        "soak: {iters} iterations in {:.2}s ({:.0} iter/s)",
+        elapsed.as_secs_f64(),
+        iters as f64 / elapsed.as_secs_f64()
+    );
+}
