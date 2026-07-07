@@ -15,5 +15,7 @@ serde = { version = "1", features = ["derive"] }
 sha2 = "0.11"
 
 [dev-dependencies]
+proptest = "1"
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+trybuild = { version = "1", features = ["diff"] }
