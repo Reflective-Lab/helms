@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package prio.metadata.v1;
+
+import "prio/common/v1/common.proto";
+
+service MetadataService {
+  rpc UpsertObjectDefinition(UpsertObjectDefinitionRequest) returns (prio.common.v1.ObjectDefinition);
+  rpc UpsertViewDefinition(UpsertViewDefinitionRequest) returns (prio.common.v1.ViewDefinition);
+  rpc ListObjectDefinitions(ListObjectDefinitionsRequest) returns (ListObjectDefinitionsResponse);
+  rpc ListViewDefinitions(ListViewDefinitionsRequest) returns (ListViewDefinitionsResponse);
+}
+
+message UpsertObjectDefinitionRequest {
+  optional string object_definition_id = 1;
+  string key = 2;
+  string display_name = 3;
+  prio.common.v1.ObjectDefinitionKind kind = 4;
+  repeated prio.common.v1.FieldDefinition fields = 5;
+  repeated prio.common.v1.RelationshipDefinition relationships = 6;
+  bool active = 7;
+}
+
+message UpsertViewDefinitionRequest {
+  optional string view_definition_id = 1;
+  string object_key = 2;
+  string name = 3;
+  prio.common.v1.ViewLayout layout = 4;
+  optional string filter_expression = 5;
+  optional string sort_expression = 6;
+  repeated string visible_fields = 7;
+  optional string group_by = 8;
+  bool favorite = 9;
+  optional string owner_user_id = 10;
+}
+
+message ListObjectDefinitionsRequest {}
+
+message ListObjectDefinitionsResponse {
+  repeated prio.common.v1.ObjectDefinition objects = 1;
+}
+
+message ListViewDefinitionsRequest {
+  optional string object_key = 1;
+}
+
+message ListViewDefinitionsResponse {
+  repeated prio.common.v1.ViewDefinition views = 1;
+}
+
