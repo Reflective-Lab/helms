@@ -22,10 +22,6 @@
 //! implementing `ShowcaseSeedSource` should reconcile this against the actual
 //! parquet schema before shipping.
 
-// The functions in this module are intentionally unused inside the seed-gen
-// binary itself; they exist for a mounting app to pick up (see module doc).
-#![allow(dead_code)]
-
 use std::path::Path;
 
 use helm_module_contracts::showcase_pipeline::ShowcasePipelineInput;

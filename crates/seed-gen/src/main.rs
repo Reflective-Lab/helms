@@ -1,7 +1,3 @@
-// Parquet seed-loaders for the showcase pipeline — moved here from
-// helm-operator-control (RFL-154 T5b). See module doc for mounting notes.
-mod showcase_seed;
-
 use std::fs::{self, File};
 use std::path::Path;
 
