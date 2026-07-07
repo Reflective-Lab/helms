@@ -9,5 +9,3 @@ publish.workspace = true
 
 [dependencies]
 capability-core = { version = "0.2.1", path = "../capability-core" }
-serde = { workspace = true, features = ["derive"] }
-sha2 = { workspace = true }
