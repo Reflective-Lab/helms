@@ -1,20 +1,18 @@
 use std::sync::Arc;
 
-use application_storage::{AppConfig, InMemoryKernelStore};
-use helm_module_contracts::{HelmModule, ModuleState};
-use helm_operator_control::{
+use helm_module_contracts::operator_preview::{OperatorControlPreview, OperatorControlPreviewBacking};
+use helm_module_contracts::operator_receipts::{
     AdapterReceiptStatus, AuthorityEffect, EvidenceReadinessStatus, JobEvidenceStatus,
-    JobReadinessPacket, JobReadinessPacketInput, JobVerdict, LiveOperatorControlSnapshot,
-    LiveReadinessEvidence, OperatorControlModule, OperatorControlModuleState,
-    OperatorControlPreview, OperatorControlPreviewBacking, OperatorControlReadinessFeed,
-    OperatorControlState, OperatorLedgerRecordKind, ReceiptFamily,
-    job_readiness_packet_ledger_entry, job_readiness_packet_payload_hash,
+    JobReadinessPacket, JobReadinessPacketInput, JobVerdict, OperatorControlError,
+    OperatorLedgerRecordKind, ReceiptFamily, job_readiness_packet_ledger_entry,
+    job_readiness_packet_payload_hash,
+};
+use helm_module_contracts::{HelmModule, HelmModuleState, ModuleState};
+use helm_operator_control::{
+    LiveOperatorControlSnapshot, LiveReadinessEvidence, OperatorControlModule,
+    OperatorControlReadinessFeed, OperatorControlState,
 };
 use serde_json::json;
-
-fn test_config() -> AppConfig {
-    AppConfig::default()
-}
 
 #[derive(Clone)]
 struct StaticReadinessFeed {
@@ -27,9 +25,7 @@ impl OperatorControlReadinessFeed for StaticReadinessFeed {
         self.evidence
     }
 
-    fn previews(
-        &self,
-    ) -> Result<Vec<LiveOperatorControlSnapshot>, helm_operator_control::OperatorControlError> {
+    fn previews(&self) -> Result<Vec<LiveOperatorControlSnapshot>, OperatorControlError> {
         Ok(self.snapshots.clone())
     }
 }
@@ -77,30 +73,28 @@ fn sample_snapshot() -> LiveOperatorControlSnapshot {
 
 #[test]
 fn module_id_is_stable() {
-    let m: Arc<OperatorControlModule<InMemoryKernelStore>> =
-        Arc::new(OperatorControlModule::new(test_config()));
+    let m: Arc<OperatorControlModule> = Arc::new(OperatorControlModule::new());
     assert_eq!(m.module_id(), "helm.operator-control");
 }
 
 #[test]
 fn module_exposes_router() {
-    let m: Arc<OperatorControlModule<InMemoryKernelStore>> =
-        Arc::new(OperatorControlModule::new(test_config()));
+    let m: Arc<OperatorControlModule> = Arc::new(OperatorControlModule::new());
     // Calling router() consumes the Arc — just verify it doesn't panic.
     let _router = m.router();
 }
 
 #[test]
 fn default_module_reports_shell_default() {
-    let m: OperatorControlModule<InMemoryKernelStore> = OperatorControlModule::new(test_config());
+    let m: OperatorControlModule = OperatorControlModule::new();
     let status = m.readiness_status();
 
-    assert_eq!(m.module_state(), OperatorControlModuleState::ShellDefault);
+    assert_eq!(m.module_state(), HelmModuleState::ShellDefault);
     assert_eq!(
-        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        <OperatorControlModule as HelmModule>::module_state(&m),
         ModuleState::Shell
     );
-    assert_eq!(status.state, OperatorControlModuleState::ShellDefault);
+    assert_eq!(status.state, HelmModuleState::ShellDefault);
     assert_eq!(status.registered_truths, Some(0));
     assert!(
         status
@@ -126,22 +120,22 @@ fn default_module_reports_shell_default() {
 
 #[test]
 fn complete_live_evidence_reports_live() {
-    let m: OperatorControlModule<InMemoryKernelStore> = OperatorControlModule::new(test_config())
+    let m: OperatorControlModule = OperatorControlModule::new()
         .with_live_readiness_evidence(LiveReadinessEvidence::complete());
     let status = m.readiness_status();
 
-    assert_eq!(m.module_state(), OperatorControlModuleState::Live);
+    assert_eq!(m.module_state(), HelmModuleState::Live);
     assert_eq!(
-        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        <OperatorControlModule as HelmModule>::module_state(&m),
         ModuleState::Live
     );
-    assert_eq!(status.state, OperatorControlModuleState::Live);
+    assert_eq!(status.state, HelmModuleState::Live);
     assert!(status.missing_live_requirements.is_empty());
 }
 
 #[test]
 fn readiness_status_serializes_shell_default_for_rr_verifier() {
-    let m: OperatorControlModule<InMemoryKernelStore> = OperatorControlModule::new(test_config());
+    let m: OperatorControlModule = OperatorControlModule::new();
     let value = serde_json::to_value(m.readiness_status()).expect("status serializes");
 
     assert_eq!(value["module_id"], "helm.operator-control");
@@ -169,7 +163,7 @@ fn readiness_status_serializes_shell_default_for_rr_verifier() {
 
 #[test]
 fn readiness_status_serializes_live_without_missing_requirements() {
-    let m: OperatorControlModule<InMemoryKernelStore> = OperatorControlModule::new(test_config())
+    let m: OperatorControlModule = OperatorControlModule::new()
         .with_live_readiness_evidence(LiveReadinessEvidence::complete());
     let value = serde_json::to_value(m.readiness_status()).expect("status serializes");
 
@@ -185,16 +179,16 @@ fn live_readiness_feed_reports_live_when_evidence_and_snapshot_exist() {
         evidence: LiveReadinessEvidence::complete(),
         snapshots: vec![sample_snapshot()],
     });
-    let m: OperatorControlModule<InMemoryKernelStore> =
-        OperatorControlModule::new(test_config()).with_live_readiness_feed(feed);
+    let m: OperatorControlModule =
+        OperatorControlModule::new().with_live_readiness_feed(feed);
     let status = m.readiness_status();
 
-    assert_eq!(m.module_state(), OperatorControlModuleState::Live);
+    assert_eq!(m.module_state(), HelmModuleState::Live);
     assert_eq!(
-        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        <OperatorControlModule as HelmModule>::module_state(&m),
         ModuleState::Live
     );
-    assert_eq!(status.state, OperatorControlModuleState::Live);
+    assert_eq!(status.state, HelmModuleState::Live);
     assert!(
         status
             .live_requirements
@@ -209,16 +203,16 @@ fn live_readiness_feed_requires_at_least_one_snapshot() {
         evidence: LiveReadinessEvidence::complete(),
         snapshots: Vec::new(),
     });
-    let m: OperatorControlModule<InMemoryKernelStore> =
-        OperatorControlModule::new(test_config()).with_live_readiness_feed(feed);
+    let m: OperatorControlModule =
+        OperatorControlModule::new().with_live_readiness_feed(feed);
     let status = m.readiness_status();
 
-    assert_eq!(m.module_state(), OperatorControlModuleState::ShellDefault);
+    assert_eq!(m.module_state(), HelmModuleState::ShellDefault);
     assert_eq!(
-        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        <OperatorControlModule as HelmModule>::module_state(&m),
         ModuleState::Shell
     );
-    assert_eq!(status.state, OperatorControlModuleState::ShellDefault);
+    assert_eq!(status.state, HelmModuleState::ShellDefault);
     assert!(
         status
             .missing_live_requirements
@@ -232,8 +226,7 @@ fn operator_control_state_uses_live_feed_previews_when_present() {
         evidence: LiveReadinessEvidence::complete(),
         snapshots: vec![sample_snapshot()],
     });
-    let store = InMemoryKernelStore::default_local();
-    let state = OperatorControlState::new(store.config.clone(), store).with_readiness_feed(feed);
+    let state = OperatorControlState::new().with_readiness_feed(feed);
     let preview = state
         .operator_control_preview()
         .expect("live feed preview is available");
@@ -249,8 +242,7 @@ fn operator_control_state_does_not_fall_back_to_static_demo_when_live_feed_is_em
         evidence: LiveReadinessEvidence::complete(),
         snapshots: Vec::new(),
     });
-    let store = InMemoryKernelStore::default_local();
-    let state = OperatorControlState::new(store.config.clone(), store).with_readiness_feed(feed);
+    let state = OperatorControlState::new().with_readiness_feed(feed);
     let previews = state
         .operator_control_previews()
         .expect("empty live feed returns empty previews");
@@ -268,8 +260,7 @@ fn operator_control_state_does_not_fall_back_to_static_demo_when_live_feed_is_em
 
 #[test]
 fn operator_control_state_returns_empty_previews_without_live_feed() {
-    let store = InMemoryKernelStore::default_local();
-    let state = OperatorControlState::new(store.config.clone(), store);
+    let state = OperatorControlState::new();
 
     assert!(
         state

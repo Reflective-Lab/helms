@@ -5,38 +5,34 @@
 //! all other workbench and CRM routes remain in application-server until a
 //! later phase.
 
+use std::fmt;
 use std::sync::Arc;
 
-use crate::{OperatorControlPreview, OperatorControlReadinessFeed};
-use application_storage::{AppConfig, InMemoryKernelStore, KernelStore};
+use crate::OperatorControlReadinessFeed;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
+use helm_module_contracts::operator_preview::OperatorControlPreview;
+use helm_module_contracts::operator_receipts::OperatorControlError;
 use serde::Serialize;
-use workbench_backend::{OperatorApp, OperatorAppError};
 
 // ── State ────────────────────────────────────────────────────────────────────
 
 /// Focused state struct for operator-control routes.
 ///
-/// Holds only what these two routes need: an `OperatorApp<S>`. The broader
-/// `HttpState<S>` in application-server carries billing, runtime stores, and
-/// other concerns that do not belong to operator-control.
+/// Holds only what these routes need: an optional live readiness feed.
+/// `OperatorApp<S>` (previously held here) was dead weight — the preview
+/// methods implement live-feed logic directly (RFL-154 T5a).
 #[derive(Clone)]
-pub struct OperatorControlState<S = InMemoryKernelStore> {
-    pub operator: OperatorApp<S>,
+pub struct OperatorControlState {
     readiness_feed: Option<Arc<dyn OperatorControlReadinessFeed>>,
 }
 
-impl<S> OperatorControlState<S>
-where
-    S: KernelStore + Clone,
-{
-    pub fn new(config: AppConfig, store: S) -> Self {
+impl OperatorControlState {
+    pub fn new() -> Self {
         Self {
-            operator: OperatorApp::new(config, store),
             readiness_feed: None,
         }
     }
@@ -46,35 +42,63 @@ where
         self
     }
 
-    pub fn operator_control_preview(&self) -> Result<OperatorControlPreview, OperatorAppError> {
+    pub fn operator_control_preview(&self) -> Result<OperatorControlPreview, OperatorStateError> {
         let mut previews = self.live_previews()?;
         if !previews.is_empty() {
             return Ok(previews.remove(0));
         }
 
-        Err(OperatorAppError::OperatorControl(
-            "operator-control preview requires an injected live readiness feed".to_string(),
-        ))
+        Err(OperatorStateError::NotAvailable)
     }
 
     pub fn operator_control_previews(
         &self,
-    ) -> Result<Vec<OperatorControlPreview>, OperatorAppError> {
+    ) -> Result<Vec<OperatorControlPreview>, OperatorStateError> {
         self.live_previews()
     }
 
-    fn live_previews(&self) -> Result<Vec<OperatorControlPreview>, OperatorAppError> {
+    fn live_previews(&self) -> Result<Vec<OperatorControlPreview>, OperatorStateError> {
         let Some(feed) = &self.readiness_feed else {
             return Ok(Vec::new());
         };
 
-        let snapshots = feed
-            .previews()
-            .map_err(|error| OperatorAppError::OperatorControl(error.to_string()))?;
-
+        let snapshots = feed.previews().map_err(OperatorStateError::Feed)?;
         Ok(snapshots.into_iter().map(Into::into).collect())
     }
 }
+
+impl Default for OperatorControlState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// ── State-layer error ─────────────────────────────────────────────────────────
+
+/// Error returned by [`OperatorControlState`] preview methods.
+///
+/// - [`OperatorStateError::Feed`] wraps a validation error propagated from the
+///   live readiness feed's [`OperatorControlReadinessFeed::previews`] call.
+/// - [`OperatorStateError::NotAvailable`] signals that no live preview is
+///   available from the configured feed (feed absent or returned empty).
+#[derive(Debug)]
+pub enum OperatorStateError {
+    Feed(OperatorControlError),
+    NotAvailable,
+}
+
+impl fmt::Display for OperatorStateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Feed(e) => e.fmt(f),
+            Self::NotAvailable => {
+                f.write_str("operator-control preview requires an injected live readiness feed")
+            }
+        }
+    }
+}
+
+impl std::error::Error for OperatorStateError {}
 
 // ── Router ───────────────────────────────────────────────────────────────────
 
@@ -83,46 +107,37 @@ where
 /// Paths exposed:
 /// - `GET /v1/workbench/operator-control/preview`  — first injected live preview
 /// - `GET /v1/workbench/operator-control/previews` — injected live preview list
-pub fn router<S>(state: Arc<OperatorControlState<S>>) -> Router
-where
-    S: KernelStore + Clone + Send + Sync + 'static,
-{
+pub fn router(state: Arc<OperatorControlState>) -> Router {
     Router::new()
         .route(
             "/v1/workbench/operator-control/preview",
-            get(workbench_operator_control_preview::<S>),
+            get(workbench_operator_control_preview),
         )
         .route(
             "/v1/workbench/operator-control/previews",
-            get(workbench_operator_control_previews::<S>),
+            get(workbench_operator_control_previews),
         )
         .with_state(state)
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
-async fn workbench_operator_control_preview<S>(
-    State(state): State<Arc<OperatorControlState<S>>>,
-) -> Result<Json<OperatorControlPreview>, ApiError>
-where
-    S: KernelStore + Clone + Send + Sync + 'static,
-{
+async fn workbench_operator_control_preview(
+    State(state): State<Arc<OperatorControlState>>,
+) -> Result<Json<OperatorControlPreview>, ApiError> {
     state
         .operator_control_preview()
         .map(Json)
-        .map_err(api_error_from_operator)
+        .map_err(api_error_from_operator_state)
 }
 
-async fn workbench_operator_control_previews<S>(
-    State(state): State<Arc<OperatorControlState<S>>>,
-) -> Result<Json<Vec<OperatorControlPreview>>, ApiError>
-where
-    S: KernelStore + Clone + Send + Sync + 'static,
-{
+async fn workbench_operator_control_previews(
+    State(state): State<Arc<OperatorControlState>>,
+) -> Result<Json<Vec<OperatorControlPreview>>, ApiError> {
     state
         .operator_control_previews()
         .map(Json)
-        .map_err(api_error_from_operator)
+        .map_err(api_error_from_operator_state)
 }
 
 // ── Error handling ────────────────────────────────────────────────────────────
@@ -159,67 +174,54 @@ impl IntoResponse for ApiError {
     }
 }
 
-fn api_error_from_operator(error: OperatorAppError) -> ApiError {
+/// Maps the operator-control state-layer error to an HTTP [`ApiError`].
+///
+/// `NotAvailable` → 404; feed validation errors → via
+/// [`api_error_from_operator_control`].
+fn api_error_from_operator_state(error: OperatorStateError) -> ApiError {
     match error {
-        OperatorAppError::Storage(error) => api_error_from_storage(error),
-        OperatorAppError::TruthNotFound(key) => {
-            ApiError::new(StatusCode::NOT_FOUND, format!("truth not found: {key}"))
+        OperatorStateError::NotAvailable => {
+            ApiError::new(StatusCode::NOT_FOUND, error.to_string())
         }
-        OperatorAppError::MissingInput(field) => ApiError::new(
-            StatusCode::BAD_REQUEST,
-            format!("missing required input: {field}"),
-        ),
-        OperatorAppError::InvalidUuid { field, value } => ApiError::new(
-            StatusCode::BAD_REQUEST,
-            format!("invalid uuid for {field}: {value}"),
-        ),
-        OperatorAppError::InvalidInteger { field, value } => ApiError::new(
-            StatusCode::BAD_REQUEST,
-            format!("invalid integer for {field}: {value}"),
-        ),
-        OperatorAppError::Validation(message)
-        | OperatorAppError::OperatorControl(message)
-        | OperatorAppError::UnsupportedTruth(message) => {
-            ApiError::new(StatusCode::BAD_REQUEST, message)
-        }
+        OperatorStateError::Feed(e) => api_error_from_operator_control(e),
     }
 }
 
-fn api_error_from_storage(error: application_storage::StorageError) -> ApiError {
+/// Maps a contracts-layer [`OperatorControlError`] to an HTTP [`ApiError`].
+///
+/// All 7 variants are reachable through the feed path (the feed validates
+/// packets and ledger entries before returning them). Validation failures →
+/// 400 Bad Request. `DomainActionAuthorityRequested` is a construction-time
+/// invariant violation; it maps to 400 as well because the caller supplied
+/// an invalid packet.
+fn api_error_from_operator_control(error: OperatorControlError) -> ApiError {
     match error {
-        application_storage::StorageError::LockPoisoned => {
-            ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "storage lock poisoned")
+        OperatorControlError::EmptyField { field } => {
+            ApiError::new(StatusCode::BAD_REQUEST, format!("`{field}` must not be empty"))
         }
-        application_storage::StorageError::Kernel(error) => api_error_from_kernel(error),
-        application_storage::StorageError::ConnectionFailed { backend, message } => ApiError::new(
-            StatusCode::SERVICE_UNAVAILABLE,
-            format!("{backend} connection failed: {message}"),
+        OperatorControlError::EmptyBacklink => ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "backlink ids must not contain empty values",
         ),
-        application_storage::StorageError::SerializationFailed { message } => {
-            ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, message)
-        }
-        application_storage::StorageError::Timeout { operation } => {
-            ApiError::new(StatusCode::GATEWAY_TIMEOUT, operation)
-        }
-        application_storage::StorageError::RuntimeStore { message } => {
-            ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, message)
-        }
-    }
-}
-
-fn api_error_from_kernel(error: application_kernel::KernelError) -> ApiError {
-    match error {
-        application_kernel::KernelError::Validation(message) => {
-            ApiError::new(StatusCode::BAD_REQUEST, message)
-        }
-        application_kernel::KernelError::NotFound { kind, id } => {
-            ApiError::new(StatusCode::NOT_FOUND, format!("{kind} not found: {id}"))
-        }
-        application_kernel::KernelError::Invariant(message) => {
-            ApiError::new(StatusCode::PRECONDITION_FAILED, message)
-        }
-        application_kernel::KernelError::Conflict(message) => {
-            ApiError::new(StatusCode::CONFLICT, message)
-        }
+        OperatorControlError::InvalidBasisPoints { field, value } => ApiError::new(
+            StatusCode::BAD_REQUEST,
+            format!("`{field}` must be between 0 and 10000, got `{value}`"),
+        ),
+        OperatorControlError::InvalidRange { field, min, max } => ApiError::new(
+            StatusCode::BAD_REQUEST,
+            format!("`{field}` must have min < max, got `{min}`..`{max}`"),
+        ),
+        OperatorControlError::InvalidCount { field, value } => ApiError::new(
+            StatusCode::BAD_REQUEST,
+            format!("`{field}` must be greater than zero, got `{value}`"),
+        ),
+        OperatorControlError::InvalidSha256 { field, value } => ApiError::new(
+            StatusCode::BAD_REQUEST,
+            format!("`{field}` must be a sha256 hash, got `{value}`"),
+        ),
+        OperatorControlError::DomainActionAuthorityRequested => ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "job readiness packets must not authorize domain action",
+        ),
     }
 }

@@ -4206,6 +4206,7 @@ dependencies = [
  "axum 0.8.9",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "tokio",
 ]
 
@@ -4232,12 +4233,10 @@ dependencies = [
  "helm-module-contracts",
  "helm-truth-execution",
  "polars",
- "prio-agent-ops",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
- "workbench-backend",
 ]
 
 [[package]]
@@ -6654,6 +6653,7 @@ version = "0.1.0"
 dependencies = [
  "application-kernel",
  "application-storage",
+ "helm-module-contracts",
  "organism-intelligence",
  "organism-notes",
  "prio-expenses",
@@ -7709,8 +7709,6 @@ name = "prio-agent-ops"
 version = "0.2.1"
 dependencies = [
  "capability-core",
- "serde",
- "sha2 0.11.0",
 ]
 
 [[package]]
@@ -13165,9 +13163,9 @@ dependencies = [
  "capability-core",
  "capability-registry",
  "chrono",
+ "helm-module-contracts",
  "organism-domain",
  "organism-runtime",
- "prio-agent-ops",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

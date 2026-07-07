@@ -31,12 +31,13 @@ use tauri::State;
 #[cfg(feature = "embedded-backend")]
 use uuid::Uuid;
 #[cfg(feature = "embedded-backend")]
+use helm_module_contracts::operator_preview::OperatorControlPreview;
+#[cfg(feature = "embedded-backend")]
 use workbench_backend::{
     AccountWorkspaceSummary, ApprovalFilter, ApprovalListItem, CatalogItemListItem, OperatorApp,
-    OperatorControlPreview, OperatorDashboard, OpportunityListItem, OrganizationListItem,
-    RecordReferenceItem, SubscriptionListItem, SystemProfile, TruthDetailItem,
-    TruthExecutionSession, TruthListItem, WorkbenchAppManifest, WorkflowCaseFilter,
-    WorkflowCaseListItem,
+    OperatorDashboard, OpportunityListItem, OrganizationListItem, RecordReferenceItem,
+    SubscriptionListItem, SystemProfile, TruthDetailItem, TruthExecutionSession, TruthListItem,
+    WorkbenchAppManifest, WorkflowCaseFilter, WorkflowCaseListItem,
 };
 
 #[cfg(feature = "embedded-backend")]

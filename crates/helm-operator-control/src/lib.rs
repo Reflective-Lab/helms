@@ -5,8 +5,7 @@
 //! Wraps the operator-control HTTP routes under `/v1/workbench/operator-control/`
 //! and the showcase pipeline routes under `/v1/pipeline/showcase/` into a HelmModule
 //! for runway-app-host. Downstream apps should import operator-control packet
-//! and ledger contracts from this crate, not from the legacy `prio-agent-ops`
-//! implementation crate.
+//! and ledger contracts from `helm-module-contracts`, not from this crate.
 //!
 //! # Routes exposed
 //!
@@ -31,6 +30,13 @@
 //!
 //! - `job_stream.rs` core run loop — deferred to Phase 4b (see helm-governed-jobs)
 //! - SSE realtime streaming — coupled to application-server's RealtimeHub (Phase 4b)
+//!
+//! # Vocabulary
+//!
+//! All operator-control receipt and preview types live in `helm-module-contracts`
+//! (`operator_receipts` and `operator_preview` submodules). Consumers must import
+//! from there directly; operator-control does not re-export contracts vocabulary
+//! (RFL-154 T5a seam cut).
 
 #![allow(clippy::result_large_err)]
 
@@ -39,53 +45,33 @@ pub mod pipeline;
 
 use std::sync::Arc;
 
-use application_storage::{AppConfig, InMemoryKernelStore, KernelStore};
 use async_trait::async_trait;
 use axum::Router;
+use helm_module_contracts::operator_preview::OperatorControlPreview;
+use helm_module_contracts::operator_receipts::{
+    JobReadinessPacket, OperatorControlError, OperatorLedgerEntry,
+};
 use helm_module_contracts::{
     HelmModule, HelmModuleReadiness, HelmModuleState, HelmModuleStatus, ModuleState,
 };
 use helm_truth_execution::TruthExecutionModule;
 
-pub use helm_module_contracts::{
-    HelmModuleReadiness as OperatorControlModuleReadiness,
-    HelmModuleState as OperatorControlModuleState, HelmModuleStatus as OperatorControlModuleStatus,
-};
-pub use http_api::OperatorControlState;
+pub use http_api::{OperatorControlState, OperatorStateError};
 pub use pipeline::PipelineRouteState;
-pub use workbench_backend::{
-    OperatorControlPreview, OperatorControlPreviewBacking, OperatorReceiptFamilyView,
-};
-
-// Re-export types that downstream apps consume
-// without needing to depend on prio-agent-ops directly.
-pub use prio_agent_ops::{
-    AdapterReceiptStatus, AuthorityEffect, EvidenceReadinessStatus, FuzzyDefuzzifiedScore,
-    FuzzyMembership, FuzzyReadinessTrace, FuzzyRuleActivation, JobEvidenceStatus,
-    JobReadinessPacket, JobReadinessPacketInput, JobVerdict, OperatorControlError,
-    OperatorLedgerEntry, OperatorLedgerEntryInput, OperatorLedgerRecordKind, ReceiptFamily,
-    job_readiness_packet_ledger_entry, job_readiness_packet_payload_hash,
-};
 
 // ── Module ────────────────────────────────────────────────────────────────────
 
 /// A `HelmModule` that mounts the operator-control workbench routes and (optionally)
 /// the showcase pipeline routes.
 ///
-/// The generic parameter `S` is the `KernelStore` implementation. For most
-/// Runtime Runway-hosted deployments this will be `InMemoryKernelStore` (the default)
-/// or a remote-backed store wired up at startup via
-/// [`OperatorControlModule::with_store`].
-///
 /// # Constructors
 ///
-/// - [`OperatorControlModule::new`] — zero-arg default for existing consumers. Pipeline
-///   routes exist but return "not implemented" because no truth bodies are registered.
-/// - [`OperatorControlModule::with_store`] — explicit store, still no truth registry.
+/// - [`OperatorControlModule::new`] — zero-arg default. Pipeline routes exist but
+///   return "not implemented" because no truth bodies are registered.
 /// - [`OperatorControlModule::with_truths`] — full constructor for callers that want
 ///   the pipeline to actually dispatch truths.
-pub struct OperatorControlModule<S = InMemoryKernelStore> {
-    state: Arc<OperatorControlState<S>>,
+pub struct OperatorControlModule {
+    state: Arc<OperatorControlState>,
     pipeline: Arc<PipelineRouteState>,
     live_evidence: Option<LiveReadinessEvidence>,
     readiness_feed: Option<Arc<dyn OperatorControlReadinessFeed>>,
@@ -177,23 +163,22 @@ impl LiveReadinessEvidence {
     }
 }
 
-impl OperatorControlModule<InMemoryKernelStore> {
-    /// Construct using the default in-memory kernel store and an empty truth registry.
+impl OperatorControlModule {
+    /// Construct with a default state and an empty truth registry.
     ///
     /// Suitable for development, demos, and existing consumers that do not need
     /// pipeline truth dispatch. Pipeline routes will respond with `501 Not
     /// Implemented` for each truth key until bodies are registered.
-    pub fn new(config: AppConfig) -> Self {
-        let store = InMemoryKernelStore::default_local();
+    pub fn new() -> Self {
         Self {
-            state: Arc::new(OperatorControlState::new(config, store)),
+            state: Arc::new(OperatorControlState::new()),
             pipeline: Arc::new(PipelineRouteState::new()),
             live_evidence: None,
             readiness_feed: None,
         }
     }
 
-    /// Construct with an in-memory store **and** a populated truth registry.
+    /// Construct with a populated truth registry.
     ///
     /// Use this constructor when the caller has registered truth bodies (e.g.
     /// `score-inbound-fit`, `qualify-inbound-lead`, `schedule-strategic-meetings`)
@@ -201,7 +186,6 @@ impl OperatorControlModule<InMemoryKernelStore> {
     ///
     /// ```rust,no_run
     /// use std::sync::Arc;
-    /// use application_storage::AppConfig;
     /// use helm_operator_control::OperatorControlModule;
     /// use helm_truth_execution::TruthExecutionModule;
     ///
@@ -209,28 +193,12 @@ impl OperatorControlModule<InMemoryKernelStore> {
     ///     TruthExecutionModule::new()
     ///         // .register(Arc::new(MyTruthBody))
     /// );
-    /// let module = OperatorControlModule::with_truths(AppConfig::from_env(), truths);
+    /// let module = OperatorControlModule::with_truths(truths);
     /// ```
-    pub fn with_truths(config: AppConfig, truths: Arc<TruthExecutionModule>) -> Self {
-        let store = InMemoryKernelStore::default_local();
+    pub fn with_truths(truths: Arc<TruthExecutionModule>) -> Self {
         Self {
-            state: Arc::new(OperatorControlState::new(config, store)),
+            state: Arc::new(OperatorControlState::new()),
             pipeline: Arc::new(PipelineRouteState::with_truths(truths)),
-            live_evidence: None,
-            readiness_feed: None,
-        }
-    }
-}
-
-impl<S> OperatorControlModule<S>
-where
-    S: KernelStore + Clone + Send + Sync + 'static,
-{
-    /// Construct with an explicit store and an empty truth registry.
-    pub fn with_store(config: AppConfig, store: S) -> Self {
-        Self {
-            state: Arc::new(OperatorControlState::new(config, store)),
-            pipeline: Arc::new(PipelineRouteState::new()),
             live_evidence: None,
             readiness_feed: None,
         }
@@ -316,10 +284,13 @@ where
     }
 }
 
-impl<S> HelmModuleReadiness for OperatorControlModule<S>
-where
-    S: KernelStore + Clone + Send + Sync + 'static,
-{
+impl Default for OperatorControlModule {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HelmModuleReadiness for OperatorControlModule {
     fn module_state(&self) -> HelmModuleState {
         OperatorControlModule::module_state(self)
     }
@@ -330,10 +301,7 @@ where
 }
 
 #[async_trait]
-impl<S> HelmModule for OperatorControlModule<S>
-where
-    S: KernelStore + Clone + Send + Sync + 'static,
-{
+impl HelmModule for OperatorControlModule {
     fn module_id(&self) -> &'static str {
         "helm.operator-control"
     }

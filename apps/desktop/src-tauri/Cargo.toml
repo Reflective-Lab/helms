@@ -16,6 +16,7 @@ embedded-backend = ["dep:application-kernel", "dep:application-storage", "dep:wo
 organism-intelligence = { workspace = true, features = ["ocr"] }
 organism-notes = { workspace = true, features = ["sources-apple-notes", "sources-web"] }
 prio-expenses = { path = "../../../crates/prio-expenses" }
+helm-module-contracts = { version = "0.2.1", path = "../../../contracts/crates/helm-module-contracts" }
 workbench-backend = { path = "../../../crates/workbench-backend", optional = true }
 application-kernel = { path = "../../../crates/application-kernel", optional = true }
 application-storage = { path = "../../../crates/application-storage", features = ["surrealdb"], optional = true }
