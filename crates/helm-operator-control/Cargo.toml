@@ -20,3 +20,6 @@ application-kernel = { version = "0.2.1", path = "../application-kernel" }
 application-storage = { version = "0.2.1", path = "../application-storage" }
 helm-module-contracts = { version = "0.2.1", path = "../../contracts/crates/helm-module-contracts" }
 helm-truth-execution = { version = "0.2.1", path = "../helm-truth-execution" }
+
+[dev-dependencies]
+trybuild = { version = "1", features = ["diff"] }

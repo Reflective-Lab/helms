@@ -1,0 +1,7 @@
+error[E0433]: cannot find module or crate `workbench_backend` in this scope
+  --> tests/compile_fail/workbench_backend_not_a_dep.rs:11:12
+   |
+11 |     let _: workbench_backend::views::OperatorControlPreview;
+   |            ^^^^^^^^^^^^^^^^^ use of unresolved module or unlinked crate `workbench_backend`
+   |
+   = help: if you wanted to use a crate named `workbench_backend`, use `cargo add workbench_backend` to add it to your `Cargo.toml`
