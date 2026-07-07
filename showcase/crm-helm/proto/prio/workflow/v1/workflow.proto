@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package prio.workflow.v1;
+
+import "prio/common/v1/common.proto";
+
+service WorkflowService {
+  rpc CreateWorkflowCase(CreateWorkflowCaseRequest) returns (prio.common.v1.WorkflowCase);
+  rpc AdvanceWorkflowCase(AdvanceWorkflowCaseRequest) returns (prio.common.v1.WorkflowCase);
+}
+
+message CreateWorkflowCaseRequest {
+  string title = 1;
+  prio.common.v1.WorkflowPriority priority = 2;
+  optional string owner_user_id = 3;
+  repeated prio.common.v1.RecordRef related_to = 4;
+  optional prio.common.v1.Actor actor = 5;
+}
+
+message AdvanceWorkflowCaseRequest {
+  string workflow_case_id = 1;
+  prio.common.v1.WorkflowState state = 2;
+  optional prio.common.v1.Actor actor = 3;
+}
+

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package prio.documents.v1;
+
+import "prio/common/v1/common.proto";
+
+service DocumentsService {
+  rpc AppendNote(AppendNoteRequest) returns (prio.common.v1.Note);
+  rpc AttachDocument(AttachDocumentRequest) returns (prio.common.v1.Document);
+}
+
+message AppendNoteRequest {
+  string subject = 1;
+  string body = 2;
+  repeated prio.common.v1.RecordRef related_to = 3;
+  optional prio.common.v1.Actor actor = 4;
+}
+
+message AttachDocumentRequest {
+  string title = 1;
+  string media_type = 2;
+  string uri = 3;
+  prio.common.v1.DocumentStatus status = 4;
+  repeated prio.common.v1.RecordRef related_to = 5;
+  optional prio.common.v1.Actor actor = 6;
+}
+

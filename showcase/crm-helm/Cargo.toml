@@ -1,0 +1,40 @@
+[package]
+name = "example-crm-helm-showcase"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "crm-helm-showcase"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-stream = "0.1"
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+
+# gRPC / proto
+tonic = { version = "0.12", features = ["transport"] }
+prost = "0.13"
+prost-types = "0.13"
+
+# Axum — not in workspace deps
+axum = "0.8"
+
+# Cross-repo: Helms domain crates (no converge-* deps)
+application-kernel = { path = "../../../bedrock-platform/helms/crates/application-kernel" }
+application-storage = { path = "../../../bedrock-platform/helms/crates/application-storage" }
+
+# Cross-repo: Runtime Runway app host
+runway-app-host = { path = "../../../runtime-runway/crates/runway-app-host" }
+runway-storage = { path = "../../../runtime-runway/crates/runway-storage" }
+
+[build-dependencies]
+tonic-build = "0.12"

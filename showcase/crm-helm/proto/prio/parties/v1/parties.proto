@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package prio.parties.v1;
+
+import "prio/common/v1/common.proto";
+
+service PartiesService {
+  rpc UpsertOrganization(UpsertOrganizationRequest) returns (prio.common.v1.Organization);
+  rpc UpsertPerson(UpsertPersonRequest) returns (prio.common.v1.Person);
+  rpc LinkRelationship(LinkRelationshipRequest) returns (prio.common.v1.Relationship);
+  rpc GetAccountSummary(GetAccountSummaryRequest) returns (prio.common.v1.AccountSummary);
+  rpc ListOrganizations(ListOrganizationsRequest) returns (ListOrganizationsResponse);
+  rpc ListPeople(ListPeopleRequest) returns (ListPeopleResponse);
+}
+
+message UpsertOrganizationRequest {
+  optional string organization_id = 1;
+  string name = 2;
+  optional string external_key = 3;
+  optional string website = 4;
+  optional string industry = 5;
+  prio.common.v1.OrganizationLifecycle lifecycle = 6;
+  optional string owner_user_id = 7;
+  repeated string tags = 8;
+  optional prio.common.v1.Actor actor = 9;
+}
+
+message UpsertPersonRequest {
+  optional string person_id = 1;
+  optional string organization_id = 2;
+  string full_name = 3;
+  optional string title = 4;
+  optional string email = 5;
+  optional string phone = 6;
+  optional string linkedin_url = 7;
+  optional prio.common.v1.Actor actor = 8;
+}
+
+message LinkRelationshipRequest {
+  prio.common.v1.RecordRef from = 1;
+  prio.common.v1.RecordRef to = 2;
+  prio.common.v1.RelationshipType relationship_type = 3;
+  optional string label = 4;
+  optional prio.common.v1.Actor actor = 5;
+}
+
+message GetAccountSummaryRequest {
+  string organization_id = 1;
+  uint32 timeline_limit = 2;
+}
+
+message ListOrganizationsRequest {}
+
+message ListOrganizationsResponse {
+  repeated prio.common.v1.Organization organizations = 1;
+}
+
+message ListPeopleRequest {
+  optional string organization_id = 1;
+}
+
+message ListPeopleResponse {
+  repeated prio.common.v1.Person people = 1;
+}
+
