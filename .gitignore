@@ -21,3 +21,7 @@ data/seed/*.parquet
 .DS_Store
 /patch*.py
 
+
+# contracts mini-workspace build artifacts
+/contracts/target/
+/contracts/Cargo.lock
