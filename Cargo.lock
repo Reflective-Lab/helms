@@ -4232,7 +4232,6 @@ dependencies = [
  "axum 0.8.9",
  "helm-module-contracts",
  "helm-truth-execution",
- "polars",
  "serde",
  "serde_json",
  "tokio",
@@ -9340,8 +9339,10 @@ version = "0.2.1"
 dependencies = [
  "anyhow",
  "chrono",
+ "helm-module-contracts",
  "polars",
  "rand 0.9.4",
+ "serde_json",
 ]
 
 [[package]]

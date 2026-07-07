@@ -14,9 +14,16 @@
 //! receipts vocabulary (`OperatorControlPreview`, `OperatorControlPreviewBacking`,
 //! `OperatorReceiptFamilyView`, `operator_receipt_families()`), promoted here
 //! from `workbench-backend` as part of RFL-154 T2.
+//!
+//! The [`showcase_pipeline`] submodule owns the injection boundary types for
+//! the showcase pipeline: [`showcase_pipeline::ShowcasePipelineInput`],
+//! [`showcase_pipeline::SeedSourceError`], and the
+//! [`showcase_pipeline::ShowcaseSeedSource`] trait the mounting app implements
+//! (RFL-154 T5b).
 
 pub mod operator_preview;
 pub mod operator_receipts;
+pub mod showcase_pipeline;
 
 use std::sync::Arc;
 
