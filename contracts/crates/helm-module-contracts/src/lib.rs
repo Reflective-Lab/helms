@@ -9,7 +9,13 @@
 //! The [`operator_receipts`] submodule owns the full operator-control receipt
 //! vocabulary (all 18 types, hashing helpers, and `OperatorControlError`),
 //! promoted here from `prio-agent-ops` as part of RFL-154.
+//!
+//! The [`operator_preview`] submodule provides read-only view types over the
+//! receipts vocabulary (`OperatorControlPreview`, `OperatorControlPreviewBacking`,
+//! `OperatorReceiptFamilyView`, `operator_receipt_families()`), promoted here
+//! from `workbench-backend` as part of RFL-154 T2.
 
+pub mod operator_preview;
 pub mod operator_receipts;
 
 use std::sync::Arc;
