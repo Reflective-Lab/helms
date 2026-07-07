@@ -5,6 +5,12 @@
 //! (`HelmModule`, `ModuleState`) so the interface lives in a neutral crate
 //! that both helms crates and Runtime Runway can consume without creating a
 //! foundation→substrate dependency (RP-LAYERING, RFL-128).
+//!
+//! The [`operator_receipts`] submodule owns the full operator-control receipt
+//! vocabulary (all 18 types, hashing helpers, and `OperatorControlError`),
+//! promoted here from `prio-agent-ops` as part of RFL-154.
+
+pub mod operator_receipts;
 
 use std::sync::Arc;
 
