@@ -5,11 +5,24 @@ app transcripts. This module is not a new truth engine and not a promotion
 authority. It is the common control-plane surface that lets Helm show what is
 ready, what is missing, and which receipt chain explains the current state.
 
-The public app-facing import surface now lives in `crates/helm-operator-control`.
-That crate re-exports the packet, ledger, receipt-family, hash, and ledger-entry
-helpers that downstream apps need. `crates/prio-agent-ops` is still the legacy
-implementation crate for this slice and should not be treated as the marquee-app
-contract.
+The operator vocabulary lives in `contracts/crates/helm-module-contracts`
+(modules `operator_receipts` and `operator_preview`). These are the canonical
+import paths for all downstream consumers:
+
+- `helm_module_contracts::operator_receipts` — `JobReadinessPacket`,
+  `OperatorLedgerEntry`, receipt families, error types, and the
+  `job_readiness_packet_payload_hash` / `job_readiness_packet_ledger_entry`
+  helpers.
+- `helm_module_contracts::operator_preview` — `OperatorControlPreview`,
+  `OperatorControlPreviewBacking`, `OperatorReceiptFamilyView`, and
+  `operator_receipt_families()`.
+
+`crates/helm-operator-control` owns the HTTP module (routes, live feed
+injection, `OperatorControlModule`, `OperatorControlState`). It depends on
+`helm-module-contracts` only — not on `prio-agent-ops` or `workbench-backend`.
+Downstream code that previously imported operator-control contracts from
+`prio_agent_ops` or `workbench_backend` must be updated to import from
+`helm_module_contracts` (RFL-154 seam cut).
 
 This module should be hostable inside the Runtime Runway app execution container. The
 current Helm `application-server` remains a useful reference host, but it should
@@ -103,11 +116,12 @@ returns an empty list. The singular
 view over the first live packet and returns an operator-control error when no
 live packet is supplied. Helm no longer synthesizes a static app portfolio.
 
-Import rule: marquee apps should depend on `helm-operator-control` for
-`JobReadinessPacket`, `OperatorLedgerEntry`, `ReceiptFamily`, and the
-`job_readiness_packet_*` helpers. New app code importing `prio-agent-ops`
-directly for operator-control contracts is transitional boundary debt and should
-be rejected during review.
+Import rule: marquee apps should depend on `helm-module-contracts` for the
+operator vocabulary (`JobReadinessPacket`, `OperatorLedgerEntry`, `ReceiptFamily`,
+and the `job_readiness_packet_*` helpers). `helm-operator-control` is the right
+dependency only when you are mounting or wiring the live HTTP module. New app
+code importing `prio-agent-ops` or `workbench-backend` for operator-control
+contracts is boundary debt and must be rejected during review.
 
 App examples and portfolios belong in app repos, showcases, or arena tests.
 Helm's invariant is the contract shape: packet plus ledger entries plus receipt
