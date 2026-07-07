@@ -38,8 +38,10 @@
 //!
 //! # Implementors and consumers
 //!
-//! - **Implementor / producer:** `prio-agent-ops` — the AgentOps capability
-//!   module that builds packets and ledger entries.
+//! - **Producers:** readiness-feed implementations in mounting apps (concrete
+//!   types that supply `JobReadinessPacket` / `OperatorLedgerEntry` snapshots
+//!   via `OperatorControlReadinessFeed`). `helm-operator-control` is the module
+//!   surface that wires these producers into the HTTP layer.
 //! - **Consumer:** `workbench-backend` — the Helm workbench HTTP layer that
 //!   reads packets and entries for display and auditing.
 

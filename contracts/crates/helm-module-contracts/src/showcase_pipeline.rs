@@ -47,8 +47,10 @@ pub struct ShowcasePipelineInput {
 
 /// Typed errors from seed-source loading.
 ///
-/// All variants carry structured context — no stringly-typed error messages
-/// cross the injection boundary (RFL-129 typed-contract rule).
+/// Variants carry structured context: signalling is typed (enum discriminant
+/// + named fields); `StorageError` and `ParseError` variants include a
+/// `detail: String` for foreign IO messages where a richer type is not
+/// available (RFL-129 typed-contract rule).
 #[derive(Debug, Clone)]
 pub enum SeedSourceError {
     /// The requested prospect was not found in the seed dataset.

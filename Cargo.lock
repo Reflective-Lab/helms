@@ -4205,7 +4205,7 @@ dependencies = [
 
 [[package]]
 name = "helm-module-contracts"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9347,11 +9347,14 @@ name = "seed-gen"
 version = "0.2.1"
 dependencies = [
  "anyhow",
+ "async-trait",
  "chrono",
  "helm-module-contracts",
  "polars",
  "rand 0.9.4",
  "serde_json",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]

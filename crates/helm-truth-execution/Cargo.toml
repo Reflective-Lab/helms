@@ -15,7 +15,7 @@ chrono.workspace = true
 converge-core.workspace = true
 converge-kernel.workspace = true
 converge-pack.workspace = true
-helm-module-contracts = { version = "0.2.1", path = "../../contracts/crates/helm-module-contracts" }
+helm-module-contracts = { version = "0.3.0", path = "../../contracts/crates/helm-module-contracts" }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

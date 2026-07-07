@@ -35,8 +35,10 @@
 //!
 //! All operator-control receipt and preview types live in `helm-module-contracts`
 //! (`operator_receipts` and `operator_preview` submodules). Consumers must import
-//! from there directly; operator-control does not re-export contracts vocabulary
-//! (RFL-154 T5a seam cut).
+//! from there directly; receipts/preview vocabulary is never re-exported from this
+//! crate. Pipeline API types (`ShowcaseSeedSource`, `ShowcasePipelineInput`,
+//! `SeedSourceError`) are re-exported from `pipeline` because they appear in its
+//! own public API signatures (RFL-154 T5a seam cut).
 
 #![allow(clippy::result_large_err)]
 

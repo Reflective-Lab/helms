@@ -12,7 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `workbench-backend` repoints operator-control types to `helm-module-contracts`.
 - `helm-operator-control` depends on `helm-module-contracts` only (drops `workbench-backend`, `prio-agent-ops`, `polars`). Seed loading extracted to `seed-gen` via `ShowcaseSeedSource` injection. No shim re-exports.
 - `seed-gen` gains a library target (`src/lib.rs`) exposing `pub mod showcase_seed`, removing the `#![allow(dead_code)]` suppression.
-- arena `cross-extension-smoke` imports repointed from `prio-agent-ops` to `helm-module-contracts`.
+- arena `cross-extension-smoke` repoint (prio-agent-ops → helm-module-contracts) lands in arena-tests immediately after this merge (RFL-154 T6).
+
+- `helm-module-contracts` bumped to 0.3.0: three new public modules (`showcase_pipeline`, `operator_receipts`, `operator_preview`) plus `sha2` as a direct runtime dep constitute minor surface expansion (RFL-154). All in-repo consumers updated.
 
 ### Added (RFL-154 — helm operator seam cut)
 - trybuild compile-fail suite in `helm-module-contracts`: one case proves private validation helpers (`validate_sha256`) are not callable from external code (parse-don't-validate gate).
