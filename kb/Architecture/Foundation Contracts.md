@@ -12,6 +12,7 @@ redefine them.
 | Governed execution out-of-process | `converge-client` | `converge-protocol` for typed wire access | runtime internals |
 | Durable app subject identity | `converge-pack::SubjectRef` through `converge-kernel` / `converge-model` | app-owned scheme/kind vocabulary | raw URI strings in Converge-facing metadata |
 | App server execution container | Runtime Runway app execution container | Helm mounted as operator-control/job module | app-owned HTTP/gRPC/GraphQL servers |
+| Operator vocabulary (packets, ledger entries, receipt families, hashes, errors) | `helm-module-contracts::operator_receipts` and `helm-module-contracts::operator_preview` | `helm-operator-control` for the live HTTP module | `prio-agent-ops` (now manifest-only), `workbench-backend` for operator types, or any crate that is not `helm-module-contracts` |
 | Commercial authority | Commerce-Rails contracts | Helm read-only operator projections over Commerce-Rails receipts | subscriptions, plans, entitlements, payments, provider refs, or plan-to-app grants in Helm |
 | Capability contracts for chat and routing | `converge-provider` | Manifold adapters for concrete provider implementations | direct vendor HTTP spread across product code |
 | Reusable reasoning and planning | `organism-pack`, `organism-runtime` | `organism-domain`, `organism-intelligence`, `organism-notes` | Organism phase crates |

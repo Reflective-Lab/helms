@@ -3,7 +3,7 @@
 //! The showcase pipeline: score-inbound-fit → qualify-inbound-lead → schedule-strategic-meetings
 //!
 //! Each step is a distinct convergence run. The coordinator:
-//! 1. Reads seed data (Parquet)
+//! 1. Reads seed data via an injected [`ShowcaseSeedSource`] (app/seed-IO layer)
 //! 2. Executes step N
 //! 3. Extracts relevant outputs from step N's projection
 //! 4. Maps them to step N+1's inputs
@@ -17,6 +17,19 @@
 //! `KernelStore` generic with the concrete `AppKernelStore` enum so that truth
 //! bodies can be trait-object-safe.
 //!
+//! # Seed data injection (RFL-154 T5b)
+//!
+//! The former Parquet seed-loaders (`load_prospect_events_from_seed`,
+//! `load_prospect_context_from_seed`) have been removed from this crate to
+//! eliminate the `polars` dependency from the spine. The mounting app supplies
+//! a [`ShowcaseSeedSource`] implementation via
+//! [`PipelineRouteState::with_seed_source`]. A Parquet-based reference
+//! implementation is in `crates/seed-gen/src/showcase_seed.rs`.
+//!
+//! When no seed source is wired the `POST /v1/pipeline/showcase/run` endpoint
+//! returns `501 Not Implemented`, mirroring the existing behaviour for
+//! unregistered truth bodies.
+//!
 //! # HTTP surface
 //!
 //! - `POST /v1/pipeline/showcase/run`    — synchronous pipeline run; returns `PipelineResult`
@@ -28,7 +41,6 @@
 //! to `application-server` internals (Phase 4b).
 
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
 
 use application_kernel::Actor as CrmActor;
@@ -44,6 +56,11 @@ use tokio::sync::RwLock;
 use helm_truth_execution::{
     TruthExecutionArtifacts, TruthExecutionModule,
     dispatcher::{TruthExecutionContext, execute_truth},
+};
+
+// Re-export the public contract types so callers can import from this module.
+pub use helm_module_contracts::showcase_pipeline::{
+    SeedSourceError, ShowcasePipelineInput, ShowcaseSeedSource,
 };
 
 // ── Pipeline Types ──────────────────────────────────────────────────
@@ -81,62 +98,60 @@ pub enum StepStatus {
     Failed { error: String },
 }
 
-// ── Pipeline Input ──────────────────────────────────────────────────
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct ShowcasePipelineInput {
-    pub prospect_name: String,
-    pub visitor_id: String,
-    pub usage_events_json: String,
-    pub inbound_summary: String,
-    pub meeting_count: u32,
-    pub window_start: String,
-    pub window_end: String,
-    pub calendar_slots_json: Option<String>,
-    pub industry: Option<String>,
-    pub website: Option<String>,
-    pub contact_name: Option<String>,
-    pub contact_title: Option<String>,
-    pub contact_email: Option<String>,
-}
-
 // ── HTTP Route State ────────────────────────────────────────────────
 
 /// State for the pipeline HTTP routes.
 ///
-/// Holds the truth registry, a concrete kernel store, runtime stores, and the
-/// last pipeline result for the `/status` endpoint.
+/// Holds the truth registry, a concrete kernel store, runtime stores, the
+/// last pipeline result for the `/status` endpoint, and an optional
+/// app-supplied seed source.
 ///
-/// Construct with [`PipelineRouteState::new`] (empty registry, in-memory stores)
-/// or [`PipelineRouteState::with_truths`] when truth bodies are registered.
+/// Construct with [`PipelineRouteState::new`] (empty registry, in-memory
+/// stores, no seed source) or the builder methods for fuller configuration.
 #[derive(Clone)]
 pub struct PipelineRouteState {
     pub truths: Arc<TruthExecutionModule>,
     pub store: AppKernelStore,
     pub runtime_stores: AppRuntimeStores,
     pub current_result: Arc<RwLock<Option<PipelineResult>>>,
+    /// App-supplied seed source. `None` → `run_pipeline` returns 501.
+    seed_source: Option<Arc<dyn ShowcaseSeedSource>>,
 }
 
 impl PipelineRouteState {
-    /// Default state with empty truth registry and in-memory stores.
-    /// Pipeline execution will return `501 Not Implemented` for each truth key.
+    /// Default state with empty truth registry, in-memory stores, and no seed source.
+    ///
+    /// Pipeline execution will return `501 Not Implemented` for each truth key
+    /// and for the seed-load step until sources are wired via builder methods.
     pub fn new() -> Self {
         Self {
             truths: Arc::new(TruthExecutionModule::new()),
             store: AppKernelStore::Memory(InMemoryKernelStore::default_local()),
             runtime_stores: AppRuntimeStores::default(),
             current_result: Arc::new(RwLock::new(None)),
+            seed_source: None,
         }
     }
 
-    /// State with a populated truth registry (in-memory stores).
+    /// State with a populated truth registry (in-memory stores, no seed source).
     pub fn with_truths(truths: Arc<TruthExecutionModule>) -> Self {
         Self {
             truths,
             store: AppKernelStore::Memory(InMemoryKernelStore::default_local()),
             runtime_stores: AppRuntimeStores::default(),
             current_result: Arc::new(RwLock::new(None)),
+            seed_source: None,
         }
+    }
+
+    /// Wire an app-supplied seed source for the `run_pipeline` handler.
+    ///
+    /// The source is called with the `prospect_id` from the HTTP request body
+    /// (defaulting to `"prospect-001"`). Without a source the handler returns
+    /// `501 Not Implemented`.
+    pub fn with_seed_source(mut self, source: Arc<dyn ShowcaseSeedSource>) -> Self {
+        self.seed_source = Some(source);
+        self
     }
 }
 
@@ -177,12 +192,19 @@ async fn run_pipeline(
     State(state): State<Arc<PipelineRouteState>>,
     Json(request): Json<RunPipelineRequest>,
 ) -> Result<Json<PipelineResult>, (StatusCode, String)> {
-    use std::path::PathBuf;
-
     let prospect_id = request.prospect_id.unwrap_or_else(|| "prospect-001".into());
-    let seed_dir = PathBuf::from("data/seed");
-    let mut input = load_prospect_context_from_seed(&seed_dir, &prospect_id)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+
+    let seed_source = state.seed_source.as_ref().ok_or_else(|| {
+        (
+            StatusCode::NOT_IMPLEMENTED,
+            "no seed source is configured; mount this module with .with_seed_source(...)".into(),
+        )
+    })?;
+
+    let mut input = seed_source
+        .load(&prospect_id)
+        .await
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
     if let Some(name) = request.prospect_name {
         input.prospect_name = name;
@@ -539,122 +561,98 @@ fn step_result_from_artifacts(
     }
 }
 
-// ── Seed Data Loader ────────────────────────────────────────────────
+// ── Tests ───────────────────────────────────────────────────────────
 
-/// Load behavioral events from seed Parquet for a specific prospect.
-/// Returns the events as a JSON string suitable for score-inbound-fit input.
-pub fn load_prospect_events_from_seed(
-    seed_dir: &Path,
-    prospect_id: &str,
-) -> Result<String, String> {
-    use polars::prelude::*;
+#[cfg(test)]
+mod tests {
+    use async_trait::async_trait;
 
-    let path = seed_dir.join("behavior_events.parquet");
-    let parquet_path = path
-        .to_str()
-        .ok_or_else(|| format!("invalid parquet path: {}", path.display()))?;
-    let df = LazyFrame::scan_parquet(PlPath::new(parquet_path), Default::default())
-        .map_err(|e| format!("failed to read parquet: {e}"))?
-        .filter(col("prospect_id").eq(lit(prospect_id)))
-        .collect()
-        .map_err(|e| format!("failed to filter prospect: {e}"))?;
+    use super::*;
 
-    let mut events = Vec::new();
-    let rows = df.height();
-    for i in 0..rows {
-        let visitor_id = df
-            .column("prospect_id")
-            .map_err(|e| e.to_string())?
-            .str()
-            .map_err(|e| e.to_string())?
-            .get(i)
-            .unwrap_or("");
-        let timestamp = df
-            .column("timestamp")
-            .map_err(|e| e.to_string())?
-            .i64()
-            .map_err(|e| e.to_string())?
-            .get(i)
-            .unwrap_or(0);
-        let event_type = df
-            .column("event_types")
-            .map_err(|e| e.to_string())?
-            .str()
-            .map_err(|e| e.to_string())?
-            .get(i)
-            .unwrap_or("");
-        let page = df
-            .column("page_sections")
-            .map_err(|e| e.to_string())?
-            .str()
-            .map_err(|e| e.to_string())?
-            .get(i)
-            .unwrap_or("");
-
-        events.push(serde_json::json!({
-            "visitor_id": visitor_id,
-            "timestamp": timestamp,
-            "event_type": event_type,
-            "page": page,
-        }));
+    /// Minimal stub that always returns a fixed `ShowcasePipelineInput`.
+    struct StubSeedSource {
+        prospect_name: String,
     }
 
-    serde_json::to_string(&events).map_err(|e| format!("json serialization failed: {e}"))
-}
-
-/// Load account context from seed Parquet for a specific prospect.
-pub fn load_prospect_context_from_seed(
-    seed_dir: &Path,
-    prospect_id: &str,
-) -> Result<ShowcasePipelineInput, String> {
-    use polars::prelude::*;
-
-    let path = seed_dir.join("account_context.parquet");
-    let parquet_path = path
-        .to_str()
-        .ok_or_else(|| format!("invalid parquet path: {}", path.display()))?;
-    let df = LazyFrame::scan_parquet(PlPath::new(parquet_path), Default::default())
-        .map_err(|e| format!("failed to read account_context parquet: {e}"))?
-        .filter(col("prospect_id").eq(lit(prospect_id)))
-        .collect()
-        .map_err(|e| format!("failed to filter prospect: {e}"))?;
-
-    if df.height() == 0 {
-        return Err(format!(
-            "prospect '{prospect_id}' not found in account_context"
-        ));
+    #[async_trait]
+    impl ShowcaseSeedSource for StubSeedSource {
+        async fn load(&self, prospect_id: &str) -> Result<ShowcasePipelineInput, SeedSourceError> {
+            Ok(ShowcasePipelineInput {
+                prospect_name: self.prospect_name.clone(),
+                visitor_id: prospect_id.into(),
+                usage_events_json: "[]".into(),
+                inbound_summary: format!("Stub inbound for {prospect_id}"),
+                meeting_count: 1,
+                window_start: "2026-04-21".into(),
+                window_end: "2026-04-25".into(),
+                calendar_slots_json: None,
+                industry: None,
+                website: None,
+                contact_name: None,
+                contact_title: None,
+                contact_email: None,
+            })
+        }
     }
 
-    let name = df
-        .column("company_name")
-        .ok()
-        .and_then(|c| c.str().ok())
-        .and_then(|s| s.get(0))
-        .unwrap_or(prospect_id)
-        .to_string();
+    /// Stub that always returns a `ProspectNotFound` error.
+    struct MissingSeedSource;
 
-    let industry = df
-        .column("industry")
-        .ok()
-        .and_then(|c| c.str().ok())
-        .and_then(|s| s.get(0))
-        .map(ToString::to_string);
+    #[async_trait]
+    impl ShowcaseSeedSource for MissingSeedSource {
+        async fn load(&self, prospect_id: &str) -> Result<ShowcasePipelineInput, SeedSourceError> {
+            Err(SeedSourceError::ProspectNotFound {
+                prospect_id: prospect_id.into(),
+            })
+        }
+    }
 
-    let events_json = load_prospect_events_from_seed(seed_dir, prospect_id)?;
+    #[tokio::test]
+    async fn stub_seed_source_supplies_pipeline_input_via_injection() {
+        let stub = Arc::new(StubSeedSource {
+            prospect_name: "Acme Corp".into(),
+        });
+        let state = PipelineRouteState::new().with_seed_source(stub);
 
-    Ok(ShowcasePipelineInput {
-        prospect_name: name,
-        visitor_id: prospect_id.to_string(),
-        usage_events_json: events_json,
-        inbound_summary: format!("Inbound inquiry from {prospect_id} via website demo request"),
-        meeting_count: 1,
-        window_start: "2026-04-21".into(),
-        window_end: "2026-04-25".into(),
-        calendar_slots_json: None,
-        industry,
-        website: None,
-        contact_name: None,
-        contact_title: None,
-        contact_email: None,
-    })
+        let input = state
+            .seed_source
+            .as_ref()
+            .expect("seed source wired in")
+            .load("prospect-001")
+            .await
+            .expect("stub always succeeds");
+
+        assert_eq!(input.prospect_name, "Acme Corp");
+        assert_eq!(input.visitor_id, "prospect-001");
+        assert_eq!(input.meeting_count, 1);
+    }
+
+    #[tokio::test]
+    async fn pipeline_state_without_seed_source_has_none() {
+        let state = PipelineRouteState::new();
+        assert!(state.seed_source.is_none(), "no source wired by default");
+    }
+
+    #[tokio::test]
+    async fn missing_seed_source_error_carries_typed_prospect_id() {
+        let stub = Arc::new(MissingSeedSource);
+        let state = PipelineRouteState::new().with_seed_source(stub);
+
+        let err = state
+            .seed_source
+            .as_ref()
+            .unwrap()
+            .load("prospect-999")
+            .await
+            .expect_err("missing source returns error");
+
+        assert!(
+            matches!(err, SeedSourceError::ProspectNotFound { ref prospect_id } if prospect_id == "prospect-999"),
+            "error variant carries prospect id"
+        );
+        assert!(
+            err.to_string().contains("prospect-999"),
+            "Display includes prospect id: {err}"
+        );
+    }
 }

@@ -1,20 +1,18 @@
 use std::sync::Arc;
 
-use application_storage::{AppConfig, InMemoryKernelStore};
-use helm_module_contracts::{HelmModule, ModuleState};
-use helm_operator_control::{
+use helm_module_contracts::operator_preview::{OperatorControlPreview, OperatorControlPreviewBacking};
+use helm_module_contracts::operator_receipts::{
     AdapterReceiptStatus, AuthorityEffect, EvidenceReadinessStatus, JobEvidenceStatus,
-    JobReadinessPacket, JobReadinessPacketInput, JobVerdict, LiveOperatorControlSnapshot,
-    LiveReadinessEvidence, OperatorControlModule, OperatorControlModuleState,
-    OperatorControlPreview, OperatorControlPreviewBacking, OperatorControlReadinessFeed,
-    OperatorControlState, OperatorLedgerRecordKind, ReceiptFamily,
-    job_readiness_packet_ledger_entry, job_readiness_packet_payload_hash,
+    JobReadinessPacket, JobReadinessPacketInput, JobVerdict, OperatorControlError,
+    OperatorLedgerRecordKind, ReceiptFamily, job_readiness_packet_ledger_entry,
+    job_readiness_packet_payload_hash,
+};
+use helm_module_contracts::{HelmModule, HelmModuleState, ModuleState};
+use helm_operator_control::{
+    LiveOperatorControlSnapshot, LiveReadinessEvidence, OperatorControlModule,
+    OperatorControlReadinessFeed, OperatorControlState,
 };
 use serde_json::json;
-
-fn test_config() -> AppConfig {
-    AppConfig::default()
-}
 
 #[derive(Clone)]
 struct StaticReadinessFeed {
@@ -27,9 +25,7 @@ impl OperatorControlReadinessFeed for StaticReadinessFeed {
         self.evidence
     }
 
-    fn previews(
-        &self,
-    ) -> Result<Vec<LiveOperatorControlSnapshot>, helm_operator_control::OperatorControlError> {
+    fn previews(&self) -> Result<Vec<LiveOperatorControlSnapshot>, OperatorControlError> {
         Ok(self.snapshots.clone())
     }
 }
@@ -77,30 +73,28 @@ fn sample_snapshot() -> LiveOperatorControlSnapshot {
 
 #[test]
 fn module_id_is_stable() {
-    let m: Arc<OperatorControlModule<InMemoryKernelStore>> =
-        Arc::new(OperatorControlModule::new(test_config()));
+    let m: Arc<OperatorControlModule> = Arc::new(OperatorControlModule::new());
     assert_eq!(m.module_id(), "helm.operator-control");
 }
 
 #[test]
 fn module_exposes_router() {
-    let m: Arc<OperatorControlModule<InMemoryKernelStore>> =
-        Arc::new(OperatorControlModule::new(test_config()));
+    let m: Arc<OperatorControlModule> = Arc::new(OperatorControlModule::new());
     // Calling router() consumes the Arc — just verify it doesn't panic.
     let _router = m.router();
 }
 
 #[test]
 fn default_module_reports_shell_default() {
-    let m: OperatorControlModule<InMemoryKernelStore> = OperatorControlModule::new(test_config());
+    let m: OperatorControlModule = OperatorControlModule::new();
     let status = m.readiness_status();
 
-    assert_eq!(m.module_state(), OperatorControlModuleState::ShellDefault);
+    assert_eq!(m.module_state(), HelmModuleState::ShellDefault);
     assert_eq!(
-        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        <OperatorControlModule as HelmModule>::module_state(&m),
         ModuleState::Shell
     );
-    assert_eq!(status.state, OperatorControlModuleState::ShellDefault);
+    assert_eq!(status.state, HelmModuleState::ShellDefault);
     assert_eq!(status.registered_truths, Some(0));
     assert!(
         status
@@ -126,22 +120,22 @@ fn default_module_reports_shell_default() {
 
 #[test]
 fn complete_live_evidence_reports_live() {
-    let m: OperatorControlModule<InMemoryKernelStore> = OperatorControlModule::new(test_config())
+    let m: OperatorControlModule = OperatorControlModule::new()
         .with_live_readiness_evidence(LiveReadinessEvidence::complete());
     let status = m.readiness_status();
 
-    assert_eq!(m.module_state(), OperatorControlModuleState::Live);
+    assert_eq!(m.module_state(), HelmModuleState::Live);
     assert_eq!(
-        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        <OperatorControlModule as HelmModule>::module_state(&m),
         ModuleState::Live
     );
-    assert_eq!(status.state, OperatorControlModuleState::Live);
+    assert_eq!(status.state, HelmModuleState::Live);
     assert!(status.missing_live_requirements.is_empty());
 }
 
 #[test]
 fn readiness_status_serializes_shell_default_for_rr_verifier() {
-    let m: OperatorControlModule<InMemoryKernelStore> = OperatorControlModule::new(test_config());
+    let m: OperatorControlModule = OperatorControlModule::new();
     let value = serde_json::to_value(m.readiness_status()).expect("status serializes");
 
     assert_eq!(value["module_id"], "helm.operator-control");
@@ -169,7 +163,7 @@ fn readiness_status_serializes_shell_default_for_rr_verifier() {
 
 #[test]
 fn readiness_status_serializes_live_without_missing_requirements() {
-    let m: OperatorControlModule<InMemoryKernelStore> = OperatorControlModule::new(test_config())
+    let m: OperatorControlModule = OperatorControlModule::new()
         .with_live_readiness_evidence(LiveReadinessEvidence::complete());
     let value = serde_json::to_value(m.readiness_status()).expect("status serializes");
 
@@ -185,16 +179,16 @@ fn live_readiness_feed_reports_live_when_evidence_and_snapshot_exist() {
         evidence: LiveReadinessEvidence::complete(),
         snapshots: vec![sample_snapshot()],
     });
-    let m: OperatorControlModule<InMemoryKernelStore> =
-        OperatorControlModule::new(test_config()).with_live_readiness_feed(feed);
+    let m: OperatorControlModule =
+        OperatorControlModule::new().with_live_readiness_feed(feed);
     let status = m.readiness_status();
 
-    assert_eq!(m.module_state(), OperatorControlModuleState::Live);
+    assert_eq!(m.module_state(), HelmModuleState::Live);
     assert_eq!(
-        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        <OperatorControlModule as HelmModule>::module_state(&m),
         ModuleState::Live
     );
-    assert_eq!(status.state, OperatorControlModuleState::Live);
+    assert_eq!(status.state, HelmModuleState::Live);
     assert!(
         status
             .live_requirements
@@ -209,16 +203,16 @@ fn live_readiness_feed_requires_at_least_one_snapshot() {
         evidence: LiveReadinessEvidence::complete(),
         snapshots: Vec::new(),
     });
-    let m: OperatorControlModule<InMemoryKernelStore> =
-        OperatorControlModule::new(test_config()).with_live_readiness_feed(feed);
+    let m: OperatorControlModule =
+        OperatorControlModule::new().with_live_readiness_feed(feed);
     let status = m.readiness_status();
 
-    assert_eq!(m.module_state(), OperatorControlModuleState::ShellDefault);
+    assert_eq!(m.module_state(), HelmModuleState::ShellDefault);
     assert_eq!(
-        <OperatorControlModule<InMemoryKernelStore> as HelmModule>::module_state(&m),
+        <OperatorControlModule as HelmModule>::module_state(&m),
         ModuleState::Shell
     );
-    assert_eq!(status.state, OperatorControlModuleState::ShellDefault);
+    assert_eq!(status.state, HelmModuleState::ShellDefault);
     assert!(
         status
             .missing_live_requirements
@@ -232,8 +226,7 @@ fn operator_control_state_uses_live_feed_previews_when_present() {
         evidence: LiveReadinessEvidence::complete(),
         snapshots: vec![sample_snapshot()],
     });
-    let store = InMemoryKernelStore::default_local();
-    let state = OperatorControlState::new(store.config.clone(), store).with_readiness_feed(feed);
+    let state = OperatorControlState::new().with_readiness_feed(feed);
     let preview = state
         .operator_control_preview()
         .expect("live feed preview is available");
@@ -249,8 +242,7 @@ fn operator_control_state_does_not_fall_back_to_static_demo_when_live_feed_is_em
         evidence: LiveReadinessEvidence::complete(),
         snapshots: Vec::new(),
     });
-    let store = InMemoryKernelStore::default_local();
-    let state = OperatorControlState::new(store.config.clone(), store).with_readiness_feed(feed);
+    let state = OperatorControlState::new().with_readiness_feed(feed);
     let previews = state
         .operator_control_previews()
         .expect("empty live feed returns empty previews");
@@ -268,8 +260,7 @@ fn operator_control_state_does_not_fall_back_to_static_demo_when_live_feed_is_em
 
 #[test]
 fn operator_control_state_returns_empty_previews_without_live_feed() {
-    let store = InMemoryKernelStore::default_local();
-    let state = OperatorControlState::new(store.config.clone(), store);
+    let state = OperatorControlState::new();
 
     assert!(
         state
@@ -310,4 +301,148 @@ fn helm_crate_exports_operator_control_contracts() {
     assert_eq!(entry.receipt_family, ReceiptFamily::Common);
     assert_eq!(entry.authority_effect, AuthorityEffect::None);
     assert_eq!(entry.source_ref, packet.packet_id);
+}
+
+// ── Soak ──────────────────────────────────────────────────────────────────────
+
+/// Soak: packet build → ledger entry → preview loop via StaticReadinessFeed.
+///
+/// Runs `SOAK_ITERS` iterations (default 100 000). On every iteration:
+/// - Builds a `JobReadinessPacket` and ledger entry from a fixed input.
+/// - Wraps them in a `StaticReadinessFeed` and asserts the live preview
+///   resolves correctly.
+/// - Asserts that packet_id and entry_id are stable across all iterations
+///   (determinism / no drift).
+/// - Every 10 000 iterations, builds a packet from a *mutated* input and
+///   asserts the ids differ (inequality check).
+///
+/// Run:
+/// ```text
+/// SOAK_ITERS=10000 cargo test -p helm-operator-control -- --ignored soak --nocapture
+/// ```
+#[test]
+#[ignore = "soak — run with: SOAK_ITERS=10000 cargo test -p helm-operator-control -- --ignored soak --nocapture"]
+fn soak_packet_ledger_preview_no_drift() {
+    use std::sync::Arc;
+    use std::time::Instant;
+
+    let iters: u64 = std::env::var("SOAK_ITERS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(100_000);
+
+    // Canonical baseline input.
+    let base_input = || JobReadinessPacketInput {
+        package_id: "soak.pkg.001".to_string(),
+        truth_version: "truth.soak.v1".to_string(),
+        domain_hint: "soak.operator-control".to_string(),
+        job_key: "soak-readiness-check".to_string(),
+        subject_ref: "soak.subject.abcdef".to_string(),
+        adapter_receipt_id: "soak.adapter.receipt.abcdef".to_string(),
+        adapter_status: AdapterReceiptStatus::Succeeded,
+        verdict: Some(JobVerdict::Blocked),
+        authorizes_domain_action: false,
+        evidence_status: vec![JobEvidenceStatus {
+            clause_id: "soak.clause.1".to_string(),
+            clause_key: "soak-evidence-key".to_string(),
+            label: "Soak evidence present".to_string(),
+            status: EvidenceReadinessStatus::Present,
+            fact_ids: vec!["soak.fact.1".to_string()],
+            evidence_refs: vec!["soak.evidence.1".to_string()],
+            trace_links: Vec::new(),
+            concern_record_ids: Vec::new(),
+        }],
+        fuzzy_trace: None,
+        verifier_forbidden_actions: vec!["soak.forbidden".to_string()],
+        operator_actions: vec!["soak.action".to_string()],
+    };
+
+    // Build baseline once to capture reference ids and hash.
+    let ref_packet =
+        JobReadinessPacket::new(base_input()).expect("baseline packet builds");
+    let ref_entry = job_readiness_packet_ledger_entry(
+        1,
+        &ref_packet,
+        vec!["soak.backlink.1".to_string()],
+        "soak baseline ledger entry",
+    )
+    .expect("baseline ledger entry builds");
+
+    let ref_packet_id = ref_packet.packet_id.clone();
+    let ref_entry_id = ref_entry.entry_id.clone();
+    let ref_hash = job_readiness_packet_payload_hash(&ref_packet);
+
+    // Build the mutated input once (append "-mutated" to package_id).
+    let mutated_packet = {
+        let mut m = base_input();
+        m.package_id.push_str("-mutated");
+        JobReadinessPacket::new(m).expect("mutated packet builds")
+    };
+    assert_ne!(
+        mutated_packet.packet_id, ref_packet_id,
+        "mutated input must produce a different packet_id"
+    );
+
+    let start = Instant::now();
+    eprintln!("soak: starting {iters} iterations…");
+
+    for i in 0..iters {
+        // Build packet + ledger entry from identical input.
+        let packet = JobReadinessPacket::new(base_input()).expect("packet builds");
+        assert_eq!(
+            packet.packet_id, ref_packet_id,
+            "iteration {i}: packet_id drifted"
+        );
+
+        let hash = job_readiness_packet_payload_hash(&packet);
+        assert_eq!(hash, ref_hash, "iteration {i}: payload hash drifted");
+
+        let entry = job_readiness_packet_ledger_entry(
+            1,
+            &packet,
+            vec!["soak.backlink.1".to_string()],
+            "soak baseline ledger entry",
+        )
+        .expect("ledger entry builds");
+        assert_eq!(
+            entry.entry_id, ref_entry_id,
+            "iteration {i}: entry_id drifted"
+        );
+        assert_eq!(
+            entry.authority_effect,
+            AuthorityEffect::None,
+            "iteration {i}: authority_effect is not None"
+        );
+
+        // Thread through the live feed → preview path every iteration.
+        let snapshot = LiveOperatorControlSnapshot::new(packet, vec![entry]);
+        let feed = Arc::new(StaticReadinessFeed {
+            evidence: LiveReadinessEvidence::complete(),
+            snapshots: vec![snapshot],
+        });
+        let m = OperatorControlModule::new().with_live_readiness_feed(feed);
+        assert_eq!(
+            m.module_state(),
+            HelmModuleState::Live,
+            "iteration {i}: module should report Live"
+        );
+
+        // Inequality check every 10 000 iterations.
+        if i % 10_000 == 9_999 {
+            let mut mi = base_input();
+            mi.package_id = format!("soak.pkg.001-iter{i}");
+            let mp = JobReadinessPacket::new(mi).expect("mutated packet builds");
+            assert_ne!(
+                mp.packet_id, ref_packet_id,
+                "iteration {i}: mutated packet_id must differ from baseline"
+            );
+        }
+    }
+
+    let elapsed = start.elapsed();
+    eprintln!(
+        "soak: {iters} iterations in {:.2}s ({:.0} iter/s)",
+        elapsed.as_secs_f64(),
+        iters as f64 / elapsed.as_secs_f64()
+    );
 }

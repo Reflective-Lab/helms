@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed (RFL-154 — helm operator seam cut)
+- `helm-module-contracts` now owns the complete operator vocabulary: `operator_receipts` module (`JobReadinessPacket`, `OperatorLedgerEntry`, all receipt families, `OperatorControlError`, hash/ledger helpers) and `operator_preview` module (`OperatorControlPreview`, `OperatorControlPreviewBacking`, `OperatorReceiptFamilyView`, `operator_receipt_families()`). sha2 added as direct dep.
+- `prio-agent-ops` is now manifest-only: capability advertisement remains, operator-control vocabulary removed. Dep-tree no longer includes truth-catalog→prism-analytics→polars; that transitive chain is Plan-B scope.
+- `workbench-backend` repoints operator-control types to `helm-module-contracts`.
+- `helm-operator-control` depends on `helm-module-contracts` only (drops `workbench-backend`, `prio-agent-ops`, `polars`). Seed loading extracted to `seed-gen` via `ShowcaseSeedSource` injection. No shim re-exports.
+- `seed-gen` gains a library target (`src/lib.rs`) exposing `pub mod showcase_seed`, removing the `#![allow(dead_code)]` suppression.
+- arena `cross-extension-smoke` repoint (prio-agent-ops → helm-module-contracts) lands in arena-tests immediately after this merge (RFL-154 T6).
+
+- `helm-module-contracts` bumped to 0.3.0: three new public modules (`showcase_pipeline`, `operator_receipts`, `operator_preview`) plus `sha2` as a direct runtime dep constitute minor surface expansion (RFL-154). All in-repo consumers updated.
+
+### Added (RFL-154 — helm operator seam cut)
+- trybuild compile-fail suite in `helm-module-contracts`: one case proves private validation helpers (`validate_sha256`) are not callable from external code (parse-don't-validate gate).
+- trybuild regression guards in `helm-operator-control`: two compile-fail cases prove `workbench_backend` and `prio_agent_ops` are no longer dep-resolvable.
+- `#[ignore]`d soak test in `helm-operator-control/tests/module_test.rs` (`soak_packet_ledger_preview_no_drift`): 100 000 iterations of packet→ledger→preview via `StaticReadinessFeed`, asserts no id/hash drift; proof run at 10 000 iter in 1.65s (6 061 iter/s).
+- `kb/Architecture/Foundation Contracts.md` — operator vocabulary row in contracts surface table.
+- `kb/Architecture/Operator Control Common Module.md` — reflects RFL-154 ownership; contracts is the canonical import path.
+- `kb/Architecture/Module Map.md` — `prio-agent-ops` scoped to manifest-only; new `Seam Contracts` section for `helm-module-contracts`.
+
 ### Changed
 - `HelmModule` trait and `ModuleState` enum extracted from `runtime-runway/runway-app-host` into `helm-module-contracts` (RFL-128). `init()` no longer takes `&HostContext` — parameter was unused by all five modules. `helm-operator-control` and `helm-truth-execution` now import directly from `helm-module-contracts` with no `runway-app-host` dep; `helm-coordination`, `helm-governed-jobs`, and `helm-session-host` retain the dep for EventHub/SSE/SessionOwnershipLayer under approved `# RP-HELMS-SUBSTRATE-SEAM` seams.
 

@@ -14,7 +14,7 @@ axum.workspace = true
 chrono.workspace = true
 director-contracts = { version = "0.2.1", path = "../director-contracts" }
 helm-client = { version = "0.2.1", path = "../helm-client" }
-helm-module-contracts = { version = "0.2.1", path = "../../contracts/crates/helm-module-contracts" }
+helm-module-contracts = { version = "0.3.0", path = "../../contracts/crates/helm-module-contracts" }
 helm-session-contracts = { version = "0.2.1", path = "../helm-session-contracts" }
 # RP-HELMS-SUBSTRATE-SEAM: approved foundation→substrate edge; needed for
 # SessionOwnershipLayer, EventHub / EventHubHandle / EventCursor / SSE. HelmModule

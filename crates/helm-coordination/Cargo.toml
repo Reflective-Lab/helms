@@ -15,7 +15,7 @@ axum.workspace = true
 chrono.workspace = true
 application-kernel = { version = "0.2.1", path = "../application-kernel" }
 helm-governed-jobs = { version = "0.2.1", path = "../helm-governed-jobs" }
-helm-module-contracts = { version = "0.2.1", path = "../../contracts/crates/helm-module-contracts" }
+helm-module-contracts = { version = "0.3.0", path = "../../contracts/crates/helm-module-contracts" }
 # RP-HELMS-SUBSTRATE-SEAM: approved foundation→substrate edge; needed for
 # EventHub / EventHubHandle / EventEnvelope / SSE types. HelmModule / ModuleState
 # are now imported from helm-module-contracts (RFL-128).

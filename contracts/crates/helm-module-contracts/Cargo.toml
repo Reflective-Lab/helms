@@ -1,7 +1,7 @@
 [package]
 name = "helm-module-contracts"
 description = "Shared contracts for Helm modules mounted into Runtime Runway."
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/Reflective-Lab/helms"
@@ -12,7 +12,10 @@ anyhow = "1"
 async-trait = "0.1"
 axum = "0.8"
 serde = { version = "1", features = ["derive"] }
+sha2 = "0.11"
 
 [dev-dependencies]
+proptest = "1"
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+trybuild = { version = "1", features = ["diff"] }

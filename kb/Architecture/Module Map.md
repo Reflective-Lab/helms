@@ -41,7 +41,7 @@ Truths are not modules. They sit above these capabilities and compose them into 
 - `prio-audit`: provenance, decision trace, evidence links, replayable history
 - `prio-intents`: jobs, intent context, success criteria, outcomes, agent runs
 - `prio-memory`: semantic memory, embeddings, entity graph, retrieval context
-- `prio-agent-ops`: agent runs, operator-control readiness packets, receipt ledger entries, validation contracts, execution traceability
+- `prio-agent-ops`: capability manifest only (agent runs, capability advertisement to capability-registry). Operator-control vocabulary (packets, ledger entries, receipt families, errors) moved to `helm-module-contracts` in RFL-154. truth-catalog→prism-analytics→polars transitive chain is Plan-B scope; not imported by this crate after T3.
 
 ## Suites
 
@@ -93,11 +93,22 @@ commercial contracts for marquee apps.
 - `memory`
 - `agent-ops`
 
-`agent-ops` still contains the legacy implementation for the first Helm
-operator-control slice. The public app-facing contract is
-`helm-operator-control`: `JobReadinessPacket`, `OperatorLedgerEntry`, receipt
-families, and the non-authority invariant for readiness views are imported
-through that Helm-named crate. See [[Operator Control Common Module]].
+After RFL-154, `prio-agent-ops` is manifest-only (capability advertisement,
+not operator-control vocabulary). The operator vocabulary now lives in
+`helm-module-contracts` (`operator_receipts` and `operator_preview` modules).
+`JobReadinessPacket`, `OperatorLedgerEntry`, receipt families, and the
+non-authority invariant for readiness views are imported from
+`helm-module-contracts`; the live HTTP surface is in `helm-operator-control`.
+See [[Operator Control Common Module]].
+
+### Seam Contracts (Shared Across Repo Boundaries)
+
+- `helm-module-contracts` (`contracts/crates/helm-module-contracts`) — HelmModule
+  trait + ModuleState, operator vocabulary (`operator_receipts`,
+  `operator_preview`), showcase pipeline injection contract. Published to
+  crates.io so Runtime Runway can consume it without checking out the full helms
+  workspace. Polars and analytics transitive chains (truth-catalog→prism-analytics→polars)
+  are Plan-B scope and deliberately absent from this crate's dep tree.
 
 ## API Naming Convention
 

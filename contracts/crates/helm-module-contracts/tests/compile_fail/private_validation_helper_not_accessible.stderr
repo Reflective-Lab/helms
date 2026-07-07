@@ -1,0 +1,11 @@
+error[E0603]: function `validate_sha256` is private
+  --> tests/compile_fail/private_validation_helper_not_accessible.rs:11:55
+   |
+11 |     let _ = helm_module_contracts::operator_receipts::validate_sha256(
+   |                                                       ^^^^^^^^^^^^^^^ private function
+   |
+note: the function `validate_sha256` is defined here
+  --> src/operator_receipts.rs
+   |
+   | fn validate_sha256(field: &'static str, value: &str) -> Result<(), OperatorControlError> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

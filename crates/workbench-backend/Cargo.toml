@@ -15,7 +15,7 @@ capability-core = { version = "0.2.1", path = "../capability-core" }
 capability-registry = { version = "0.2.1", path = "../capability-registry" }
 organism-domain.workspace = true
 organism-runtime.workspace = true
-prio-agent-ops = { version = "0.2.1", path = "../prio-agent-ops" }
+helm-module-contracts = { version = "0.3.0", path = "../../contracts/crates/helm-module-contracts" }
 truth-catalog = { version = "0.2.1", path = "../truth-catalog" }
 serde.workspace = true
 serde_json.workspace = true

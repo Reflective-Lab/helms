@@ -5,6 +5,25 @@
 //! (`HelmModule`, `ModuleState`) so the interface lives in a neutral crate
 //! that both helms crates and Runtime Runway can consume without creating a
 //! foundation→substrate dependency (RP-LAYERING, RFL-128).
+//!
+//! The [`operator_receipts`] submodule owns the full operator-control receipt
+//! vocabulary (all 18 types, hashing helpers, and `OperatorControlError`),
+//! promoted here from `prio-agent-ops` as part of RFL-154.
+//!
+//! The [`operator_preview`] submodule provides read-only view types over the
+//! receipts vocabulary (`OperatorControlPreview`, `OperatorControlPreviewBacking`,
+//! `OperatorReceiptFamilyView`, `operator_receipt_families()`), promoted here
+//! from `workbench-backend` as part of RFL-154 T2.
+//!
+//! The [`showcase_pipeline`] submodule owns the injection boundary types for
+//! the showcase pipeline: [`showcase_pipeline::ShowcasePipelineInput`],
+//! [`showcase_pipeline::SeedSourceError`], and the
+//! [`showcase_pipeline::ShowcaseSeedSource`] trait the mounting app implements
+//! (RFL-154 T5b).
+
+pub mod operator_preview;
+pub mod operator_receipts;
+pub mod showcase_pipeline;
 
 use std::sync::Arc;
 

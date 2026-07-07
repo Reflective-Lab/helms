@@ -10,7 +10,16 @@ name = "seed-gen"
 path = "src/main.rs"
 
 [dependencies]
+# helm-module-contracts provides ShowcasePipelineInput used by showcase_seed
+# (RFL-154 T5b: Parquet loaders moved here from helm-operator-control).
+helm-module-contracts = { version = "0.3.0", path = "../../contracts/crates/helm-module-contracts" }
 polars = { version = "0.51.0", features = ["lazy", "parquet", "rows"] }
 rand = { version = "0.9", features = ["small_rng"] }
 chrono.workspace = true
 anyhow.workspace = true
+serde_json = "1"
+async-trait = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+[dev-dependencies]
+tempfile = "3"
