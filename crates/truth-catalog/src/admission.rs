@@ -48,7 +48,7 @@ pub enum AdmitTruthError {
 ///
 /// Returns [`AdmitTruthError`] on compile failure, invalid actor/source
 /// identity, or admission rejection.
-pub fn admit_truth_intent_for_def(
+pub fn admit_truth_intent(
     def: TruthDefinition,
     overlay: &dyn IntentOverlay,
     actor_id: &str,
