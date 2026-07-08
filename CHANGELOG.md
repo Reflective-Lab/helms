@@ -6,6 +6,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added (RFL-171 T9 — quality wave for helm-event-substrate)
+- Soak test (`#[ignore]`, `SOAK_ITERS` env, default 100 000): publish/subscribe
+  cycles through `EventHub` backed by `InMemoryEventLog`; proves monotone
+  sequence (no gaps), bounded replay buffer (eviction), and fresh-hub durable
+  replay equals in-order publication. Proof run at 10 000 iter: 543 ms / 18 k
+  iter/s.
+- Negative tests: malformed `StoredEvent` payload skipped-not-panicked in the
+  `stored_to_envelope` replay path; `EventQuery { limit: Some(0) }` returns
+  empty; subscribe-after-eviction cursor returns only buffer-resident events.
+- Compile-fail guard in `tests/feature_gate.rs`: `cargo check
+  --no-default-features` subprocess proves `InMemoryLeaseStore` /
+  `InMemoryEventLog` are unavailable without `--features memory`. trybuild
+  excluded (cannot control features per test case when gate command adds
+  `--features memory,sse`).
+- Full rustdoc pass: broken intra-doc links fixed; missing doc comments added
+  to `EventQuery`, `EventEnvelope`, `EventHub`, `EventHubHandle`, and all public
+  methods. `cargo doc --no-deps` → 0 warnings.
+- Crate-level doc extended with Seam A narrative, what-stays-app-side summary,
+  and RFL-178 note (`SessionOwnershipLayer` pending `OrgIdentity` neutralisation).
+- `kb/Architecture/Module Map.md` — new `helm-event-substrate` entry under
+  Seam Contracts: ownership, dropped edges, what stays in runway, RFL-178 note.
+- `kb/Architecture/Foundation Contracts.md` — Event Substrate Seam section with
+  contract surface table, boundary notes, and implementor map.
+- `InMemoryEventLog.append` O(N) → O(1) dedup via `seen_ids: HashSet<String>`.
+
+### Changed (RFL-171 T1–T7 — Seam A extraction)
+- `helm-event-substrate` 0.1.0 — new dual-homed crate (`contracts/crates/`).
+  Moves `EventLog` / `SyncableEventLog` / `StoredEvent` / `EventQuery` (from
+  `runway-storage`), `LeaseStore` + lease types (from `runway-storage`),
+  `EventHub` / `EventHubHandle` / `EventEnvelope` / `EventCursor` /
+  `EventSubscription` (from `runway-app-host`), SSE transport (from
+  `runway-app-host`), and `SubstrateError` (renamed from
+  `runway_storage::traits::Error`).
+- `memory` feature (off by default) adds `InMemoryEventLog` + `InMemoryLeaseStore`
+  with full property test parity suite (T3).
+- `crm-helm` repatriated from `apps/showcase/` to `apps/crm-helm/` (T7).
+
 ### Changed (RFL-154 — helm operator seam cut)
 - `helm-module-contracts` now owns the complete operator vocabulary: `operator_receipts` module (`JobReadinessPacket`, `OperatorLedgerEntry`, all receipt families, `OperatorControlError`, hash/ledger helpers) and `operator_preview` module (`OperatorControlPreview`, `OperatorControlPreviewBacking`, `OperatorReceiptFamilyView`, `operator_receipt_families()`). sha2 added as direct dep.
 - `prio-agent-ops` is now manifest-only: capability advertisement remains, operator-control vocabulary removed. Dep-tree no longer includes truth-catalog→prism-analytics→polars; that transitive chain is Plan-B scope.
