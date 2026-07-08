@@ -27,9 +27,18 @@
 //!   `runway-storage` and `runway-app-host` into Bedrock-owned contracts.
 
 pub mod event;
+pub mod hub;
 pub mod lease;
 
+/// SSE transport: axum router, frame encoder, replay-then-live stream combinator.
+///
+/// Gated behind the `sse` feature (default on). Requires `axum`, `tokio-stream`,
+/// `async-stream`, and `futures`.
+#[cfg(feature = "sse")]
+pub mod sse;
+
 pub use event::{EventCursor, EventEnvelope, EventLog, EventQuery, EventSubscription, StoredEvent, SyncableEventLog};
+pub use hub::{EventHub, EventHubHandle};
 pub use lease::{AcquireOutcome, LeaseRecord, LeaseScope, LeaseStore, RenewOutcome};
 
 /// Canonical error type for all substrate contract trait implementations.
