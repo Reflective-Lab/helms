@@ -25,4 +25,3 @@ uuid.workspace = true
 
 application-kernel = { version = "0.2.1", path = "../application-kernel" }
 application-storage = { version = "0.2.1", path = "../application-storage" }
-truth-catalog = { version = "0.2.1", path = "../truth-catalog" }
