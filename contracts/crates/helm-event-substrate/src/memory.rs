@@ -38,6 +38,9 @@ use crate::{
 struct EventLogInner {
     /// Append-only log in insertion order.
     events: Vec<StoredEvent>,
+    /// Set of all ever-appended `event_id`s — O(1) duplicate detection for
+    /// `append`.  Mirrors the redb OR-IGNORE semantics without an O(N) scan.
+    seen_ids: HashSet<String>,
     /// Set of event_ids that have been passed to `mark_synced`.
     synced: HashSet<String>,
 }
@@ -66,6 +69,7 @@ impl InMemoryEventLog {
         Self {
             inner: Arc::new(Mutex::new(EventLogInner {
                 events: Vec::new(),
+                seen_ids: HashSet::new(),
                 synced: HashSet::new(),
             })),
         }
@@ -86,7 +90,8 @@ impl EventLog for InMemoryEventLog {
             .lock()
             .map_err(|e| SubstrateError::Other(e.to_string()))?;
         // OR-IGNORE semantics: idempotent on event_id (matches redb behaviour).
-        if !guard.events.iter().any(|e| e.event_id == event.event_id) {
+        // `seen_ids` gives O(1) dedup instead of the O(N) linear scan.
+        if guard.seen_ids.insert(event.event_id.clone()) {
             guard.events.push(event);
         }
         Ok(())
@@ -511,6 +516,36 @@ mod tests {
             .unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].event_id, "e3");
+    }
+
+    /// Negative: limit = Some(0) must return an empty slice, not all events.
+    #[tokio::test]
+    async fn query_limit_zero_returns_empty() {
+        let log = InMemoryEventLog::new();
+        let t0 = now_fixed();
+        for i in 0u64..3 {
+            log.append(stored(
+                &format!("e{i}"),
+                "org",
+                "app",
+                "t",
+                t0 + chrono::Duration::seconds(i as i64),
+            ))
+            .await
+            .unwrap();
+        }
+        let results = log
+            .query(EventQuery {
+                limit: Some(0),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        assert!(
+            results.is_empty(),
+            "limit=0 must return empty, not {} events",
+            results.len()
+        );
     }
 
     #[tokio::test]

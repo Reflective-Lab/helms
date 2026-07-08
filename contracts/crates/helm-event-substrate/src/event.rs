@@ -31,6 +31,13 @@ pub struct StoredEvent {
     pub synced_at: Option<DateTime<Utc>>,
 }
 
+/// Filter parameters for [`EventLog::query`] and [`SyncableEventLog::query_unsynced`].
+///
+/// All fields are optional and act as conjunctive filters.  Unset fields match
+/// any value.  `since` is an **exclusive** lower bound on `occurred_at`; events
+/// at or before `since` are excluded.  `limit` truncates the result set after
+/// sorting by `occurred_at` ascending — `limit = Some(0)` returns an empty
+/// slice.
 #[derive(Debug, Clone, Default)]
 pub struct EventQuery {
     pub org_id: Option<String>,
@@ -70,6 +77,12 @@ pub trait SyncableEventLog: EventLog {
 // These are backend-neutral value types; EventHub (T2) remains in realtime.rs
 // until it moves in the next task.
 
+/// A single event on the in-process broadcast bus and in the durable log.
+///
+/// Produced by [`crate::hub::EventHubHandle::publish`]; consumed by subscribers
+/// and the SSE transport.  `sequence` is assigned monotonically by the hub and
+/// is the ordering key for replay.  `event_id` is the dedup key used by the
+/// durable log.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct EventEnvelope {
     pub event_id: Uuid,
@@ -102,7 +115,7 @@ pub struct EventCursor {
     pub job_id: Option<String>,
 }
 
-/// Returned by [`EventHubHandle::subscribe_with_cursor`].
+/// Returned by [`crate::hub::EventHubHandle::subscribe_with_cursor`].
 pub struct EventSubscription {
     /// Buffered events to replay before the live stream starts.
     pub replay: Vec<EventEnvelope>,

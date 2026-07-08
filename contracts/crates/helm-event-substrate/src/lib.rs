@@ -1,30 +1,53 @@
-//! Bedrock-owned substrate injection contracts.
+//! Bedrock-owned substrate injection contracts — the Seam A boundary.
 //!
-//! This crate defines the abstract event-ledger and lease/session-ownership
-//! contracts that Helms modules depend on. Concrete implementations live
-//! outside this crate and are injected at construction time:
+//! This crate defines the abstract event-ledger, lease/session-ownership, and
+//! SSE-streaming contracts that Helms modules depend on.  Concrete
+//! implementations are injected at construction time:
 //!
 //! - **runway-app-host** — production implementor (redb local + Firestore
 //!   remote for [`EventLog`] / [`SyncableEventLog`]; redb + Firestore for
-//!   [`LeaseStore`]).
+//!   [`LeaseStore`]).  `runway-storage` re-exports these traits for callers
+//!   that pin to the old import path.
 //! - **in-memory** — lightweight second implementor, gated behind the
-//!   `memory` feature (filled in T3). Required to keep the contract-suite
-//!   property tests honest: any runtime assertion that passes for redb must
-//!   also pass for in-memory.
+//!   `memory` feature (off by default).  Required to keep the contract-suite
+//!   property tests honest: any runtime assertion that passes for the redb
+//!   backend must also pass here.
+//!
+//! ## What lives here vs. what stays app-side
+//!
+//! **Moved into this crate (Seam A):**
+//! - [`EventLog`] / [`SyncableEventLog`] — append-only event ledger traits.
+//! - [`LeaseStore`] + [`LeaseScope`] / [`LeaseRecord`] / [`AcquireOutcome`] /
+//!   [`RenewOutcome`] — CAS session-ownership contract.
+//! - [`EventHub`] / [`EventHubHandle`] — in-process broadcast channel with
+//!   replay buffer and optional durable backing.
+//! - [`sse`] module — axum SSE router, frame encoder, replay-then-live stream
+//!   combinator (default feature `sse`).
+//! - [`SubstrateError`] — canonical error type; `runway-storage` re-exports it.
+//!
+//! **Stays app-side (not moved):**
+//! - `SessionOwnershipLayer` — axum middleware bound to `runway_auth::AuthContext`
+//!   and `tower`.  Awaiting `OrgIdentity` neutralization (RFL-178) before it can
+//!   cross the repo boundary.
+//! - `StorageKit` (documents / vectors / objects), `RunwayAppHost` builder,
+//!   manifest types — remain in `runway-app-host`.
 //!
 //! ## Feature flags
 //!
 //! | Feature  | Default | Description                                                                        |
 //! |----------|---------|------------------------------------------------------------------------------------|
-//! | `sse`    | yes     | Pulls in `axum`, `tokio-stream`, `async-stream`, and `futures` for the SSE surface (T2). |
-//! | `memory` | no      | In-memory [`EventLog`] + [`LeaseStore`] implementations (T3).                     |
+//! | `sse`    | yes     | Pulls in `axum`, `tokio-stream`, `async-stream`, and `futures` for the SSE surface. |
+//! | `memory` | no      | In-memory [`EventLog`] + [`LeaseStore`] implementations for tests and headless composition roots. |
 //!
 //! ## Lineage
 //!
 //! - **RP-LAYERING** — this crate is the Seam A boundary described in the
-//!   helms architecture. Types here are shared contracts, not application logic.
+//!   helms architecture.  Types here are shared contracts, not application logic.
 //! - **RFL-171** — extraction task that moved these types from
 //!   `runway-storage` and `runway-app-host` into Bedrock-owned contracts.
+//! - **RFL-178** — follow-on task to neutralize `OrgIdentity` / `AuthContext`
+//!   so `SessionOwnershipLayer` can also cross the boundary.  Until then,
+//!   the middleware stays in `runway-app-host`.
 
 pub mod event;
 pub mod hub;
