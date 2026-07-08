@@ -106,15 +106,20 @@ fn arb_fuzzy_rule() -> impl Strategy<Value = FuzzyRuleActivation> {
 }
 
 fn arb_defuzzified_score() -> impl Strategy<Value = FuzzyDefuzzifiedScore> {
-    (arb_nonempty_str(), arb_valid_basis_points(), 1u32..10_000u32).prop_map(
-        |(method, score_basis_points, domain_steps)| FuzzyDefuzzifiedScore {
-            method,
-            score_basis_points,
-            domain_min_basis_points: 0,
-            domain_max_basis_points: 10_000,
-            domain_steps,
-        },
+    (
+        arb_nonempty_str(),
+        arb_valid_basis_points(),
+        1u32..10_000u32,
     )
+        .prop_map(
+            |(method, score_basis_points, domain_steps)| FuzzyDefuzzifiedScore {
+                method,
+                score_basis_points,
+                domain_min_basis_points: 0,
+                domain_max_basis_points: 10_000,
+                domain_steps,
+            },
+        )
 }
 
 fn arb_fuzzy_trace() -> impl Strategy<Value = Option<FuzzyReadinessTrace>> {
@@ -228,12 +233,12 @@ fn arb_ledger_entry_input() -> impl Strategy<Value = OperatorLedgerEntryInput> {
         0u64..1_000_000u64,
         arb_record_kind(),
         arb_receipt_family(),
-        arb_nonempty_str(), // source_ref
-        arb_nonempty_str(), // package_id
-        arb_nonempty_str(), // truth_version
-        arb_nonempty_str(), // domain_hint
+        arb_nonempty_str(),                              // source_ref
+        arb_nonempty_str(),                              // package_id
+        arb_nonempty_str(),                              // truth_version
+        arb_nonempty_str(),                              // domain_hint
         prop::collection::vec(arb_nonempty_str(), 0..3), // backlink_ids
-        arb_nonempty_str(), // summary
+        arb_nonempty_str(),                              // summary
     )
         .prop_map(
             |(
@@ -529,7 +534,10 @@ proptest! {
 /// exhaustive loops instead of proptest).
 #[test]
 fn remaining_vocab_enums_serde_roundtrip_exhaustively() {
-    for v in [AdapterReceiptStatus::Succeeded, AdapterReceiptStatus::Rejected] {
+    for v in [
+        AdapterReceiptStatus::Succeeded,
+        AdapterReceiptStatus::Rejected,
+    ] {
         let json = serde_json::to_string(&v).unwrap();
         assert_eq!(json, format!("\"{}\"", v.as_str()));
         let rt: AdapterReceiptStatus = serde_json::from_str(&json).unwrap();

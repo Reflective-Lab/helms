@@ -153,9 +153,7 @@ pub fn operator_receipt_families() -> Vec<OperatorReceiptFamilyView> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        operator_receipt_families, OperatorControlPreview, OperatorControlPreviewBacking,
-    };
+    use super::{OperatorControlPreview, OperatorControlPreviewBacking, operator_receipt_families};
     use crate::operator_receipts::{
         AdapterReceiptStatus, JobReadinessPacket, JobReadinessPacketInput,
         OperatorLedgerRecordKind, ReceiptFamily,
