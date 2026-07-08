@@ -15,7 +15,8 @@ use converge_core::{
 use helm_coordination::{CoordinationModuleState, mount_live_modules};
 use helm_governed_jobs::{GovernedJobsModuleState, JobStreamState};
 use helm_truth_execution::{
-    TruthBody, TruthExecutionArtifacts, TruthExecutionModule, dispatcher::TruthExecutionContext,
+    TruthBody, TruthExecutionArtifacts, TruthExecutionError, TruthExecutionModule,
+    dispatcher::TruthExecutionContext,
 };
 use http_body_util::BodyExt;
 use runway_app_host::{
@@ -37,7 +38,7 @@ impl TruthBody for ImmediateTruth {
     async fn execute(
         &self,
         _ctx: TruthExecutionContext,
-    ) -> Result<TruthExecutionArtifacts, tonic::Status> {
+    ) -> Result<TruthExecutionArtifacts, TruthExecutionError> {
         Ok(TruthExecutionArtifacts {
             result: ConvergeResult {
                 context: ContextState::default(),

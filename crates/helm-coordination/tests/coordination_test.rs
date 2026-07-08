@@ -28,7 +28,8 @@ use helm_coordination::{
 };
 use helm_governed_jobs::{JobRunTask, JobStreamState, run_job_task};
 use helm_truth_execution::{
-    TruthBody, TruthExecutionArtifacts, TruthExecutionModule, dispatcher::TruthExecutionContext,
+    TruthBody, TruthExecutionArtifacts, TruthExecutionError, TruthExecutionModule,
+    dispatcher::TruthExecutionContext,
 };
 use runway_app_host::{EventEnvelope, EventHub};
 use truth_catalog::{TruthCatalog, TruthDefinition, TruthKind};
@@ -74,7 +75,7 @@ impl TruthBody for CompletingGateTruth {
     async fn execute(
         &self,
         _ctx: TruthExecutionContext,
-    ) -> Result<TruthExecutionArtifacts, tonic::Status> {
+    ) -> Result<TruthExecutionArtifacts, TruthExecutionError> {
         let call = self.calls.fetch_add(1, Ordering::SeqCst);
         let result = if call == 0 {
             blocked_result()
