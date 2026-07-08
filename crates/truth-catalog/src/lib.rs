@@ -1,10 +1,12 @@
 pub mod admission;
+pub mod catalog;
 mod converge;
 pub mod intent_compile;
 pub mod key;
 pub mod orchestration;
 mod organism;
 
+pub use catalog::TruthCatalog;
 pub use key::{InvalidTruthKey, TruthKey};
 use serde::Serialize;
 
@@ -1063,37 +1065,37 @@ pub const TRUTHS: &[TruthDefinition] = &[
     },
 ];
 
+// Seam B T4: moves to crm-truths — these free functions are thin wrappers
+// over TruthCatalog::new(&TRUTHS) kept only while callers are migrated.
+
 #[must_use]
 pub fn all_truths() -> Vec<TruthDefinition> {
-    TRUTHS.to_vec()
+    TruthCatalog::new(TRUTHS).all().to_vec()
 }
 
 #[must_use]
 pub fn truths_by_kind(kind: TruthKind) -> Vec<TruthDefinition> {
-    TRUTHS
-        .iter()
+    TruthCatalog::new(TRUTHS)
+        .by_kind(kind)
+        .into_iter()
         .copied()
-        .filter(|truth| truth.kind == kind)
         .collect()
 }
 
 #[must_use]
 pub fn truths_for_module(module_key: &str) -> Vec<TruthDefinition> {
-    TRUTHS
-        .iter()
+    TruthCatalog::new(TRUTHS)
+        .for_module(module_key)
+        .into_iter()
         .copied()
-        .filter(|truth| {
-            truth
-                .modules
-                .iter()
-                .any(|touch| touch.module_key == module_key)
-        })
         .collect()
 }
 
 #[must_use]
 pub fn find_truth(key: &str) -> Option<TruthDefinition> {
-    TRUTHS.iter().copied().find(|truth| truth.key == key)
+    TruthKey::parse(key)
+        .ok()
+        .and_then(|k| TruthCatalog::new(TRUTHS).find(&k).copied())
 }
 
 #[cfg(test)]
