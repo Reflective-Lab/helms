@@ -37,10 +37,7 @@ use polars::prelude::*;
 /// Errors are mapped to [`SeedSourceError`] variants:
 /// - File not found or unreadable → `StorageError`
 /// - Column missing or parse failure → `ParseError`
-fn load_prospect_events(
-    seed_dir: &Path,
-    prospect_id: &str,
-) -> Result<String, SeedSourceError> {
+fn load_prospect_events(seed_dir: &Path, prospect_id: &str) -> Result<String, SeedSourceError> {
     let path = seed_dir.join("behavior_events.parquet");
 
     // Pre-check existence so callers receive StorageError for missing files
@@ -69,30 +66,46 @@ fn load_prospect_events(
     for i in 0..rows {
         let visitor_id = df
             .column("prospect_id")
-            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
+            .map_err(|e| SeedSourceError::ParseError {
+                detail: e.to_string(),
+            })?
             .str()
-            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
+            .map_err(|e| SeedSourceError::ParseError {
+                detail: e.to_string(),
+            })?
             .get(i)
             .unwrap_or("");
         let timestamp = df
             .column("timestamp")
-            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
+            .map_err(|e| SeedSourceError::ParseError {
+                detail: e.to_string(),
+            })?
             .i64()
-            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
+            .map_err(|e| SeedSourceError::ParseError {
+                detail: e.to_string(),
+            })?
             .get(i)
             .unwrap_or(0);
         let event_type = df
             .column("event_types")
-            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
+            .map_err(|e| SeedSourceError::ParseError {
+                detail: e.to_string(),
+            })?
             .str()
-            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
+            .map_err(|e| SeedSourceError::ParseError {
+                detail: e.to_string(),
+            })?
             .get(i)
             .unwrap_or("");
         let page = df
             .column("page_sections")
-            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
+            .map_err(|e| SeedSourceError::ParseError {
+                detail: e.to_string(),
+            })?
             .str()
-            .map_err(|e| SeedSourceError::ParseError { detail: e.to_string() })?
+            .map_err(|e| SeedSourceError::ParseError {
+                detail: e.to_string(),
+            })?
             .get(i)
             .unwrap_or("");
 
@@ -280,7 +293,9 @@ mod tests {
             .expect("events df");
             let ef =
                 std::fs::File::create(tmp.path().join("behavior_events.parquet")).expect("create");
-            ParquetWriter::new(ef).finish(&mut events_df).expect("write");
+            ParquetWriter::new(ef)
+                .finish(&mut events_df)
+                .expect("write");
 
             // Keep `tmp` alive by moving it out; caller holds the PathBuf.
             tmp.keep()

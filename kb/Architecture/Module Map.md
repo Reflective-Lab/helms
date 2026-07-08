@@ -110,6 +110,25 @@ See [[Operator Control Common Module]].
   workspace. Polars and analytics transitive chains (truth-catalog→prism-analytics→polars)
   are Plan-B scope and deliberately absent from this crate's dep tree.
 
+- `helm-event-substrate` (`contracts/crates/helm-event-substrate`) — Seam A
+  boundary (RFL-171 / RP-LAYERING). Bedrock-owned injection contracts for the
+  event ledger (`EventLog` / `SyncableEventLog` / `StoredEvent` / `EventQuery`),
+  session-ownership leasing (`LeaseStore` / `LeaseScope` / `LeaseRecord` /
+  `AcquireOutcome` / `RenewOutcome`), the in-process broadcast hub
+  (`EventHub` / `EventHubHandle` / `EventEnvelope` / `EventCursor`), and the
+  SSE transport (axum router, frame encoder, replay-then-live combinator).
+  Feature `memory` (off by default) enables `InMemoryEventLog` and
+  `InMemoryLeaseStore` — honest second implementors for headless composition
+  roots and tests.
+  - Production implementor: `runway-storage` (redb local) + `runway-app-host`
+    (Firestore remote). `runway-storage` re-exports these traits for callers
+    pinned to the old import path.
+  - Dropped edges: `runway-app-host` no longer owns EventHub / SSE bodies; all
+    Helms modules that used `RP-HELMS-SUBSTRATE-SEAM` annotations now import
+    from this crate.
+  - **Not moved (RFL-178):** `SessionOwnershipLayer` stays in `runway-app-host`
+    until `OrgIdentity` is neutralised from `runway_auth::AuthContext`.
+
 ## API Naming Convention
 
 Each module owns three public surface names from day one:

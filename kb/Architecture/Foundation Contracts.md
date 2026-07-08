@@ -164,6 +164,27 @@ If the need is generic but missing, add it to the correct lower layer.
 
 Only keep it in Helm if it is truly product-specific.
 
+## Event Substrate Seam (RFL-171)
+
+`helm-event-substrate` (`contracts/crates/helm-event-substrate`) is the Seam A
+boundary extracted in RFL-171.  It is Bedrock-owned (Helms origin, future
+Bedrock-foundation Wave 2 import) and must not contain application logic.
+
+| Contract surface | Trait / type | Production implementor | In-memory implementor |
+|---|---|---|---|
+| Event ledger | `EventLog` / `SyncableEventLog` | `runway-storage` (redb local) / Firestore remote | `InMemoryEventLog` (`--features memory`) |
+| Session ownership | `LeaseStore` | `runway-storage` (redb) / Firestore | `InMemoryLeaseStore` (`--features memory`) |
+| In-process bus | `EventHub` / `EventHubHandle` | Ships in the crate | Ships in the crate |
+| SSE transport | `sse::router` / `event_stream` | Ships in the crate (`--features sse`, default on) | Ships in the crate |
+
+**Ownership boundary notes:**
+- `runway-storage` re-exports all traits so callers pinned to the old import
+  path continue to compile without source edits.
+- `SessionOwnershipLayer` (axum middleware) stays in `runway-app-host` until
+  RFL-178 neutralises `OrgIdentity` from `runway_auth::AuthContext`.
+- `StorageKit`, `RunwayAppHost` builder, and manifest types remain in
+  `runway-app-host`.
+
 ## References
 
 - `~/dev/reflective/bedrock-platform/converge/kb/Architecture/Golden Path Matrix.md`

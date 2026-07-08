@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use helm_module_contracts::operator_preview::{OperatorControlPreview, OperatorControlPreviewBacking};
+use helm_module_contracts::operator_preview::{
+    OperatorControlPreview, OperatorControlPreviewBacking,
+};
 use helm_module_contracts::operator_receipts::{
     AdapterReceiptStatus, AuthorityEffect, EvidenceReadinessStatus, JobEvidenceStatus,
     JobReadinessPacket, JobReadinessPacketInput, JobVerdict, OperatorControlError,
@@ -179,8 +181,7 @@ fn live_readiness_feed_reports_live_when_evidence_and_snapshot_exist() {
         evidence: LiveReadinessEvidence::complete(),
         snapshots: vec![sample_snapshot()],
     });
-    let m: OperatorControlModule =
-        OperatorControlModule::new().with_live_readiness_feed(feed);
+    let m: OperatorControlModule = OperatorControlModule::new().with_live_readiness_feed(feed);
     let status = m.readiness_status();
 
     assert_eq!(m.module_state(), HelmModuleState::Live);
@@ -203,8 +204,7 @@ fn live_readiness_feed_requires_at_least_one_snapshot() {
         evidence: LiveReadinessEvidence::complete(),
         snapshots: Vec::new(),
     });
-    let m: OperatorControlModule =
-        OperatorControlModule::new().with_live_readiness_feed(feed);
+    let m: OperatorControlModule = OperatorControlModule::new().with_live_readiness_feed(feed);
     let status = m.readiness_status();
 
     assert_eq!(m.module_state(), HelmModuleState::ShellDefault);
@@ -358,8 +358,7 @@ fn soak_packet_ledger_preview_no_drift() {
     };
 
     // Build baseline once to capture reference ids and hash.
-    let ref_packet =
-        JobReadinessPacket::new(base_input()).expect("baseline packet builds");
+    let ref_packet = JobReadinessPacket::new(base_input()).expect("baseline packet builds");
     let ref_entry = job_readiness_packet_ledger_entry(
         1,
         &ref_packet,
