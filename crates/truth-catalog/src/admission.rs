@@ -1,6 +1,6 @@
 //! Truth IntentPacket → Converge typed admission boundary + formation selection.
 //!
-//! Wraps `axiom_truth::compile_intent` (via [`compile_intent_for_truth`]) +
+//! Wraps `axiom_truth::compile_intent` (via [`compile_intent_with_overlay`]) +
 //! `organism_runtime::Runtime::admit_intent` so each truth executor stages
 //! its IntentPacket once per run with one call. This is handoff step 4:
 //! intents enter the Converge kernel through the typed admission gate
@@ -22,8 +22,7 @@ use organism_runtime::guru::SelectionTrace;
 use organism_runtime::templates::standard_formation_catalog;
 use organism_runtime::{GuruError, IntentAdmissionError, Runtime};
 
-use crate::find_truth;
-use crate::intent_compile::{CompileTruthError, compile_intent_for_truth, compile_intent_with_overlay};
+use crate::intent_compile::{CompileTruthError, compile_intent_with_overlay};
 use crate::resolve::IntentOverlay;
 use crate::TruthDefinition;
 
@@ -43,11 +42,6 @@ pub enum AdmitTruthError {
 /// Compile the truth's [`IntentPacket`] through axiom, apply `overlay`, then
 /// stage through Converge's typed admission boundary.
 ///
-/// This is the primary mechanism entry point introduced by Seam B T3
-/// (RFL-172). Content crates supply their own [`IntentOverlay`]. The legacy
-/// shim (`admit_truth_intent`) injects [`LegacyOverlay`] via
-/// `compile_intent_for_truth`; callers migrate to this function in T5/T6.
-///
 /// Returns the compiled packet for downstream use (e.g. `Runtime::select_formation`).
 ///
 /// # Errors
@@ -62,33 +56,6 @@ pub fn admit_truth_intent_for_def(
     context: &mut ContextState,
 ) -> Result<IntentPacket, AdmitTruthError> {
     let intent = compile_intent_with_overlay(&def, overlay)?;
-    let actor = AdmissionActor::new(actor_id, AdmissionActorKind::System)?;
-    let source = AdmissionSource::new(source_label)?;
-    Runtime::new().admit_intent(&intent, actor, source, context)?;
-    Ok(intent)
-}
-
-/// Compile the Truth's IntentPacket through axiom and stage it through
-/// Converge's typed admission boundary. Returns the compiled packet so the
-/// caller can use it directly (e.g. as input to a future
-/// `Runtime::select_formation`, handoff step 5).
-///
-/// `actor_id` identifies the principal staging the intent (e.g. an operator
-/// id or `"helms"` for system-staged runs). `source_label` is recorded as
-/// the admission source — pick something stable like `"truth:<key>"` or
-/// `"helms-pipeline"`.
-///
-/// # Seam B T5/T6: consumers migrate to `admit_truth_intent_for_def`; this
-/// shim then dies in T4-final when `LegacyOverlay` is removed.
-pub fn admit_truth_intent(
-    truth_key: &str,
-    actor_id: &str,
-    source_label: &str,
-    context: &mut ContextState,
-) -> Result<IntentPacket, AdmitTruthError> {
-    let truth = find_truth(truth_key)
-        .ok_or_else(|| AdmitTruthError::UnknownTruth(truth_key.to_string()))?;
-    let intent = compile_intent_for_truth(&truth)?;
     let actor = AdmissionActor::new(actor_id, AdmissionActorKind::System)?;
     let source = AdmissionSource::new(source_label)?;
     Runtime::new().admit_intent(&intent, actor, source, context)?;
@@ -125,11 +92,6 @@ pub fn default_helms_capabilities() -> Vec<SuggestorCapability> {
 /// Pick a formation template for `intent` from the standard organism
 /// catalog given the host's `capabilities`. Returns the primary template
 /// id, up to two alternates, and the SelectionTrace for audit/UI surfaces.
-///
-/// This is handoff §5's "smart selection" call — currently observability
-/// only; the executor still drives the Engine directly. Step §6 wires the
-/// chosen template through `compile_and_run_formation` (or the tournament
-/// variant) instead.
 ///
 /// # Errors
 ///

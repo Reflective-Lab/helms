@@ -13,11 +13,9 @@
 //! `PackResolver` and `IntentOverlay` invert this dependency: the mechanism
 //! receives behaviour from the content side via trait objects at call sites,
 //! rather than importing content crates at all.  The content-side
-//! implementations (`CrmPackResolver`, `CrmIntentOverlay`) will live in
-//! `crm-truths` once T4 completes the move.  Until then, legacy shims
-//! (`LegacyResolver`, `LegacyOverlay`) keep `cargo check --workspace` green
-//! while the new path exists; they are the only place in the mechanism where
-//! `capability_registry` and `capability_core` are imported.
+//! implementations (`CrmPackResolver`, `CrmIntentOverlay`) live in
+//! `crm-truths` (Seam B T4, RFL-172); the mechanism carries zero
+//! `capability_registry` / `capability_core` imports.
 
 use organism_pack::IntentPacket;
 

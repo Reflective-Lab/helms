@@ -1,29 +1,24 @@
 //! `TruthCatalog<'a>` — a borrowing view over a slice of [`TruthDefinition`]s.
 //!
 //! The catalog wraps any `&[TruthDefinition]` and provides typed query methods.
-//! The mechanism crate ships with the global [`TRUTHS`] const, but content
-//! crates (e.g. `crm-truths`) and test harnesses can construct their own
-//! catalog over any slice — including synthetic fixtures — by calling
-//! [`TruthCatalog::new`].
-//!
-//! Temporary free-function wrappers in `lib.rs` delegate to
-//! `TruthCatalog::new(&TRUTHS)` until T4 migrates their callers directly to
-//! injected catalogs.
+//! Content crates (e.g. `crm-truths`, which owns the CRM `TRUTHS` const) and
+//! test harnesses construct their own catalog over any slice — including
+//! synthetic fixtures — by calling [`TruthCatalog::new`].
 
 use crate::{TruthDefinition, TruthKey, TruthKind};
 
 /// A borrowing view over a slice of [`TruthDefinition`]s.
 ///
 /// Construct with [`TruthCatalog::new`] and inject wherever a truth lookup is
-/// needed. The standard global catalog is available as
-/// `TruthCatalog::new(truth_catalog::TRUTHS)`.
+/// needed. The standard CRM catalog is available as
+/// `TruthCatalog::new(crm_truths::TRUTHS)`.
 #[derive(Debug, Clone, Copy)]
 pub struct TruthCatalog<'a>(&'a [TruthDefinition]);
 
 impl<'a> TruthCatalog<'a> {
     /// Wrap a truth-definition slice.
     ///
-    /// Pass [`crate::TRUTHS`] for the global CRM catalog, or a synthetic slice
+    /// Pass `crm_truths::TRUTHS` for the CRM catalog, or a synthetic slice
     /// in tests.
     pub const fn new(truths: &'a [TruthDefinition]) -> Self {
         Self(truths)

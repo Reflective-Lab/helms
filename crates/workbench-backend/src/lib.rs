@@ -20,11 +20,13 @@ use helm_module_contracts::operator_preview::OperatorControlPreview;
 use organism_domain::packs;
 use organism_runtime::Registry;
 use thiserror::Error;
+use crm_truths::{
+    all_truths, compile_intent_for_truth, converge_binding_for_truth,
+    display_pack_names_for_truth, find_truth, organism_binding_for_truth,
+};
 use truth_catalog::{
     TruthDefinition,
     admission::{TruthFormationSelection, default_helms_capabilities, select_formation_for_intent},
-    all_truths, converge_binding_for_truth, display_pack_names_for_truth, find_truth,
-    intent_compile::compile_intent_for_truth,
 };
 use uuid::Uuid;
 
@@ -370,7 +372,7 @@ where
                 .ok()
                 .map(|selection| formation_selection_view(&selection))
         });
-        let organism_resolution = truth_catalog::organism_binding_for_truth(
+        let organism_resolution = organism_binding_for_truth(
             truth.key,
             &self.organism_registry,
         )
@@ -449,7 +451,7 @@ where
             }
         });
         let converge_resolution =
-            truth_catalog::converge_binding_for_truth(truth.key).map(|binding| {
+            converge_binding_for_truth(truth.key).map(|binding| {
                 let intent_kind = binding.intent_kind_name().to_string();
                 let required_success_criteria = binding.required_success_criteria();
                 let hard_constraints = binding.hard_constraints();

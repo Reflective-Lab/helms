@@ -22,8 +22,6 @@ converge-model.workspace = true
 organism-pack.workspace = true
 organism-runtime.workspace = true
 thiserror.workspace = true
-capability-core = { version = "0.2.1", path = "../capability-core" }
-capability-registry = { version = "0.2.1", path = "../capability-registry" }
 serde.workspace = true
 serde_json.workspace = true
 
