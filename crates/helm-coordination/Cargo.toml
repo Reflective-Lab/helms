@@ -37,3 +37,4 @@ runway-storage = { path = "../../../../runtime-runway/crates/runway-storage" }
 tempfile = "3"
 tonic.workspace = true
 tower = "0.5"
+truth-catalog = { version = "0.2.1", path = "../truth-catalog" }

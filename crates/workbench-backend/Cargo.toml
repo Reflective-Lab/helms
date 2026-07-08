@@ -21,3 +21,4 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
+crm-truths = { version = "0.2.1", path = "../crm-truths" }

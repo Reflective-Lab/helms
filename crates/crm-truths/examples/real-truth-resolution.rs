@@ -1,4 +1,4 @@
-use truth_catalog::{all_truths, converge_binding_for_truth};
+use crm_truths::{all_truths, converge_binding_for_truth};
 
 fn main() {
     let requested_keys = std::env::args().skip(1).collect::<Vec<_>>();

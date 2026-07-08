@@ -52,16 +52,37 @@ Invariants that stay close to one capability boundary:
 - ledger entry is immutable
 - active subscription requires plan
 
+## Mechanism / Content Split (RFL-172, Seam B)
+
+The truth layer is split into a mechanism crate and a content crate:
+
+- `crates/truth-catalog` — **mechanism**: `TruthDefinition`, `TruthCatalog`,
+  `TruthKey` (kebab-case newtype, parse-don't-validate), `TruthConvergeBinding`,
+  the `PackResolver` + `IntentOverlay` injection traits, intent compilation,
+  admission, and orchestration (`prepare_candidates`). Carries zero
+  `capability_registry` / `capability_core` imports — a trybuild compile-fail
+  guard (`tests/compile_fail/capability_registry_not_a_dep.rs`) pins that edge
+  as deleted.
+- `crates/crm-truths` — **content**: the `TRUTHS` const, the `.feature` files,
+  the CRM evaluators, `CrmPackResolver`, `CrmIntentOverlay`, and the assembled
+  `CRM_CATALOG`.
+
+Injection flow: mounting binaries construct `TruthCatalog::new(crm_truths::TRUTHS)`
+(the same value as `CRM_CATALOG`) and inject catalog + overlay into
+`helm-governed-jobs::JobStreamState` (T5). The desktop path is
+`apps/desktop/src-tauri` (embedded-backend) → `workbench-backend` →
+`crm_truths::find_truth(key)` → `CRM_CATALOG.find(&key)`; this chain is pinned
+by `crates/crm-truths/tests/catalog_mount.rs`. `apps/crm-helm/` is orphaned —
+it has no cargo edge to `helm-governed-jobs`; its truth files are legacy.
+
 ## Current Catalog
 
-The starter catalog lives in:
+The catalog lives in:
 
-- `crates/prio-truths`
+- `crates/crm-truths` (content) over `crates/truth-catalog` (mechanism)
 - `truths/jobs`
 - `truths/policies`
 - `truths/modules`
-
-It is exposed through the `prio.truths.v1.TruthCatalogService` gRPC package.
 
 Each truth now also exposes a Converge binding:
 

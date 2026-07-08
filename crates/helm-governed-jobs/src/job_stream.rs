@@ -52,12 +52,14 @@ use converge_core::ContextState;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::sync::oneshot;
+use organism_pack::IntentPacket;
 use truth_catalog::{
+    TruthCatalog, TruthDefinition, TruthKey,
     admission::{
         TruthFormationSelection, admit_truth_intent, default_helms_capabilities,
         select_formation_for_intent,
     },
-    find_truth,
+    resolve::IntentOverlay,
 };
 use uuid::Uuid;
 
@@ -97,11 +99,23 @@ impl JobGateWaiter {
 
 // ── State ────────────────────────────────────────────────────────────
 
+/// No-op overlay — used by `Default` and tests that do not exercise
+/// content-specific overlay fields.  The mounted binary injects
+/// `crm_truths::CrmIntentOverlay`; this placeholder ensures `Default`
+/// compiles without a `crm-truths` dependency.
+struct NoOpOverlay;
+
+impl IntentOverlay for NoOpOverlay {
+    fn apply(&self, _def: &TruthDefinition, _intent: &mut IntentPacket) {}
+}
+
 /// Route state for the governed-jobs stream.
 ///
 /// Construct with `JobStreamState::default()` for a zero-arg shell (routes return
-/// 501), or with `JobStreamState::new(store, runtime_stores, truths, hub, app_id)` for
-/// real wiring.
+/// 501 for execution and empty catalog for truth lookup), or with
+/// `JobStreamState::new(store, runtime_stores, truths, hub, app_id, catalog, overlay)`
+/// for real wiring.  The mounting binary injects `crm_truths::CRM_CATALOG` and
+/// `Arc::new(crm_truths::CrmIntentOverlay)` for the CRM content.
 #[derive(Clone)]
 pub struct JobStreamState {
     pub store: AppKernelStore,
@@ -115,6 +129,14 @@ pub struct JobStreamState {
     pub gate_timeout: Duration,
     #[doc(hidden)]
     pub gate_waiters: Arc<Mutex<HashMap<String, JobGateWaiter>>>,
+    /// Truth definition catalog. Inject `TruthCatalog::new(crm_truths::TRUTHS)`
+    /// (equivalently `crm_truths::CRM_CATALOG`) at the mounting site.
+    /// `Default` provides an empty catalog (all lookups return `None`).
+    pub catalog: TruthCatalog<'static>,
+    /// Content-side overlay. Inject `Arc::new(crm_truths::CrmIntentOverlay)` at
+    /// the mounting site. `Default` provides a no-op overlay that leaves every
+    /// `IntentPacket` field at its compiled value.
+    pub overlay: Arc<dyn IntentOverlay>,
 }
 
 const DEFAULT_GATE_TIMEOUT: Duration = Duration::from_secs(600);
@@ -126,6 +148,8 @@ impl JobStreamState {
         truths: Arc<TruthExecutionModule>,
         hub: EventHubHandle,
         app_id: impl Into<String>,
+        catalog: TruthCatalog<'static>,
+        overlay: Arc<dyn IntentOverlay>,
     ) -> Self {
         Self {
             store,
@@ -133,6 +157,8 @@ impl JobStreamState {
             truths,
             hub,
             app_id: app_id.into(),
+            catalog,
+            overlay,
             gate_timeout: DEFAULT_GATE_TIMEOUT,
             gate_waiters: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -199,7 +225,8 @@ impl JobStreamState {
 impl Default for JobStreamState {
     fn default() -> Self {
         // Freestanding hub — not wired to any host. Routes built with this
-        // default state return 501 for every truth key (no truths registered).
+        // default state return 501 for every truth key (no truths registered)
+        // and NOT_FOUND for every catalog lookup (empty catalog).
         let hub = EventHub::with_capacity(256);
         Self {
             store: AppKernelStore::Memory(InMemoryKernelStore::default_local()),
@@ -209,6 +236,8 @@ impl Default for JobStreamState {
             app_id: "helm.governed-jobs".into(),
             gate_timeout: DEFAULT_GATE_TIMEOUT,
             gate_waiters: Arc::new(Mutex::new(HashMap::new())),
+            catalog: TruthCatalog::new(&[]),
+            overlay: Arc::new(NoOpOverlay),
         }
     }
 }
@@ -326,7 +355,9 @@ async fn stream_job(
     if truth_key.is_empty() {
         return Err((StatusCode::BAD_REQUEST, "job key is required".into()));
     }
-    if find_truth(&truth_key).is_none() {
+    let tk = TruthKey::parse(&truth_key)
+        .map_err(|_| (StatusCode::NOT_FOUND, format!("job not found: {truth_key}")))?;
+    if state.catalog.find(&tk).is_none() {
         return Err((StatusCode::NOT_FOUND, format!("job not found: {truth_key}")));
     }
     if !supports_truth_execution(&state.truths, &truth_key) {
@@ -435,7 +466,7 @@ pub async fn run_job_task(task: JobRunTask) {
     let pub_ = state.publisher(&run_id, &truth_key, &app_id, actor_tag);
 
     pub_.emit("job.started", json!({}));
-    if let Err(error) = admit_job(&pub_, &truth_key) {
+    if let Err(error) = admit_job(&pub_, &truth_key, &state.catalog, state.overlay.as_ref()) {
         pub_.emit("job.failed", json!({ "error": error }));
         return;
     }
@@ -602,10 +633,22 @@ pub async fn run_job_task(task: JobRunTask) {
     pub_.emit("job.completed", json!({ "result": receipt }));
 }
 
-fn admit_job(pub_: &Publisher, truth_key: &str) -> Result<(), String> {
+fn admit_job(
+    pub_: &Publisher,
+    truth_key: &str,
+    catalog: &TruthCatalog<'static>,
+    overlay: &dyn IntentOverlay,
+) -> Result<(), String> {
+    let tk = TruthKey::parse(truth_key)
+        .map_err(|e| format!("invalid truth key {truth_key}: {e}"))?;
+    let def = catalog
+        .find(&tk)
+        .copied()
+        .ok_or_else(|| format!("truth not found in catalog: {truth_key}"))?;
     let mut context = ContextState::new();
     let intent = admit_truth_intent(
-        truth_key,
+        def,
+        overlay,
         &pub_.app_id,
         &format!("truth:{truth_key}"),
         &mut context,

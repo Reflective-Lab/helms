@@ -32,6 +32,7 @@ use helm_truth_execution::{
     TruthBody, TruthExecutionArtifacts, TruthExecutionModule, dispatcher::TruthExecutionContext,
 };
 use runway_app_host::{EventEnvelope, EventHub};
+use truth_catalog::{TruthCatalog, TruthDefinition, TruthKind};
 
 // ── Stub truth body ────────────────────────────────────────────────────────────
 
@@ -43,8 +44,26 @@ use runway_app_host::{EventEnvelope, EventHub};
 /// so we always return `Blocked` here to keep the stub simple.
 const GATE_REF: &str = "gate-ref";
 
-/// The truth key used by the test.  Must exist in truth-catalog's TRUTHS slice.
+/// The truth key used by the test.  Supplied via the fixture catalog injected
+/// into `JobStreamState` — no longer requires the old global TRUTHS slice.
 const TRUTH_KEY: &str = "score-inbound-fit";
+
+/// Minimal gherkin sufficient for axiom to compile an `IntentPacket`.
+const FIXTURE_GHERKIN_SCORE: &str = "Feature: Score inbound fit\n\n  Intent:\n    Outcome: score inbound lead fit for mechanism tests\n\n  Scenario: Score\n    Given a test lead exists\n    Then fit is scored";
+
+const FIXTURE_TRUTHS: &[TruthDefinition] = &[TruthDefinition {
+    key: "score-inbound-fit",
+    display_name: "Score inbound fit",
+    kind: TruthKind::Job,
+    summary: "Fixture truth for mechanism tests.",
+    feature_path: "fixture",
+    actor_roles: &[],
+    approval_points: &[],
+    desired_outcomes: &[],
+    guardrails: &[],
+    modules: &[],
+    gherkin: FIXTURE_GHERKIN_SCORE,
+}];
 
 struct GateRequiringTruth;
 
@@ -103,6 +122,7 @@ fn state_with_timeout(timeout: Duration) -> Arc<JobStreamState> {
         hub: hub.handle(),
         app_id: "test.governed-jobs".into(),
         gate_timeout: timeout,
+        catalog: TruthCatalog::new(FIXTURE_TRUTHS),
         ..JobStreamState::default()
     })
 }

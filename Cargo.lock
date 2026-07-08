@@ -2100,6 +2100,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
+name = "crm-truths"
+version = "0.2.1"
+dependencies = [
+ "axiom-truth",
+ "capability-core",
+ "capability-registry",
+ "chrono",
+ "converge-kernel",
+ "converge-model",
+ "organism-pack",
+ "organism-runtime",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "truth-catalog",
+ "uuid",
+]
+
+[[package]]
 name = "crossbeam-channel"
 version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4198,6 +4217,7 @@ dependencies = [
  "tonic 0.12.3",
  "tower 0.5.3",
  "tracing",
+ "truth-catalog",
  "uuid",
 ]
 
@@ -11681,17 +11701,17 @@ name = "truth-catalog"
 version = "0.2.1"
 dependencies = [
  "axiom-truth",
- "capability-core",
- "capability-registry",
  "chrono",
  "converge-kernel",
  "converge-manifold-adapters",
  "converge-model",
  "organism-pack",
  "organism-runtime",
+ "proptest",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "trybuild",
  "uuid",
 ]
 
@@ -13301,6 +13321,7 @@ dependencies = [
  "capability-core",
  "capability-registry",
  "chrono",
+ "crm-truths",
  "helm-module-contracts",
  "organism-domain",
  "organism-runtime",

@@ -1,0 +1,7 @@
+error[E0433]: cannot find module or crate `capability_registry` in this scope
+ --> tests/compile_fail/capability_registry_not_a_dep.rs:3:20
+  |
+3 |     let _modules = capability_registry::MODULES;
+  |                    ^^^^^^^^^^^^^^^^^^^ use of unresolved module or unlinked crate `capability_registry`
+  |
+  = help: if you wanted to use a crate named `capability_registry`, use `cargo add capability_registry` to add it to your `Cargo.toml`
