@@ -180,9 +180,7 @@ impl IntoResponse for ApiError {
 /// [`api_error_from_operator_control`].
 fn api_error_from_operator_state(error: OperatorStateError) -> ApiError {
     match error {
-        OperatorStateError::NotAvailable => {
-            ApiError::new(StatusCode::NOT_FOUND, error.to_string())
-        }
+        OperatorStateError::NotAvailable => ApiError::new(StatusCode::NOT_FOUND, error.to_string()),
         OperatorStateError::Feed(e) => api_error_from_operator_control(e),
     }
 }
@@ -196,9 +194,10 @@ fn api_error_from_operator_state(error: OperatorStateError) -> ApiError {
 /// an invalid packet.
 fn api_error_from_operator_control(error: OperatorControlError) -> ApiError {
     match error {
-        OperatorControlError::EmptyField { field } => {
-            ApiError::new(StatusCode::BAD_REQUEST, format!("`{field}` must not be empty"))
-        }
+        OperatorControlError::EmptyField { field } => ApiError::new(
+            StatusCode::BAD_REQUEST,
+            format!("`{field}` must not be empty"),
+        ),
         OperatorControlError::EmptyBacklink => ApiError::new(
             StatusCode::BAD_REQUEST,
             "backlink ids must not contain empty values",
