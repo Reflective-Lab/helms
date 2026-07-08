@@ -33,6 +33,7 @@
 
 pub mod common;
 pub mod dispatcher;
+mod error;
 
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -41,10 +42,11 @@ use async_trait::async_trait;
 use axum::Router;
 use helm_module_contracts::HelmModule;
 
+pub use error::TruthExecutionError;
 pub use dispatcher::{
     RecordingObserver, RuntimeContext, TruthExecutionArtifacts, TruthProjection,
-    domain_event_kind_name, execute_truth, run_engine_with_runtime, runtime_gate_request_id,
-    status_from_converge, status_from_storage, supports_truth_execution,
+    domain_event_kind_name, error_from_converge, error_from_storage, execute_truth,
+    run_engine_with_runtime, runtime_gate_request_id, supports_truth_execution,
 };
 
 // ── TruthBody trait ────────────────────────────────────────────────────────────
@@ -70,7 +72,7 @@ pub trait TruthBody: Send + Sync + 'static {
     async fn execute(
         &self,
         ctx: dispatcher::TruthExecutionContext,
-    ) -> Result<TruthExecutionArtifacts, tonic::Status>;
+    ) -> Result<TruthExecutionArtifacts, TruthExecutionError>;
 }
 
 // ── Registry ───────────────────────────────────────────────────────────────────
