@@ -12,4 +12,14 @@ truth-catalog = { version = "0.2.1", path = "../truth-catalog" }
 capability-core = { version = "0.2.1", path = "../capability-core" }
 capability-registry = { version = "0.2.1", path = "../capability-registry" }
 axiom-truth.workspace = true
+converge-kernel.workspace = true
+converge-model.workspace = true
+organism-pack.workspace = true
+organism-runtime.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
 serde.workspace = true
+
+[dev-dependencies]
+uuid.workspace = true
