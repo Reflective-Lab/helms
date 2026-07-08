@@ -475,7 +475,11 @@ pub enum OperatorControlError {
     /// A basis-point value exceeded 10 000.
     InvalidBasisPoints { field: &'static str, value: u16 },
     /// A range had `min >= max`.
-    InvalidRange { field: &'static str, min: u16, max: u16 },
+    InvalidRange {
+        field: &'static str,
+        min: u16,
+        max: u16,
+    },
     /// A count field was zero.
     InvalidCount { field: &'static str, value: u32 },
     /// A field expected to hold a `sha256:<hex64>` digest held something else.

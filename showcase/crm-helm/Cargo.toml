@@ -33,6 +33,7 @@ application-kernel = { path = "../../../bedrock-platform/helms/crates/applicatio
 application-storage = { path = "../../../bedrock-platform/helms/crates/application-storage" }
 
 # Cross-repo: Runtime Runway app host
+# Approved substrate seam: # RP-HELMS-SUBSTRATE-SEAM
 runway-app-host = { path = "../../../runtime-runway/crates/runway-app-host" }
 runway-storage = { path = "../../../runtime-runway/crates/runway-storage" }
 

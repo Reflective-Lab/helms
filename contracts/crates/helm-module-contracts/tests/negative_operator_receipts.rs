@@ -68,7 +68,12 @@ fn empty_package_id_is_rejected() {
     let mut input = valid_packet_input();
     input.package_id = String::new();
     let err = JobReadinessPacket::new(input).expect_err("empty package_id must fail");
-    assert_eq!(err, OperatorControlError::EmptyField { field: "package_id" });
+    assert_eq!(
+        err,
+        OperatorControlError::EmptyField {
+            field: "package_id"
+        }
+    );
 }
 
 #[test]
@@ -76,7 +81,12 @@ fn whitespace_only_package_id_is_rejected() {
     let mut input = valid_packet_input();
     input.package_id = "   ".to_string();
     let err = JobReadinessPacket::new(input).expect_err("whitespace package_id must fail");
-    assert_eq!(err, OperatorControlError::EmptyField { field: "package_id" });
+    assert_eq!(
+        err,
+        OperatorControlError::EmptyField {
+            field: "package_id"
+        }
+    );
 }
 
 #[test]
@@ -97,7 +107,12 @@ fn empty_domain_hint_is_rejected() {
     let mut input = valid_packet_input();
     input.domain_hint = String::new();
     let err = JobReadinessPacket::new(input).expect_err("empty domain_hint must fail");
-    assert_eq!(err, OperatorControlError::EmptyField { field: "domain_hint" });
+    assert_eq!(
+        err,
+        OperatorControlError::EmptyField {
+            field: "domain_hint"
+        }
+    );
 }
 
 #[test]
@@ -113,7 +128,12 @@ fn empty_subject_ref_is_rejected() {
     let mut input = valid_packet_input();
     input.subject_ref = String::new();
     let err = JobReadinessPacket::new(input).expect_err("empty subject_ref must fail");
-    assert_eq!(err, OperatorControlError::EmptyField { field: "subject_ref" });
+    assert_eq!(
+        err,
+        OperatorControlError::EmptyField {
+            field: "subject_ref"
+        }
+    );
 }
 
 #[test]
@@ -166,7 +186,12 @@ fn empty_source_ref_is_rejected() {
     let mut input = valid_ledger_input();
     input.source_ref = String::new();
     let err = OperatorLedgerEntry::new(input).expect_err("empty source_ref must fail");
-    assert_eq!(err, OperatorControlError::EmptyField { field: "source_ref" });
+    assert_eq!(
+        err,
+        OperatorControlError::EmptyField {
+            field: "source_ref"
+        }
+    );
 }
 
 #[test]
@@ -259,7 +284,10 @@ fn raw_string_payload_hash_is_rejected() {
 fn sha256_prefix_with_short_digest_is_rejected() {
     let mut input = valid_ledger_input();
     // 63 hex chars — one short of 64.
-    let short = format!("sha256:{}", &VALID_SHA256["sha256:".len()..VALID_SHA256.len() - 1]);
+    let short = format!(
+        "sha256:{}",
+        &VALID_SHA256["sha256:".len()..VALID_SHA256.len() - 1]
+    );
     input.payload_hash = short.clone();
     let err = OperatorLedgerEntry::new(input).expect_err("63-char digest must fail");
     assert_eq!(
@@ -314,7 +342,9 @@ fn valid_sha256_payload_hash_is_accepted() {
 
 #[test]
 fn error_display_names_the_offending_field() {
-    let err = OperatorControlError::EmptyField { field: "package_id" };
+    let err = OperatorControlError::EmptyField {
+        field: "package_id",
+    };
     assert!(err.to_string().contains("package_id"));
 
     let err = OperatorControlError::InvalidBasisPoints {
