@@ -37,7 +37,28 @@ pub mod lease;
 #[cfg(feature = "sse")]
 pub mod sse;
 
-pub use event::{EventCursor, EventEnvelope, EventLog, EventQuery, EventSubscription, StoredEvent, SyncableEventLog};
+/// In-memory implementations of [`EventLog`] / [`SyncableEventLog`] and
+/// [`LeaseStore`].
+///
+/// Gated behind the `memory` feature (off by default).  These are the
+/// "honest second implementors" for tests and headless composition roots.
+/// Any property that holds for the runway redb backend must also hold here —
+/// the parity property tests in [`memory`] enforce that contract.
+///
+/// ## Feature gate
+///
+/// Enable with `--features memory`.  Without this feature neither
+/// [`InMemoryEventLog`] nor [`InMemoryLeaseStore`] are compiled.
+#[cfg(feature = "memory")]
+pub mod memory;
+
+#[cfg(feature = "memory")]
+pub use memory::{InMemoryEventLog, InMemoryLeaseStore};
+
+pub use event::{
+    EventCursor, EventEnvelope, EventLog, EventQuery, EventSubscription, StoredEvent,
+    SyncableEventLog,
+};
 pub use hub::{EventHub, EventHubHandle};
 pub use lease::{AcquireOutcome, LeaseRecord, LeaseScope, LeaseStore, RenewOutcome};
 
