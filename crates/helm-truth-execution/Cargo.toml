@@ -7,6 +7,9 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[features]
+grpc = ["dep:tonic"]
+
 [dependencies]
 anyhow.workspace = true
 async-trait = "0.1"
@@ -18,8 +21,9 @@ converge-pack.workspace = true
 helm-module-contracts = { version = "0.3.0", path = "../../contracts/crates/helm-module-contracts" }
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
-tonic.workspace = true
+tonic = { workspace = true, optional = true }
 tracing.workspace = true
 uuid.workspace = true
 
