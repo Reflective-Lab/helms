@@ -29,7 +29,8 @@ use converge_core::{
 };
 use helm_governed_jobs::{GateDecision, JobRunTask, JobStreamState, run_job_task};
 use helm_truth_execution::{
-    TruthBody, TruthExecutionArtifacts, TruthExecutionModule, dispatcher::TruthExecutionContext,
+    TruthBody, TruthExecutionArtifacts, TruthExecutionError, TruthExecutionModule,
+    dispatcher::TruthExecutionContext,
 };
 use runway_app_host::{EventEnvelope, EventHub};
 use truth_catalog::{TruthCatalog, TruthDefinition, TruthKind};
@@ -76,7 +77,7 @@ impl TruthBody for GateRequiringTruth {
     async fn execute(
         &self,
         _ctx: TruthExecutionContext,
-    ) -> Result<TruthExecutionArtifacts, tonic::Status> {
+    ) -> Result<TruthExecutionArtifacts, TruthExecutionError> {
         let result = ConvergeResult {
             context: ContextState::default(),
             cycles: 1,
