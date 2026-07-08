@@ -1,0 +1,31 @@
+[package]
+name = "helm-event-substrate"
+description = "Bedrock-owned substrate injection contracts: event ledger, lease/session-ownership, and SSE streaming surface. Implementors: runway-app-host (redb+Firestore) and in-memory (feature `memory`). RFL-171 / RP-HELMS-SUBSTRATE-SEAM."
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/Reflective-Lab/helms"
+publish = true
+
+[features]
+default = ["sse"]
+sse = ["dep:axum", "dep:tokio-stream", "dep:async-stream", "dep:futures"]
+memory = []
+
+[dependencies]
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["sync", "time"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# sse feature
+axum = { version = "0.8", optional = true }
+tokio-stream = { version = "0.1", optional = true }
+async-stream = { version = "0.3", optional = true }
+futures = { version = "0.3", optional = true }
+
+[dev-dependencies]
+serde_json = "1"

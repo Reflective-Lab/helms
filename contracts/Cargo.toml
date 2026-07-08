@@ -8,5 +8,5 @@
 # cascade into the 30+ member helms workspace, which would require every helms
 # sibling repo to be checked out on CI.  (RFL-128 / RP-HELMS-SUBSTRATE-SEAM)
 [workspace]
-members = ["crates/helm-module-contracts"]
+members = ["crates/helm-module-contracts", "crates/helm-event-substrate"]
 resolver = "2"
