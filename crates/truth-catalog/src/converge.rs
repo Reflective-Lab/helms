@@ -155,7 +155,7 @@ fn intent_kind_name(kind: &TypesIntentKind) -> &'static str {
     }
 }
 
-fn slug(value: &str) -> String {
+pub(crate) fn slug(value: &str) -> String {
     let mut slug = String::new();
     let mut last_was_dash = false;
 
@@ -182,10 +182,37 @@ fn slug(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use proptest::prelude::*;
+
     use crate::resolve::{PackResolver, UnknownModule};
     use crate::{TruthDefinition, TruthKind, TruthModuleTouch};
 
-    use super::TruthConvergeBinding;
+    use super::{TruthConvergeBinding, slug};
+
+    proptest! {
+        #[test]
+        fn slug_is_deterministic(s in ".*") {
+            let a = slug(&s);
+            let b = slug(&s);
+            prop_assert_eq!(a, b);
+        }
+
+        #[test]
+        fn slug_is_idempotent(s in ".*") {
+            let once = slug(&s);
+            let twice = slug(&once);
+            prop_assert_eq!(once, twice);
+        }
+
+        #[test]
+        fn slug_output_matches_truth_key_grammar(s in "[a-z0-9 ]+") {
+            let result = slug(&s);
+            if !result.is_empty() && result != "value" {
+                let parsed = crate::TruthKey::parse(&result);
+                prop_assert!(parsed.is_ok(), "slug({s:?}) = {result:?} must be a valid TruthKey: {}", parsed.unwrap_err());
+            }
+        }
+    }
 
     // --- Fixture types for mechanism tests (no real capability-* access) ---
 
