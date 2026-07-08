@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use helm_module_contracts::HelmModule;
-use helm_truth_execution::{TruthBody, TruthExecutionArtifacts, TruthExecutionModule};
+use helm_truth_execution::{
+    TruthBody, TruthExecutionArtifacts, TruthExecutionError, TruthExecutionModule,
+};
 
 // ── Stub truth body ────────────────────────────────────────────────────────────
 
@@ -17,13 +19,13 @@ impl TruthBody for StubTruth {
     async fn execute(
         &self,
         _ctx: helm_truth_execution::dispatcher::TruthExecutionContext,
-    ) -> Result<TruthExecutionArtifacts, tonic::Status> {
+    ) -> Result<TruthExecutionArtifacts, TruthExecutionError> {
         // Construct a minimal artifact.  ConvergeResult has no Default impl
         // in the test environment, so we verify the registry path separately
         // in `registered_truth_is_dispatchable` without executing.
-        Err(tonic::Status::unimplemented(
-            "stub — not callable in unit tests",
-        ))
+        Err(TruthExecutionError::Unimplemented {
+            message: "stub — not callable in unit tests".into(),
+        })
     }
 }
 
