@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added (RFL-172 T7+T8 — truth-catalog quality suite and docs)
+- Proptest slug invariants inline in `truth-catalog::converge` (determinism,
+  idempotency, output conforms to `TruthKey` grammar); `slug` promoted to
+  `pub(crate)` for test reach.
+- `truth-catalog/tests/orchestration_coverage.rs` — fixture-gherkin coverage of
+  `prepare_candidates`: `IrreversibleCannotRace` refusal, single-shot alternate
+  exclusion (`SingleShotRequested`), `max_candidates` cap, primary-template
+  determinism across calls. Restores the orchestration coverage that T4's
+  content move retired (the old tests depended on the global `TRUTHS` slice).
+- `truth-catalog/tests/property_tests.rs` — proptest suite: `TruthKey`
+  parse/display roundtrip, uppercase rejection, catalog find/by_kind/for_module
+  consistency over a synthetic multi-kind fixture slice.
+- `truth-catalog/tests/negative_tests.rs` — TruthKey grammar rejections (empty,
+  uppercase, underscore, space, leading/trailing/consecutive hyphens, non-ASCII,
+  period, slash; error carries input verbatim), `PackResolver` `UnknownModule`
+  Err path with preserved message text, `catalog.find(unknown)` → None.
+- trybuild compile-fail guards in `truth-catalog/tests/compile_fail/`:
+  bare `&str` cannot coerce to `&TruthKey` (newtype gate), and
+  `capability_registry` is not dep-resolvable from truth-catalog (the T3/T4
+  global-reach edge cannot be silently re-introduced).
+- `truth-catalog/tests/soak.rs` (`#[ignore]`) — 10k and 100k
+  parse+find+build cycles with pack-id/binding determinism assertions.
+  Proof runs: 10k ≈ 57 ms, 100k ≈ 348 ms.
+- `crm-truths/tests/catalog_mount.rs` — mounting-layer injection test (Item 0):
+  `CRM_CATALOG` resolves `qualify-inbound-lead` / `score-inbound-fit`, returns
+  None for unknown keys, and every `TRUTHS` key parses as a valid `TruthKey`.
+  Pins the catalog half of the desktop chain (`apps/desktop` →
+  `workbench-backend` → `crm_truths::find_truth`). `apps/crm-helm/` confirmed
+  orphaned (no cargo edge to `helm-governed-jobs`).
+- Crate-level rustdoc for `truth-catalog` documenting the mechanism/content
+  inversion, core types, injection traits, and RFL-171/172 lineage;
+  `cargo doc -p truth-catalog --no-deps` → 0 warnings.
+- `kb/Architecture/Truths Layer.md` — mechanism/content split section (Seam B)
+  and catalog location updated from `prio-truths` to
+  `crm-truths`-over-`truth-catalog`.
+
 ### Added (RFL-171 T9 — quality wave for helm-event-substrate)
 - Soak test (`#[ignore]`, `SOAK_ITERS` env, default 100 000): publish/subscribe
   cycles through `EventHub` backed by `InMemoryEventLog`; proves monotone
