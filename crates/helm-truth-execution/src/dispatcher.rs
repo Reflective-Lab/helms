@@ -1,5 +1,3 @@
-#![allow(clippy::result_large_err)]
-
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -15,10 +13,9 @@ use converge_kernel::{
     ExperienceEventObserver, ExperienceRecord, OverrideTarget, TypesRootIntent, TypesRunHooks,
     UserExperienceEvent,
 };
-use tonic::Status;
 use uuid::Uuid;
 
-use crate::TruthExecutionModule;
+use crate::{TruthExecutionError, TruthExecutionModule};
 
 // ── Public output types ────────────────────────────────────────────────────────
 
@@ -92,13 +89,13 @@ impl RuntimeGateDecisions {
     fn load(
         runtime_stores: &AppRuntimeStores,
         runtime_ctx: &RuntimeContext,
-    ) -> Result<Self, Status> {
+    ) -> Result<Self, TruthExecutionError> {
         let records = runtime_stores
             .query_experience_records(&EventQuery {
                 correlation_id: Some(runtime_ctx.scope_id.clone().into()),
                 ..EventQuery::default()
             })
-            .map_err(status_from_storage)?;
+            .map_err(error_from_storage)?;
         let mut decisions = HashMap::new();
 
         for record in records {
@@ -191,7 +188,7 @@ pub async fn run_engine_with_runtime(
     seed_context: Context,
     intent: &TypesRootIntent,
     criterion_evaluator: std::sync::Arc<dyn CriterionEvaluator>,
-) -> Result<(ConvergeResult, Vec<ExperienceEvent>), Status> {
+) -> Result<(ConvergeResult, Vec<ExperienceEvent>), TruthExecutionError> {
     let observer = std::sync::Arc::new(RecordingObserver::default());
     let decisions = RuntimeGateDecisions::load(runtime_stores, runtime_ctx)?;
     let criterion_evaluator = std::sync::Arc::new(ApprovalAwareCriterionEvaluator {
@@ -209,11 +206,11 @@ pub async fn run_engine_with_runtime(
             },
         )
         .await
-        .map_err(status_from_converge)?;
+        .map_err(error_from_converge)?;
 
     runtime_stores
         .save_context(&runtime_ctx.scope_id, &result.context)
-        .map_err(status_from_storage)?;
+        .map_err(error_from_storage)?;
 
     let experience_events = observer.snapshot();
     let envelopes = experience_events
@@ -229,63 +226,73 @@ pub async fn run_engine_with_runtime(
         .collect::<Vec<_>>();
     runtime_stores
         .append_experience_events(&envelopes)
-        .map_err(status_from_storage)?;
+        .map_err(error_from_storage)?;
 
     Ok((result, experience_events))
 }
 
 // ── Error mappers ──────────────────────────────────────────────────────────────
 
-pub fn status_from_converge(error: ConvergeError) -> Status {
+/// Maps a [`ConvergeError`] to the corresponding [`TruthExecutionError`] variant.
+pub fn error_from_converge(error: ConvergeError) -> TruthExecutionError {
     match error {
-        ConvergeError::BudgetExhausted { kind } => {
-            Status::resource_exhausted(format!("converge budget exhausted: {kind}"))
-        }
+        ConvergeError::BudgetExhausted { kind } => TruthExecutionError::ResourceExhausted {
+            message: format!("converge budget exhausted: {kind}"),
+        },
         ConvergeError::InvariantViolation { name, reason, .. } => {
-            Status::failed_precondition(format!("converge invariant violated: {name}: {reason}"))
+            TruthExecutionError::FailedPrecondition {
+                message: format!("converge invariant violated: {name}: {reason}"),
+            }
         }
-        ConvergeError::AgentFailed { agent_id } => {
-            Status::internal(format!("converge agent failed: {agent_id}"))
-        }
-        ConvergeError::EmptyProvenance { suggestor } => Status::failed_precondition(format!(
-            "converge suggestor emitted empty provenance: {suggestor}"
-        )),
-        ConvergeError::Conflict { id, .. } => {
-            Status::aborted(format!("converge fact conflict: {id}"))
-        }
-        ConvergeError::InvalidResume { reason } => {
-            Status::failed_precondition(format!("converge invalid resume: {reason}"))
-        }
-        ConvergeError::InvalidAdmission { reason } => {
-            Status::invalid_argument(format!("converge invalid admission: {reason}"))
-        }
-        ConvergeError::InvalidSnapshot { reason } => {
-            Status::data_loss(format!("converge invalid context snapshot: {reason}"))
-        }
+        ConvergeError::AgentFailed { agent_id } => TruthExecutionError::Internal {
+            message: format!("converge agent failed: {agent_id}"),
+        },
+        ConvergeError::EmptyProvenance { suggestor } => TruthExecutionError::FailedPrecondition {
+            message: format!("converge suggestor emitted empty provenance: {suggestor}"),
+        },
+        ConvergeError::Conflict { id, .. } => TruthExecutionError::Aborted {
+            message: format!("converge fact conflict: {id}"),
+        },
+        ConvergeError::InvalidResume { reason } => TruthExecutionError::FailedPrecondition {
+            message: format!("converge invalid resume: {reason}"),
+        },
+        ConvergeError::InvalidAdmission { reason } => TruthExecutionError::InvalidArgument {
+            message: format!("converge invalid admission: {reason}"),
+        },
+        ConvergeError::InvalidSnapshot { reason } => TruthExecutionError::DataLoss {
+            message: format!("converge invalid context snapshot: {reason}"),
+        },
     }
 }
 
-pub fn status_from_storage(error: StorageError) -> Status {
+/// Maps a [`StorageError`] to the corresponding [`TruthExecutionError`] variant.
+pub fn error_from_storage(error: StorageError) -> TruthExecutionError {
     match error {
-        StorageError::LockPoisoned => Status::internal("storage lock poisoned"),
+        StorageError::LockPoisoned => TruthExecutionError::Internal {
+            message: "storage lock poisoned".into(),
+        },
         StorageError::Kernel(application_kernel::KernelError::Validation(message)) => {
-            Status::invalid_argument(message)
+            TruthExecutionError::InvalidArgument { message }
         }
         StorageError::Kernel(application_kernel::KernelError::NotFound { kind, id }) => {
-            Status::not_found(format!("{kind} not found: {id}"))
+            TruthExecutionError::NotFound {
+                message: format!("{kind} not found: {id}"),
+            }
         }
         StorageError::Kernel(application_kernel::KernelError::Invariant(message)) => {
-            Status::failed_precondition(message)
+            TruthExecutionError::FailedPrecondition { message }
         }
         StorageError::Kernel(application_kernel::KernelError::Conflict(message)) => {
-            Status::already_exists(message)
+            TruthExecutionError::AlreadyExists { message }
         }
-        StorageError::ConnectionFailed { backend, message } => {
-            Status::unavailable(format!("{backend} connection failed: {message}"))
-        }
-        StorageError::SerializationFailed { message } => Status::internal(message),
-        StorageError::Timeout { operation } => Status::deadline_exceeded(operation),
-        StorageError::RuntimeStore { message } => Status::internal(message),
+        StorageError::ConnectionFailed { backend, message } => TruthExecutionError::Unavailable {
+            message: format!("{backend} connection failed: {message}"),
+        },
+        StorageError::SerializationFailed { message } => TruthExecutionError::Internal { message },
+        StorageError::Timeout { operation } => TruthExecutionError::DeadlineExceeded {
+            message: operation,
+        },
+        StorageError::RuntimeStore { message } => TruthExecutionError::Internal { message },
     }
 }
 
@@ -356,17 +363,18 @@ pub struct TruthExecutionContext {
 
 /// Dispatch a truth body by key, using the registry held by `module`.
 ///
-/// Returns `Err(Status::unimplemented(...))` if no body is registered for
-/// `truth_key`, matching the behaviour of the original hard-coded match.
+/// Returns `Err(TruthExecutionError::Unimplemented(...))` if no body is
+/// registered for `truth_key`, matching the behaviour of the original
+/// hard-coded match.
 pub async fn execute_truth(
     module: &TruthExecutionModule,
     truth_key: &str,
     ctx: TruthExecutionContext,
-) -> Result<TruthExecutionArtifacts, Status> {
+) -> Result<TruthExecutionArtifacts, TruthExecutionError> {
     let body = module.lookup(truth_key).ok_or_else(|| {
-        Status::unimplemented(format!(
-            "truth execution is not implemented yet for {truth_key}"
-        ))
+        TruthExecutionError::Unimplemented {
+            message: format!("truth execution is not implemented yet for {truth_key}"),
+        }
     })?;
     body.execute(ctx).await
 }
