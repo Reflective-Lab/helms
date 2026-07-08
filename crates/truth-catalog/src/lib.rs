@@ -1,9 +1,11 @@
 pub mod admission;
 mod converge;
 pub mod intent_compile;
+pub mod key;
 pub mod orchestration;
 mod organism;
 
+pub use key::{InvalidTruthKey, TruthKey};
 use serde::Serialize;
 
 pub use converge::{
