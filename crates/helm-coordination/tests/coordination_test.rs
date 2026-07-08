@@ -31,8 +31,25 @@ use helm_truth_execution::{
     TruthBody, TruthExecutionArtifacts, TruthExecutionModule, dispatcher::TruthExecutionContext,
 };
 use runway_app_host::{EventEnvelope, EventHub};
+use truth_catalog::{TruthCatalog, TruthDefinition, TruthKind};
 
 const TRUTH_KEY: &str = "score-inbound-fit";
+
+const FIXTURE_GHERKIN_SCORE: &str = "Feature: Score inbound fit\n\n  Intent:\n    Outcome: score inbound lead fit for mechanism tests\n\n  Scenario: Score\n    Given a test lead exists\n    Then fit is scored";
+
+const FIXTURE_TRUTHS: &[TruthDefinition] = &[TruthDefinition {
+    key: "score-inbound-fit",
+    display_name: "Score inbound fit",
+    kind: TruthKind::Job,
+    summary: "Fixture truth for mechanism tests.",
+    feature_path: "fixture",
+    actor_roles: &[],
+    approval_points: &[],
+    desired_outcomes: &[],
+    guardrails: &[],
+    modules: &[],
+    gherkin: FIXTURE_GHERKIN_SCORE,
+}];
 
 /// A truth that blocks at a HITL gate on first execution and is met on the
 /// second (post-approval) execution, so an approval completes the job.
@@ -126,6 +143,7 @@ fn live_state() -> Arc<JobStreamState> {
         hub: hub.handle(),
         app_id: "test.governed-jobs".into(),
         gate_timeout: Duration::from_secs(30),
+        catalog: TruthCatalog::new(FIXTURE_TRUTHS),
         ..JobStreamState::default()
     })
 }
