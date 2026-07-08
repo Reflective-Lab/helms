@@ -26,6 +26,7 @@ members = [
     # Capability and truth crates.
     "crates/capability-core",
     "crates/capability-registry",
+    "crates/crm-truths",
     "crates/prio-catalog",
     "crates/prio-identity",
     "crates/prio-parties",
