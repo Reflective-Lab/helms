@@ -1,5 +1,3 @@
-use capability_core::ModuleSuite;
-use capability_registry::find_module;
 use converge_kernel::{Context, ContextKey, CriterionEvaluator, CriterionResult};
 use converge_model::{
     Criterion, FactId, RiskPosture, TruthCatalog as ConvergeTruthCatalog,
@@ -9,7 +7,8 @@ use converge_model::{
 };
 use serde::Serialize;
 
-use crate::{TruthDefinition, TruthKind, all_truths, find_truth};
+use crate::resolve::{PackResolver, UnknownModule};
+use crate::{TruthDefinition, TruthKind, TruthModuleTouch, all_truths, find_truth};
 
 const FOUNDATION_PACK_ID: &str = "prio-foundation-pack";
 const RELATIONSHIP_PACK_ID: &str = "prio-relationship-pack";
@@ -71,34 +70,104 @@ impl TruthConvergeBinding {
     }
 }
 
-impl From<TruthDefinition> for TruthConvergeBinding {
-    fn from(truth: TruthDefinition) -> Self {
-        let pack_ids = pack_ids_for_truth(truth);
-        Self {
-            truth_key: truth.key,
+impl TruthConvergeBinding {
+    /// Build a [`TruthConvergeBinding`] from a definition and an injected
+    /// [`PackResolver`].
+    ///
+    /// This is the primary mechanism entry point introduced by Seam B T3
+    /// (RFL-172). It replaces the previous `From<TruthDefinition>` impl which
+    /// hard-coded a call to `capability_registry::find_module`. Callers that
+    /// have not yet migrated use [`LegacyResolver`] as the `packs` argument;
+    /// content crates supply their own resolver (e.g. `CrmPackResolver` in
+    /// `crm-truths`) so the mechanism carries zero `capability_*` imports.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UnknownModule`] when any module touched by `def` is not
+    /// resolvable by `packs`.  The `truth_key` field of the error is populated
+    /// here from `def.key`.
+    pub fn build(def: TruthDefinition, packs: &dyn PackResolver) -> Result<Self, UnknownModule> {
+        let pack_ids = packs.pack_ids_for(def.modules).map_err(|mut e| {
+            e.truth_key = def.key.to_owned();
+            e
+        })?;
+        Ok(Self {
+            truth_key: def.key,
             runtime: "converge",
             pack_ids: pack_ids.clone(),
-            approval_points: truth.approval_points.to_vec(),
+            approval_points: def.approval_points.to_vec(),
             intent: TypesRootIntent::builder()
-                .id(TypesIntentId::new(format!("truth:{}", truth.key)))
+                .id(TypesIntentId::new(format!("truth:{}", def.key)))
                 .kind(TypesIntentKind::Custom)
-                .request(truth_request(truth))
-                .objective(Some(TypesObjective::Custom(truth.display_name.to_string())))
-                .risk_posture(truth_risk_posture(truth))
-                .constraints(truth_constraints(truth))
+                .request(truth_request(def))
+                .objective(Some(TypesObjective::Custom(def.display_name.to_string())))
+                .risk_posture(truth_risk_posture(def))
+                .constraints(truth_constraints(def))
                 .active_packs(pack_ids.iter().map(|p| (*p).into()).collect())
-                .success_criteria(truth_success_criteria(truth))
-                .budgets(truth_budgets(truth))
+                .success_criteria(truth_success_criteria(def))
+                .budgets(truth_budgets(def))
                 .build(),
-        }
+        })
     }
 }
 
+// Seam B T4: moves to crm-truths; capability_registry + capability_core deps follow it.
+// LegacyResolver is the only place in the mechanism crate that imports those crates.
+struct LegacyResolver;
+
+impl PackResolver for LegacyResolver {
+    fn pack_ids_for(
+        &self,
+        modules: &[TruthModuleTouch],
+    ) -> Result<Vec<&'static str>, UnknownModule> {
+        // Seam B T4: capability imports live here only; they leave with LegacyResolver.
+        use capability_core::ModuleSuite;
+        use capability_registry::find_module;
+
+        let mut pack_ids: Vec<&'static str> = Vec::new();
+        for touch in modules {
+            let module = find_module(touch.module_key).ok_or_else(|| UnknownModule {
+                truth_key: String::new(), // filled in by TruthConvergeBinding::build
+                module_key: touch.module_key.to_owned(),
+            })?;
+            let pack_id = match module.suite {
+                ModuleSuite::Foundation => FOUNDATION_PACK_ID,
+                ModuleSuite::RelationshipCore => RELATIONSHIP_PACK_ID,
+                ModuleSuite::CommercialCore => COMMERCIAL_PACK_ID,
+                ModuleSuite::UsageRevenueCore => REVENUE_PACK_ID,
+                ModuleSuite::WorkCore => WORK_PACK_ID,
+                ModuleSuite::TrustCore => TRUST_PACK_ID,
+                ModuleSuite::IntelligenceCore => KNOWLEDGE_PACK_ID,
+            };
+            if !pack_ids.contains(&pack_id) {
+                pack_ids.push(pack_id);
+            }
+        }
+        Ok(pack_ids)
+    }
+}
+
+// Seam B T4: replace with CrmPackResolver from crm-truths
+impl From<TruthDefinition> for TruthConvergeBinding {
+    fn from(truth: TruthDefinition) -> Self {
+        Self::build(truth, &LegacyResolver).unwrap_or_else(|e| panic!("{e}"))
+    }
+}
+
+/// Look up and bind a truth by key using the legacy CRM pack resolver.
+///
+/// # Seam B T5/T6: consumers migrate to `TruthConvergeBinding::build` with an
+/// injected `PackResolver`; this shim dies in T4-final.
 #[must_use]
 pub fn converge_binding_for_truth(truth_key: &str) -> Option<TruthConvergeBinding> {
     find_truth(truth_key).map(TruthConvergeBinding::from)
 }
 
+/// Look up a truth by key and return it as a `ConvergeTruth` using the legacy
+/// CRM pack resolver.
+///
+/// # Seam B T5/T6: consumers migrate to `to_converge_truth` with an injected
+/// `PackResolver`; this shim dies in T4-final.
 #[must_use]
 pub fn converge_truth_definition(truth_key: &str) -> Option<ConvergeTruth> {
     find_truth(truth_key).map(ConvergeTruth::from)
@@ -110,18 +179,37 @@ impl ConvergeTruthCatalog for StaticTruthCatalog {
     }
 }
 
+/// Build a [`ConvergeTruth`] from a definition and an injected [`PackResolver`].
+///
+/// This is the mechanism-level constructor introduced by Seam B T3 (RFL-172).
+/// It replaces the previous `From<TruthDefinition> for ConvergeTruth` impl.
+/// Content crates inject their own resolver; the legacy shim below uses
+/// [`LegacyResolver`] until T4 completes the move to `crm-truths`.
+///
+/// # Errors
+///
+/// Propagates [`UnknownModule`] from [`TruthConvergeBinding::build`].
+pub fn to_converge_truth(
+    def: TruthDefinition,
+    packs: &dyn PackResolver,
+) -> Result<ConvergeTruth, UnknownModule> {
+    // TruthDefinition is Copy so def remains available after build().
+    let binding = TruthConvergeBinding::build(def, packs)?;
+    Ok(ConvergeTruth {
+        key: def.key.into(),
+        kind: def.kind.into(),
+        summary: def.summary.to_string(),
+        success_criteria: binding.intent.success_criteria,
+        constraints: binding.intent.constraints,
+        approval_points: def.approval_points.iter().map(|p| (*p).into()).collect(),
+        participating_packs: binding.pack_ids.into_iter().map(Into::into).collect(),
+    })
+}
+
+// Seam B T4: replace with CrmPackResolver from crm-truths
 impl From<TruthDefinition> for ConvergeTruth {
     fn from(truth: TruthDefinition) -> Self {
-        let binding = TruthConvergeBinding::from(truth);
-        Self {
-            key: truth.key.into(),
-            kind: truth.kind.into(),
-            summary: truth.summary.to_string(),
-            success_criteria: binding.intent.success_criteria,
-            constraints: binding.intent.constraints,
-            approval_points: truth.approval_points.iter().map(|p| (*p).into()).collect(),
-            participating_packs: binding.pack_ids.into_iter().map(Into::into).collect(),
-        }
+        to_converge_truth(truth, &LegacyResolver).unwrap_or_else(|e| panic!("{e}"))
     }
 }
 
@@ -598,37 +686,6 @@ fn truth_budgets(_truth: TruthDefinition) -> TypesBudgets {
     TypesBudgets::default()
 }
 
-fn pack_ids_for_truth(truth: TruthDefinition) -> Vec<&'static str> {
-    let mut pack_ids = Vec::new();
-
-    for touch in truth.modules {
-        let module = find_module(touch.module_key).unwrap_or_else(|| {
-            panic!(
-                "truth '{}' references unknown module '{}'",
-                truth.key, touch.module_key
-            )
-        });
-        let pack_id = suite_pack_id(module.suite);
-        if !pack_ids.contains(&pack_id) {
-            pack_ids.push(pack_id);
-        }
-    }
-
-    pack_ids
-}
-
-fn suite_pack_id(suite: ModuleSuite) -> &'static str {
-    match suite {
-        ModuleSuite::Foundation => FOUNDATION_PACK_ID,
-        ModuleSuite::RelationshipCore => RELATIONSHIP_PACK_ID,
-        ModuleSuite::CommercialCore => COMMERCIAL_PACK_ID,
-        ModuleSuite::UsageRevenueCore => REVENUE_PACK_ID,
-        ModuleSuite::WorkCore => WORK_PACK_ID,
-        ModuleSuite::TrustCore => TRUST_PACK_ID,
-        ModuleSuite::IntelligenceCore => KNOWLEDGE_PACK_ID,
-    }
-}
-
 fn intent_kind_name(kind: &TypesIntentKind) -> &'static str {
     match kind {
         TypesIntentKind::GrowthStrategy => "growth-strategy",
@@ -699,5 +756,172 @@ fn require_any_fact(context: &dyn Context, key: ContextKey, prefix: &str) -> Cri
         }
     } else {
         CriterionResult::Met { evidence }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::resolve::{PackResolver, UnknownModule};
+    use crate::{TruthDefinition, TruthKind, TruthModuleTouch};
+
+    use super::TruthConvergeBinding;
+
+    // --- Fixture types for mechanism tests (no real capability-* access) ---
+
+    /// A resolver that maps module keys to pack IDs via a static table.
+    struct StaticPackResolver(&'static [(&'static str, &'static str)]);
+
+    impl PackResolver for StaticPackResolver {
+        fn pack_ids_for(
+            &self,
+            modules: &[TruthModuleTouch],
+        ) -> Result<Vec<&'static str>, UnknownModule> {
+            let mut pack_ids = Vec::new();
+            for touch in modules {
+                let pack_id = self
+                    .0
+                    .iter()
+                    .find(|(k, _)| *k == touch.module_key)
+                    .map(|(_, p)| *p)
+                    .ok_or_else(|| UnknownModule {
+                        truth_key: String::new(),
+                        module_key: touch.module_key.to_owned(),
+                    })?;
+                if !pack_ids.contains(&pack_id) {
+                    pack_ids.push(pack_id);
+                }
+            }
+            Ok(pack_ids)
+        }
+    }
+
+    /// A resolver that always fails on the first module key it encounters.
+    struct AlwaysUnknownResolver;
+
+    impl PackResolver for AlwaysUnknownResolver {
+        fn pack_ids_for(
+            &self,
+            modules: &[TruthModuleTouch],
+        ) -> Result<Vec<&'static str>, UnknownModule> {
+            Err(UnknownModule {
+                truth_key: String::new(),
+                module_key: modules
+                    .first()
+                    .map(|m| m.module_key.to_owned())
+                    .unwrap_or_else(|| "unknown".to_owned()),
+            })
+        }
+    }
+
+    const FIXTURE_TRUTH: TruthDefinition = TruthDefinition {
+        key: "approve-access-request",
+        display_name: "Approve access request",
+        kind: TruthKind::Job,
+        summary: "Review and approve or deny an access request.",
+        feature_path: "truths/jobs/approve_access_request.feature",
+        actor_roles: &["security-operator"],
+        approval_points: &["manual approval when risk is elevated"],
+        desired_outcomes: &["access decision is recorded"],
+        guardrails: &["decision must cite a policy"],
+        modules: &[
+            TruthModuleTouch {
+                module_key: "identity",
+                responsibility: "verify requestor identity",
+            },
+            TruthModuleTouch {
+                module_key: "policies",
+                responsibility: "apply access policy",
+            },
+        ],
+        gherkin: "",
+    };
+
+    const FIXTURE_RESOLVER: StaticPackResolver = StaticPackResolver(&[
+        ("identity", "trust"),
+        ("policies", "prio-foundation-pack"),
+    ]);
+
+    // --- Negative test: unknown module → Err, not panic ---
+
+    #[test]
+    fn build_unknown_module_returns_err_not_panic() {
+        let result = TruthConvergeBinding::build(FIXTURE_TRUTH, &AlwaysUnknownResolver);
+        assert!(
+            result.is_err(),
+            "expected Err for unknown module but got Ok"
+        );
+    }
+
+    #[test]
+    fn unknown_module_error_carries_truth_key() {
+        let err = TruthConvergeBinding::build(FIXTURE_TRUTH, &AlwaysUnknownResolver)
+            .unwrap_err();
+        assert_eq!(
+            err.truth_key, "approve-access-request",
+            "build() must fill truth_key into the error"
+        );
+    }
+
+    #[test]
+    fn unknown_module_error_carries_module_key() {
+        let err = TruthConvergeBinding::build(FIXTURE_TRUTH, &AlwaysUnknownResolver)
+            .unwrap_err();
+        assert_eq!(
+            err.module_key, "identity",
+            "error must carry the unresolvable module key"
+        );
+    }
+
+    #[test]
+    fn unknown_module_error_message_matches_former_panic_text() {
+        let err = TruthConvergeBinding::build(FIXTURE_TRUTH, &AlwaysUnknownResolver)
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("approve-access-request"),
+            "message must contain truth key; got: {msg}"
+        );
+        assert!(
+            msg.contains("identity"),
+            "message must contain module key; got: {msg}"
+        );
+        assert!(
+            msg.contains("references unknown module"),
+            "message must match former panic text; got: {msg}"
+        );
+    }
+
+    // --- Positive test: build over fixture resolver ---
+
+    #[test]
+    fn build_with_fixture_resolver_succeeds() {
+        let binding =
+            TruthConvergeBinding::build(FIXTURE_TRUTH, &FIXTURE_RESOLVER).expect("build failed");
+        assert_eq!(binding.truth_key, "approve-access-request");
+        assert_eq!(binding.runtime, "converge");
+        assert_eq!(binding.pack_ids, vec!["trust", "prio-foundation-pack"]);
+        assert_eq!(binding.approval_points, vec!["manual approval when risk is elevated"]);
+    }
+
+    #[test]
+    fn build_pack_ids_are_deduped() {
+        // Both modules resolve to the same pack; result must be len 1.
+        let both_trust: StaticPackResolver = StaticPackResolver(&[
+            ("identity", "trust"),
+            ("policies", "trust"),
+        ]);
+        let binding =
+            TruthConvergeBinding::build(FIXTURE_TRUTH, &both_trust).expect("build failed");
+        assert_eq!(binding.pack_ids, vec!["trust"], "pack_ids must be deduped");
+    }
+
+    #[test]
+    fn build_populates_intent_id() {
+        let binding =
+            TruthConvergeBinding::build(FIXTURE_TRUTH, &FIXTURE_RESOLVER).expect("build failed");
+        assert_eq!(
+            binding.intent.id.as_str(),
+            "truth:approve-access-request"
+        );
     }
 }

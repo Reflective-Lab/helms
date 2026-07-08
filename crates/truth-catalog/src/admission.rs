@@ -23,7 +23,9 @@ use organism_runtime::templates::standard_formation_catalog;
 use organism_runtime::{GuruError, IntentAdmissionError, Runtime};
 
 use crate::find_truth;
-use crate::intent_compile::{CompileTruthError, compile_intent_for_truth};
+use crate::intent_compile::{CompileTruthError, compile_intent_for_truth, compile_intent_with_overlay};
+use crate::resolve::IntentOverlay;
+use crate::TruthDefinition;
 
 /// Errors produced when staging a Truth's IntentPacket.
 #[derive(Debug, thiserror::Error)]
@@ -38,6 +40,34 @@ pub enum AdmitTruthError {
     Admission(#[from] IntentAdmissionError),
 }
 
+/// Compile the truth's [`IntentPacket`] through axiom, apply `overlay`, then
+/// stage through Converge's typed admission boundary.
+///
+/// This is the primary mechanism entry point introduced by Seam B T3
+/// (RFL-172). Content crates supply their own [`IntentOverlay`]. The legacy
+/// shim (`admit_truth_intent`) injects [`LegacyOverlay`] via
+/// `compile_intent_for_truth`; callers migrate to this function in T5/T6.
+///
+/// Returns the compiled packet for downstream use (e.g. `Runtime::select_formation`).
+///
+/// # Errors
+///
+/// Returns [`AdmitTruthError`] on compile failure, invalid actor/source
+/// identity, or admission rejection.
+pub fn admit_truth_intent_for_def(
+    def: TruthDefinition,
+    overlay: &dyn IntentOverlay,
+    actor_id: &str,
+    source_label: &str,
+    context: &mut ContextState,
+) -> Result<IntentPacket, AdmitTruthError> {
+    let intent = compile_intent_with_overlay(&def, overlay)?;
+    let actor = AdmissionActor::new(actor_id, AdmissionActorKind::System)?;
+    let source = AdmissionSource::new(source_label)?;
+    Runtime::new().admit_intent(&intent, actor, source, context)?;
+    Ok(intent)
+}
+
 /// Compile the Truth's IntentPacket through axiom and stage it through
 /// Converge's typed admission boundary. Returns the compiled packet so the
 /// caller can use it directly (e.g. as input to a future
@@ -47,6 +77,9 @@ pub enum AdmitTruthError {
 /// id or `"helms"` for system-staged runs). `source_label` is recorded as
 /// the admission source — pick something stable like `"truth:<key>"` or
 /// `"helms-pipeline"`.
+///
+/// # Seam B T5/T6: consumers migrate to `admit_truth_intent_for_def`; this
+/// shim then dies in T4-final when `LegacyOverlay` is removed.
 pub fn admit_truth_intent(
     truth_key: &str,
     actor_id: &str,

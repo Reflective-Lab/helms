@@ -12,6 +12,7 @@
 use chrono::{Duration, Utc};
 use organism_pack::IntentPacket;
 
+use crate::resolve::IntentOverlay;
 use crate::TruthDefinition;
 
 /// Errors produced by the axiom-driven compile path.
@@ -21,77 +22,102 @@ pub enum CompileTruthError {
     Axiom(#[from] axiom_truth::CompileFromSourceError),
 }
 
-/// Compile a `TruthDefinition` into an `IntentPacket` via axiom + helms overlay.
+/// Compile a [`TruthDefinition`] into an [`IntentPacket`] via axiom, then
+/// apply `overlay` to fill in content-specific fields.
 ///
-/// The overlay (per-truth `with_context`, `expires`, supplementary constraints
-/// or authority) lives in [`truth_overlay`] until the corresponding governance
-/// gets pushed into the source schema.
-pub fn compile_intent_for_truth(
-    truth: &TruthDefinition,
+/// This is the primary mechanism entry point introduced by Seam B T3
+/// (RFL-172). Content crates supply their own [`IntentOverlay`] implementation
+/// (e.g. `CrmIntentOverlay` in `crm-truths`).  The legacy shim below
+/// (`compile_intent_for_truth`) uses [`LegacyOverlay`] so existing callers
+/// compile unchanged until they migrate in T5/T6.
+///
+/// # Errors
+///
+/// Returns [`CompileTruthError`] when axiom cannot parse or compile the
+/// truth's `.feature` source.
+pub fn compile_intent_with_overlay(
+    def: &TruthDefinition,
+    overlay: &dyn IntentOverlay,
 ) -> Result<IntentPacket, CompileTruthError> {
-    let mut intent = axiom_truth::compile_intent_from_source(truth.gherkin)?;
-    truth_overlay(truth, &mut intent);
+    let mut intent = axiom_truth::compile_intent_from_source(def.gherkin)?;
+    overlay.apply(def, &mut intent);
     Ok(intent)
 }
 
-/// Per-truth helms-side overlay. Mirrors what the legacy `organism_recipe`
-/// inlined; will shrink as governance migrates into the source schema.
-fn truth_overlay(truth: &TruthDefinition, intent: &mut IntentPacket) {
-    // Default 1-hour expiry to match the legacy recipe; per-truth overrides
-    // can land here once axiom expresses an absolute Authority.expires.
-    intent.expires = Utc::now() + Duration::hours(1);
+// Seam B T4: LegacyOverlay content moves to crm-truths as CrmIntentOverlay.
+// No capability-* imports are needed here; the overlay is pure helms-side data.
+struct LegacyOverlay;
 
-    match truth.key {
-        "qualify-inbound-lead" => {
-            intent.context = serde_json::json!({
-                "pending": ["lead:inbound"],
-                "strategies": "next owner and route required",
-            });
-            intent.constraints = vec!["lead_has_source".to_string()];
-        }
-        "submit-expense-report" => {
-            intent.context = serde_json::json!({
-                "expense": {
-                    "receipt": "receipt:pending",
-                    "category": "expense:travel",
-                    "approval": "approval:route",
-                    "budget": "budget_envelope:team-travel",
-                },
-                "documents": ["receipt:pending"],
-                "evaluations": "approval review required",
-            });
-            intent.constraints = vec![
-                "approval_has_rationale".to_string(),
-                "no_spend_beyond_envelope".to_string(),
-            ];
-        }
-        "evaluate-acquisition-target" => {
-            intent.context = serde_json::json!({
-                "target": "company:pending",
-                "research": ["market", "competition", "technology", "financials", "team"],
-                "evaluations": "investment committee review required",
-            });
-            intent.constraints = vec![
-                "contradictions_flagged".to_string(),
-                "synthesis_requires_coverage".to_string(),
-                "hypothesis_has_source".to_string(),
-            ];
-            intent.authority = vec!["investment-committee".to_string()];
-        }
-        "plan-outbound-campaign" => {
-            intent.context = serde_json::json!({
-                "campaign": "campaign:q3-pipeline",
-                "audience": "audience:target-accounts",
-                "budget": "budget:quarterly-outbound",
-                "evaluations": "attribution review",
-            });
-            intent.constraints = vec!["budget_guardrails_enforced".to_string()];
-        }
-        _ => {
-            // Other truths still flow through the legacy `organism_recipe`
-            // path; their overlays land here as they migrate.
+impl IntentOverlay for LegacyOverlay {
+    /// Per-truth helms-side overlay. Mirrors what the legacy `organism_recipe`
+    /// inlined; will shrink as governance migrates into the `.feature` schema.
+    /// Seam B T4: moves to crm-truths.
+    fn apply(&self, truth: &TruthDefinition, intent: &mut IntentPacket) {
+        // Default 1-hour expiry to match the legacy recipe.
+        intent.expires = Utc::now() + Duration::hours(1);
+
+        match truth.key {
+            "qualify-inbound-lead" => {
+                intent.context = serde_json::json!({
+                    "pending": ["lead:inbound"],
+                    "strategies": "next owner and route required",
+                });
+                intent.constraints = vec!["lead_has_source".to_string()];
+            }
+            "submit-expense-report" => {
+                intent.context = serde_json::json!({
+                    "expense": {
+                        "receipt": "receipt:pending",
+                        "category": "expense:travel",
+                        "approval": "approval:route",
+                        "budget": "budget_envelope:team-travel",
+                    },
+                    "documents": ["receipt:pending"],
+                    "evaluations": "approval review required",
+                });
+                intent.constraints = vec![
+                    "approval_has_rationale".to_string(),
+                    "no_spend_beyond_envelope".to_string(),
+                ];
+            }
+            "evaluate-acquisition-target" => {
+                intent.context = serde_json::json!({
+                    "target": "company:pending",
+                    "research": ["market", "competition", "technology", "financials", "team"],
+                    "evaluations": "investment committee review required",
+                });
+                intent.constraints = vec![
+                    "contradictions_flagged".to_string(),
+                    "synthesis_requires_coverage".to_string(),
+                    "hypothesis_has_source".to_string(),
+                ];
+                intent.authority = vec!["investment-committee".to_string()];
+            }
+            "plan-outbound-campaign" => {
+                intent.context = serde_json::json!({
+                    "campaign": "campaign:q3-pipeline",
+                    "audience": "audience:target-accounts",
+                    "budget": "budget:quarterly-outbound",
+                    "evaluations": "attribution review",
+                });
+                intent.constraints = vec!["budget_guardrails_enforced".to_string()];
+            }
+            _ => {
+                // Other truths flow through axiom defaults; overlays land here as they migrate.
+            }
         }
     }
+}
+
+/// Compile a [`TruthDefinition`] into an [`IntentPacket`] using the legacy
+/// CRM overlay table.
+///
+/// # Seam B T5/T6: consumers migrate to `compile_intent_with_overlay`; this
+/// shim then dies in T4-final when `LegacyOverlay` is removed.
+pub fn compile_intent_for_truth(
+    truth: &TruthDefinition,
+) -> Result<IntentPacket, CompileTruthError> {
+    compile_intent_with_overlay(truth, &LegacyOverlay)
 }
 
 #[cfg(test)]

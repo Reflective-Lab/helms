@@ -5,9 +5,12 @@ pub mod intent_compile;
 pub mod key;
 pub mod orchestration;
 mod organism;
+pub mod resolve;
 
 pub use catalog::TruthCatalog;
+pub use converge::to_converge_truth;
 pub use key::{InvalidTruthKey, TruthKey};
+pub use resolve::{IntentOverlay, PackResolver, UnknownModule};
 use serde::Serialize;
 
 pub use converge::{
@@ -1098,11 +1101,13 @@ pub fn find_truth(key: &str) -> Option<TruthDefinition> {
         .and_then(|k| TruthCatalog::new(TRUTHS).find(&k).copied())
 }
 
+// Seam B T4: this entire test module moves to crm-truths; capability_registry
+// import below follows it.
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 
-    use capability_registry::MODULES;
+    use capability_registry::MODULES; // Seam B T4: moves to crm-truths
 
     use super::{TRUTHS, TruthKind, converge_binding_for_truth, truths_by_kind};
 
