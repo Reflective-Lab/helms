@@ -10,12 +10,12 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
-async-trait.workspace = true
+async-trait = "0.1"
 chrono.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
-tokio-stream = "0.1"
+tokio-stream.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
@@ -28,14 +28,14 @@ prost-types = "0.13"
 # Axum — not in workspace deps
 axum = "0.8"
 
-# Cross-repo: Helms domain crates (no converge-* deps)
-application-kernel = { path = "../../../bedrock-platform/helms/crates/application-kernel" }
-application-storage = { path = "../../../bedrock-platform/helms/crates/application-storage" }
+# Helms domain crates (no converge-* deps)
+application-kernel = { path = "../../crates/application-kernel" }
+application-storage = { path = "../../crates/application-storage" }
 
-# Cross-repo: Runtime Runway app host
+# Runtime Runway app host (cross-repo sibling)
 # Approved substrate seam: # RP-HELMS-SUBSTRATE-SEAM
-runway-app-host = { path = "../../../runtime-runway/crates/runway-app-host" }
-runway-storage = { path = "../../../runtime-runway/crates/runway-storage" }
+runway-app-host = { path = "../../../../runtime-runway/crates/runway-app-host" }
+runway-storage = { path = "../../../../runtime-runway/crates/runway-storage" }
 
 [build-dependencies]
 tonic-build = "0.12"
