@@ -1,5 +1,3 @@
-#![allow(clippy::result_large_err)]
-
 use std::collections::HashMap;
 use std::future::Future;
 
@@ -7,8 +5,9 @@ use chrono::{DateTime, Utc};
 use converge_kernel::{ContextKey, ConvergeResult};
 use converge_pack::{Context as ContextView, ProposalId, ProposedFact, Provenance, TextPayload};
 use serde::de::DeserializeOwned;
-use tonic::Status;
 use uuid::Uuid;
+
+use crate::TruthExecutionError;
 
 pub fn has_fact_id(ctx: &dyn ContextView, key: ContextKey, fact_id: &str) -> bool {
     ctx.get(key).iter().any(|fact| fact.id() == fact_id)
@@ -27,29 +26,34 @@ pub fn payload_from_result<T: DeserializeOwned>(
     result: &ConvergeResult,
     key: ContextKey,
     fact_id: &str,
-) -> Result<T, Status> {
+) -> Result<T, TruthExecutionError> {
     let fact = result
         .context
         .get(key)
         .iter()
         .find(|fact| fact.id() == fact_id)
-        .ok_or_else(|| {
-            Status::failed_precondition(format!("missing fact in converge context: {fact_id}"))
+        .ok_or_else(|| TruthExecutionError::FailedPrecondition {
+            message: format!("missing fact in converge context: {fact_id}"),
         })?;
-    serde_json::from_str(fact.text().unwrap_or_default())
-        .map_err(|error| Status::internal(format!("invalid {fact_id} payload: {error}")))
+    serde_json::from_str(fact.text().unwrap_or_default()).map_err(|error| {
+        TruthExecutionError::Internal {
+            message: format!("invalid {fact_id} payload: {error}"),
+        }
+    })
 }
 
 pub fn required_input<'a>(
     inputs: &'a HashMap<String, String>,
     key: &str,
-) -> Result<&'a str, Status> {
+) -> Result<&'a str, TruthExecutionError> {
     inputs
         .get(key)
         .map(String::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| Status::invalid_argument(format!("missing required input: {key}")))
+        .ok_or_else(|| TruthExecutionError::InvalidArgument {
+            message: format!("missing required input: {key}"),
+        })
 }
 
 pub fn optional_input(inputs: &HashMap<String, String>, key: &str) -> Option<String> {
@@ -61,31 +65,38 @@ pub fn optional_input(inputs: &HashMap<String, String>, key: &str) -> Option<Str
         .map(ToString::to_string)
 }
 
-pub fn required_uuid(inputs: &HashMap<String, String>, key: &str) -> Result<Uuid, Status> {
+pub fn required_uuid(
+    inputs: &HashMap<String, String>,
+    key: &str,
+) -> Result<Uuid, TruthExecutionError> {
     required_input(inputs, key).and_then(|value| {
-        Uuid::parse_str(value)
-            .map_err(|error| Status::invalid_argument(format!("invalid uuid for {key}: {error}")))
+        Uuid::parse_str(value).map_err(|error| TruthExecutionError::InvalidArgument {
+            message: format!("invalid uuid for {key}: {error}"),
+        })
     })
 }
 
 pub fn required_datetime(
     inputs: &HashMap<String, String>,
     key: &str,
-) -> Result<DateTime<Utc>, Status> {
+) -> Result<DateTime<Utc>, TruthExecutionError> {
     required_input(inputs, key).and_then(|value| {
         chrono::DateTime::parse_from_rfc3339(value)
             .map(|value| value.with_timezone(&Utc))
-            .map_err(|error| {
-                Status::invalid_argument(format!("invalid RFC3339 datetime for {key}: {error}"))
+            .map_err(|error| TruthExecutionError::InvalidArgument {
+                message: format!("invalid RFC3339 datetime for {key}: {error}"),
             })
     })
 }
 
-pub fn optional_uuid(inputs: &HashMap<String, String>, key: &str) -> Result<Option<Uuid>, Status> {
+pub fn optional_uuid(
+    inputs: &HashMap<String, String>,
+    key: &str,
+) -> Result<Option<Uuid>, TruthExecutionError> {
     optional_input(inputs, key)
         .map(|value| {
-            Uuid::parse_str(&value).map_err(|error| {
-                Status::invalid_argument(format!("invalid uuid for {key}: {error}"))
+            Uuid::parse_str(&value).map_err(|error| TruthExecutionError::InvalidArgument {
+                message: format!("invalid uuid for {key}: {error}"),
             })
         })
         .transpose()
