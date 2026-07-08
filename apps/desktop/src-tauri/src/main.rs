@@ -20,6 +20,8 @@ use application_kernel::{
 use application_storage::{
     AppConfig, KernelStore, RecordStoreConfig, SurrealDbKernelStore, SurrealStoreConfig,
 };
+#[cfg(feature = "embedded-backend")]
+use helm_module_contracts::operator_preview::OperatorControlPreview;
 use organism_intelligence::ocr::{OllamaReceiptConfig, TesseractCliConfig};
 use prio_expenses::receipt_extractor::{
     ExtractorEngine, FieldComparison, ReceiptSample, benchmark_output,
@@ -30,8 +32,6 @@ use serde::Serialize;
 use tauri::State;
 #[cfg(feature = "embedded-backend")]
 use uuid::Uuid;
-#[cfg(feature = "embedded-backend")]
-use helm_module_contracts::operator_preview::OperatorControlPreview;
 #[cfg(feature = "embedded-backend")]
 use workbench_backend::{
     AccountWorkspaceSummary, ApprovalFilter, ApprovalListItem, CatalogItemListItem, OperatorApp,
